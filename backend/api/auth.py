@@ -7,7 +7,7 @@ Security choices (all enforced here, none in the browser):
 - sessions: random 256-bit token in an HTTP-only cookie; only its SHA-256 is stored; 8 h limit, 60 min idle limit
 - errors never say whether the username exists
 """
-import base64, hashlib, hmac, os, re, secrets, smtplib, logging
+import base64, hashlib, hmac, os, re, secrets, smtplib, logging, threading
 from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
 
@@ -47,20 +47,28 @@ def strong_enough(pw: str):
 
 
 # ---------- email ----------
+def _smtp_send(host, to, subject, body):
+    msg = EmailMessage()
+    msg["From"], msg["To"], msg["Subject"] = os.environ.get("SMTP_FROM", "noreply@tessellate.local"), to, subject
+    msg.set_content(body)
+    try:
+        with smtplib.SMTP(host, int(os.environ.get("SMTP_PORT", 587)), timeout=20) as s:
+            s.starttls()
+            if os.environ.get("SMTP_USER"):
+                s.login(os.environ["SMTP_USER"], os.environ["SMTP_PASSWORD"])
+            s.send_message(msg)
+    except Exception:
+        log.exception("Email to %s could not be sent", to)   # visible in the server log, never shown to users
+
+
 def send_email(to: str, subject: str, body: str):
-    """Real SMTP when SMTP_HOST is set. Otherwise (development) the message goes to the SERVER log only."""
+    """Real SMTP when SMTP_HOST is set; it is sent in the background so signing in never waits for the mail server.
+    Without SMTP_HOST (development) the message goes to the SERVER log only."""
     host = os.environ.get("SMTP_HOST")
     if not host:
         log.warning("DEV EMAIL to %s | %s | %s", to, subject, body)
         return
-    msg = EmailMessage()
-    msg["From"], msg["To"], msg["Subject"] = os.environ.get("SMTP_FROM", "noreply@tessellate.local"), to, subject
-    msg.set_content(body)
-    with smtplib.SMTP(host, int(os.environ.get("SMTP_PORT", 587))) as s:
-        s.starttls()
-        if os.environ.get("SMTP_USER"):
-            s.login(os.environ["SMTP_USER"], os.environ["SMTP_PASSWORD"])
-        s.send_message(msg)
+    threading.Thread(target=_smtp_send, args=(host, to, subject, body), daemon=True).start()
 
 
 def mask(email: str) -> str:
