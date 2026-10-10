@@ -3,6 +3,7 @@ services:
   - type: web
     name: tessellate
     runtime: python
+    plan: free
     buildCommand: pip install -r backend/requirements.txt
     # migrate.py is safe to run on every start: it only applies database changes that are missing
     startCommand: python backend/db/migrate.py && cd backend && python -m uvicorn api.main:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips='*'
