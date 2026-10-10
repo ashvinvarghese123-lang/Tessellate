@@ -7,7 +7,7 @@ Security choices (all enforced here, none in the browser):
 - sessions: random 256-bit token in an HTTP-only cookie; only its SHA-256 is stored; 8 h limit, 60 min idle limit
 - errors never say whether the username exists
 """
-import base64, hashlib, hmac, os, re, secrets, smtplib, logging, threading
+import base64, hashlib, hmac, json, os, re, secrets, smtplib, logging, threading, urllib.request, urllib.error
 from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
 
@@ -61,9 +61,26 @@ def _smtp_send(host, to, subject, body):
         log.exception("Email to %s could not be sent", to)   # visible in the server log, never shown to users
 
 
+def _brevo_send(to, subject, body):
+    """Email over HTTPS (port 443). Works on hosts that block SMTP ports, such as Render's free plan."""
+    try:
+        data = json.dumps({"sender": {"email": os.environ["SMTP_FROM"], "name": "Tessellate"}, "to": [{"email": to}],
+                           "subject": subject, "textContent": body}).encode()
+        req = urllib.request.Request(os.environ.get("BREVO_API_URL", "https://api.brevo.com/v3/smtp/email"), data=data, method="POST",
+                                     headers={"api-key": os.environ["BREVO_API_KEY"], "content-type": "application/json", "accept": "application/json"})
+        urllib.request.urlopen(req, timeout=20).read()
+    except urllib.error.HTTPError as e:
+        log.error("Email to %s was refused (%s): %s", to, e.code, e.read().decode("utf-8", "replace")[:300])
+    except Exception:
+        log.exception("Email to %s could not be sent", to)
+
+
 def send_email(to: str, subject: str, body: str):
-    """Real SMTP when SMTP_HOST is set; it is sent in the background so signing in never waits for the mail server.
-    Without SMTP_HOST (development) the message goes to the SERVER log only."""
+    """Sent in the background so signing in never waits for the mail provider.
+    BREVO_API_KEY set -> HTTPS API. SMTP_HOST set -> SMTP. Neither (development) -> printed in the SERVER log only."""
+    if os.environ.get("BREVO_API_KEY"):
+        threading.Thread(target=_brevo_send, args=(to, subject, body), daemon=True).start()
+        return
     host = os.environ.get("SMTP_HOST")
     if not host:
         log.warning("DEV EMAIL to %s | %s | %s", to, subject, body)

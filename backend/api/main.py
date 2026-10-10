@@ -25,8 +25,8 @@ if os.environ.get("TESSELLATE_ENV") == "production":
         _bad.append("TESSELLATE_SECRET must be a random value of at least 32 characters")
     if os.environ.get("COOKIE_SECURE") != "1":
         _bad.append("COOKIE_SECURE must be 1 (HTTPS only)")
-    if not os.environ.get("SMTP_HOST"):
-        _bad.append("SMTP_HOST (and SMTP_PORT, SMTP_USER, SMTP_PASSWORD, SMTP_FROM) must be set so codes are emailed, not logged")
+    if not (os.environ.get("SMTP_HOST") or os.environ.get("BREVO_API_KEY")):
+        _bad.append("email must be configured so codes are emailed, not logged: set BREVO_API_KEY and SMTP_FROM (works on any host), or SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, SMTP_FROM")
     if not os.environ.get("DATABASE_URL"):
         _bad.append("DATABASE_URL must be set")
     if _bad:
