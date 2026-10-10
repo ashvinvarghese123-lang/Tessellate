@@ -1,0 +1,14 @@
+# Database only. Starts PostgreSQL and loads backend/db/schema.sql the first time.
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: tess
+      POSTGRES_PASSWORD: tess
+      POSTGRES_DB: tessellate
+    ports: ["5432:5432"]
+    volumes:
+      - tess_data:/var/lib/postgresql/data
+      - ./backend/db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+volumes:
+  tess_data:

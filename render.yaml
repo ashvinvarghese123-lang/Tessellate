@@ -1,0 +1,35 @@
+# Render "Blueprint": one web service. The database is hosted separately (Neon). See DEPLOY.md.
+services:
+  - type: web
+    name: tessellate
+    runtime: python
+    buildCommand: pip install -r backend/requirements.txt
+    # migrate.py is safe to run on every start: it only applies database changes that are missing
+    startCommand: python backend/db/migrate.py && cd backend && python -m uvicorn api.main:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips='*'
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.7
+      - key: TESSELLATE_ENV
+        value: production
+      - key: COOKIE_SECURE
+        value: "1"
+      - key: TESSELLATE_SECRET
+        generateValue: true
+      - key: SOLVER_WORKERS
+        value: "2"
+      - key: DATABASE_URL
+        sync: false
+      - key: ALLOWED_EMAIL_DOMAINS
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: SMTP_FROM
+        sync: false

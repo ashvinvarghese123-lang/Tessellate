@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sign in · Tessellate</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400&family=Instrument+Sans:wght@400;500;600&display=swap">
+<style>
+:root{--bg:#f6f4ef;--panel:#fbfaf7;--ink:#1c1c1a;--mute:#7a7872;--line:#e4e1d9;--acc:#4d6a63;--accbg:#e6ece9;--crit:#a23b34;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#161615;--panel:#1c1c1a;--ink:#ece9e1;--mute:#97948c;--line:#2e2d2a;--acc:#8fb3a9;--accbg:#233230;--crit:#e2837c}}
+:root[data-theme="dark"]{--bg:#161615;--panel:#1c1c1a;--ink:#ece9e1;--mute:#97948c;--line:#2e2d2a;--acc:#8fb3a9;--accbg:#233230;--crit:#e2837c}
+html{height:100%}*{box-sizing:border-box}
+body{margin:0;min-height:100%;background:var(--bg);color:var(--ink);font:15px/1.5 'Instrument Sans',system-ui,sans-serif}
+h1,.mark{font-family:Fraunces,Georgia,serif;font-weight:400;letter-spacing:-.01em}
+.wrap{display:grid;grid-template-columns:1.1fr 1fr;min-height:100vh}
+.brand{padding:48px 56px;border-right:1px solid var(--line);display:flex;flex-direction:column;justify-content:space-between}
+.mark{font-size:24px}
+.brand h2{font:400 clamp(30px,3.4vw,46px)/1.15 Fraunces,Georgia,serif;letter-spacing:-.015em;margin:0 0 18px;max-width:14ch}
+.brand p{color:var(--mute);margin:0;max-width:34ch}
+.grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;max-width:260px;margin:0 0 36px}
+.grid i{display:block;aspect-ratio:1;border:1px solid var(--line);border-radius:3px}.grid i.on{background:var(--accbg);border-color:var(--acc)}
+.side{display:flex;align-items:center;justify-content:center;padding:32px 24px}
+.box{width:100%;max-width:360px}
+.lab{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--mute)}
+h1{font-size:30px;margin:6px 0 8px;line-height:1.15}.sub{color:var(--mute);margin:0 0 8px}
+label{display:block;margin:20px 0 6px;font-size:13px;color:var(--mute)}
+input{width:100%;font:inherit;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:10px 12px;min-height:44px}
+input:focus-visible,.btn:focus-visible,.lk:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.pw{position:relative}.pw input{padding-right:64px}
+.pw button{all:unset;cursor:pointer;position:absolute;right:6px;top:6px;height:32px;padding:0 10px;font-size:13px;color:var(--mute);border-radius:5px}
+.btn{width:100%;margin-top:24px;font:inherit;font-weight:500;cursor:pointer;background:var(--ink);color:var(--bg);border:1px solid var(--ink);border-radius:7px;min-height:46px}
+.btn:disabled{opacity:.55;cursor:wait}.btn.sec{background:transparent;color:var(--ink);border-color:var(--line);margin-top:10px}
+.lk{all:unset;cursor:pointer;color:var(--mute);font-size:13px;text-decoration:underline;display:inline-block;margin-top:18px;min-height:24px}
+.err{color:var(--crit);font-size:14px;min-height:22px;margin-top:14px}
+.ok{color:var(--acc)}
+.code{letter-spacing:.6em;font-size:24px;text-align:center;padding-left:.6em}
+.steps{display:flex;gap:8px;margin-bottom:26px}.steps span{height:3px;flex:1;background:var(--line);border-radius:2px}.steps span.on{background:var(--ink)}
+.foot{font-size:12px;color:var(--mute);margin-top:34px}
+@media (max-width:820px){.wrap{grid-template-columns:1fr}.brand{padding:22px 24px;border:0;border-bottom:1px solid var(--line)}.brand h2,.brand p,.grid{display:none}.side{align-items:flex-start;padding-top:36px}}
+@media (prefers-reduced-motion:no-preference){.box{animation:in .35s ease}@keyframes in{from{opacity:0;transform:translateY(6px)}}}
+</style></head><body>
+<div class="wrap">
+ <aside class="brand" aria-hidden="false">
+  <div class="mark">Tessellate</div>
+  <div><div class="grid" aria-hidden="true">
+   <i class="on"></i><i></i><i></i><i class="on"></i><i></i><i></i><i class="on"></i><i></i><i></i><i class="on"></i><i class="on"></i><i></i><i></i><i class="on"></i><i></i><i></i><i></i><i class="on"></i><i></i><i class="on"></i><i class="on"></i><i></i><i></i><i class="on"></i><i></i></div>
+   <h2>Every department. Equal priority. Perfectly aligned.</h2>
+   <p>College timetables and shared resources, kept in step across every department.</p></div>
+  <div class="sub" style="font-size:13px">Simple on the surface. Intelligent underneath.</div>
+ </aside>
+ <main class="side"><div class="box" id="box"></div></main>
+</div>
+<script>
+const $=s=>document.querySelector(s),box=$('#box');
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let step='login',ch=null,hint='',cool=0,timer=null,busy=false;
+async function api(p,body){const r=await fetch(p,{method:body?'POST':'GET',credentials:'same-origin',headers:{'content-type':'application/json'},body:body?JSON.stringify(body):undefined});
+ let j={};try{j=await r.json()}catch(e){}
+ if(!r.ok)throw new Error(typeof j.detail=='string'?j.detail:'Something went wrong. Please try again.');return j}
+const bar=n=>`<div class="steps" aria-hidden="true"><span class="on"></span><span class="${n>1?'on':''}"></span></div>`;
+function view(){
+ if(step=='login')box.innerHTML=`<form id="f" novalidate>${bar(1)}<div class="lab">Sign in</div><h1>Welcome back</h1><p class="sub">College Timetable &amp; Resource Synchronization</p>
+  <label for="u">Department username</label><input id="u" autocomplete="username" autocapitalize="none" spellcheck="false">
+  <label for="p">Password</label><div class="pw"><input id="p" type="password" autocomplete="current-password"><button type="button" id="sh" aria-label="Show password">Show</button></div>
+  <button class="btn" id="go">Continue</button><div class="err" id="e" role="alert"></div><button type="button" class="lk" data-s="forgot">Forgot password?</button> <a class="lk" href="/signup.html" style="margin-left:14px">Create account</a>
+  <div class="foot">One department, one secure account. A code is sent to your registered department email.<br><a class="lk" href="/registry-login.html" style="margin-top:12px">College Registry sign in</a></div></form>`;
+ else if(step=='code')box.innerHTML=`<form id="f" novalidate>${bar(2)}<div class="lab">Verification required</div><h1>Check your email</h1>
+  <p class="sub">A verification code has been sent to your registered department email, <b>${esc(hint)}</b>.</p>
+  <label for="c">Verification code</label><input id="c" class="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="······">
+  <button class="btn" id="go">Verify</button><div class="err" id="e" role="alert"></div>
+  <button type="button" class="lk" id="rs" data-a="resend">${cool>0?'Resend code in '+cool+'s':'Resend code'}</button> <button type="button" class="lk" data-s="login" style="margin-left:14px">Back</button></form>`;
+ else box.innerHTML=`<form id="f" novalidate><div class="lab">Reset password</div><h1>Reset by email</h1><p class="sub">We send a reset code to the registered department email.</p>
+  <label for="u">Department username</label><input id="u" autocapitalize="none" spellcheck="false"><button type="button" class="btn sec" data-a="sendreset">Send reset code</button>
+  <label for="t">Reset code from the email</label><input id="t" autocomplete="off"><label for="n">New password (10+ characters, letters and numbers)</label><input id="n" type="password" autocomplete="new-password">
+  <button class="btn" id="go">Set new password</button><div class="err" id="e" role="alert"></div><button type="button" class="lk" data-s="login">Back to sign in</button></form>`;
+ const f=$('#u')||$('#c');if(f)f.focus()}
+const msg=(m,good)=>{const e=$('#e');if(e){e.textContent=m;e.className='err'+(good?' ok':'')}};
+function tick(){cool=30;clearInterval(timer);timer=setInterval(()=>{cool--;const b=$('#rs');if(b)b.textContent=cool>0?'Resend code in '+cool+'s':'Resend code';if(cool<=0)clearInterval(timer)},1000)}
+function lock(on){busy=on;const g=$('#go');if(g)g.disabled=on}
+box.addEventListener('submit',async ev=>{ev.preventDefault();if(busy)return;msg('');
+ try{if(step=='login'){const u=$('#u').value.trim(),p=$('#p').value;if(!u||!p)return msg('Please enter your username and password.');lock(true);
+   const r=await api('/api/auth/login',{username:u,password:p});ch=r.challenge_id;hint=r.email_hint;step='code';tick();view()}
+  else if(step=='code'){const c=$('#c').value.trim();if(!/^\d{6}$/.test(c))return msg('Enter the 6-digit code from your email.');lock(true);
+   await api('/api/auth/verify',{challenge_id:ch,code:c});location.replace('/')}
+  else{const t=$('#t').value.trim(),n=$('#n').value;if(!t||!n)return msg('Enter the reset code and a new password.');lock(true);
+   await api('/api/auth/reset',{token:t,new_password:n});step='login';view();msg('Password updated. Please sign in.',1)}}
+ catch(e){msg(e.message)}finally{lock(false)}});
+box.addEventListener('click',async ev=>{const t=ev.target.closest('button');if(!t)return;
+ if(t.id=='sh'){const p=$('#p');const show=p.type=='password';p.type=show?'text':'password';t.textContent=show?'Hide':'Show';t.setAttribute('aria-label',show?'Hide password':'Show password')}
+ else if(t.dataset.s){step=t.dataset.s;view()}
+ else if(t.dataset.a=='resend'){if(cool>0)return;try{await api('/api/auth/resend',{challenge_id:ch});tick();msg('A new code has been sent.',1)}catch(e){msg(e.message)}}
+ else if(t.dataset.a=='sendreset'){try{const r=await api('/api/auth/forgot',{username:$('#u').value});msg(r.message,1)}catch(e){msg(e.message)}}});
+api('/api/auth/me').then(()=>location.replace('/')).catch(()=>view());
+</script></body></html>

@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>College Registry · Tessellate</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400&family=Instrument+Sans:wght@400;500;600&display=swap">
+<style>
+:root{--bg:#f6f4ef;--panel:#fbfaf7;--ink:#1c1c1a;--mute:#7a7872;--line:#e4e1d9;--acc:#4d6a63;--accbg:#e6ece9;--lab:#ebe7dc;--warn:#9a6a1f;--crit:#a23b34;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#161615;--panel:#1c1c1a;--ink:#ece9e1;--mute:#97948c;--line:#2e2d2a;--acc:#8fb3a9;--accbg:#233230;--lab:#262521;--warn:#d9a54e;--crit:#e2837c}}
+:root[data-theme="dark"]{--bg:#161615;--panel:#1c1c1a;--ink:#ece9e1;--mute:#97948c;--line:#2e2d2a;--acc:#8fb3a9;--accbg:#233230;--lab:#262521;--warn:#d9a54e;--crit:#e2837c}
+html{scroll-padding-top:env(safe-area-inset-top,0px);height:100%}*{box-sizing:border-box}
+body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:15px/1.5 'Instrument Sans',system-ui,sans-serif}
+h1,h2,.logo{font-family:Fraunces,Georgia,serif;font-weight:400;letter-spacing:-.01em}
+h1{font-size:34px;margin:4px 0 6px;line-height:1.1}h2{font-size:20px;margin:30px 0 10px}
+.app{display:flex;min-height:100%}
+nav{width:208px;padding:26px 16px;border-right:1px solid var(--line);position:sticky;top:0;height:100vh;flex:none;display:flex;flex-direction:column;gap:2px}
+.logo{font-size:21px;margin:0 10px 18px}
+nav select{margin:0 0 18px;width:100%;font-size:13px}
+nav button{all:unset;cursor:pointer;padding:8px 10px;border-radius:6px;color:var(--mute);min-height:40px;display:flex;align-items:center;justify-content:space-between}
+nav button:hover{color:var(--ink)}nav button[aria-current=page]{color:var(--ink);background:var(--accbg)}
+nav .n{font-size:12px;border:1px solid var(--line);border-radius:10px;padding:0 7px}
+main{flex:1;padding:36px 44px 90px;min-width:0;max-width:1180px}
+.lab{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--mute)}
+.sub{color:var(--mute);margin:0 0 20px}.sm{font-size:13px;color:var(--mute)}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.sp{justify-content:space-between}
+.btn{font:inherit;cursor:pointer;border:1px solid var(--line);background:transparent;color:var(--ink);padding:9px 16px;border-radius:7px;min-height:40px}
+.btn:hover{border-color:var(--mute)}.btn.p{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+select,input{font:inherit;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:8px 10px;min-height:40px}
+.stats{display:flex;flex-wrap:wrap;border-top:1px solid var(--line);border-bottom:1px solid var(--line);margin:18px 0 10px}
+.stats div{flex:1 1 100px;padding:14px 0}.stats b{display:block;font:400 27px Fraunces,serif}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:44px}
+.kv{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--line)}
+.bar{height:5px;background:var(--line);border-radius:3px;margin-top:6px;overflow:hidden}.bar i{display:block;height:100%;background:var(--acc)}.bar.hi i{background:var(--warn)}.bar.ov i{background:var(--crit)}
+.item{padding:10px 0;border-bottom:1px solid var(--line)}
+.tag{display:inline-block;font-size:12px;font-weight:600;border:1px solid currentColor;border-radius:4px;padding:0 6px;margin-right:8px}
+.tag.c{color:var(--crit)}.tag.w{color:var(--warn)}.tag.i,.tag.s{color:var(--mute)}.tag.ok{color:var(--acc)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+.seg button{all:unset;cursor:pointer;padding:8px 14px;min-height:40px;box-sizing:border-box;color:var(--mute)}.seg button[aria-pressed=true]{background:var(--ink);color:var(--bg)}
+.gw{overflow-x:auto;margin-top:16px}
+table.g{border-collapse:collapse;width:100%;min-width:640px;table-layout:fixed}
+.g th{font-weight:500;color:var(--mute);font-size:13px;text-align:left;padding:8px;border-bottom:1px solid var(--line)}
+.g td{border:1px solid var(--line);padding:0;height:76px;vertical-align:top;background:var(--panel)}
+.g td.t{width:60px;border:0;background:none;color:var(--mute);font-size:12px;padding:8px 8px 0 0;text-align:right}
+.g td.br{height:24px;background:repeating-linear-gradient(135deg,transparent 0 6px,var(--line) 6px 7px);color:var(--mute);font-size:11px;text-align:center;vertical-align:middle;letter-spacing:.08em}
+.c{padding:8px 10px;height:100%;border-left:3px solid var(--acc)}.c[draggable=true]{cursor:grab}.c.lb{background:var(--lab);border-left-color:var(--mute)}
+.c b{display:block;font-size:12.5px;letter-spacing:.03em;text-transform:uppercase}.c span{display:block;font-size:12.5px;color:var(--mute)}
+td.over{outline:2px dashed var(--acc);outline-offset:-3px}.fr{color:var(--line);font-size:12px;padding:8px 10px}
+.bz{width:100%;height:100%;min-height:76px;font:inherit;font-size:12px;color:var(--warn);text-align:left;padding:8px 10px;background:repeating-linear-gradient(135deg,transparent 0 5px,var(--lab) 5px 6px);border:0;cursor:pointer}
+.bz.off{color:var(--mute);cursor:default}
+table.l{width:100%;border-collapse:collapse}.l th{text-align:left;font-weight:500;color:var(--mute);font-size:13px;padding:8px 8px 8px 0;border-bottom:1px solid var(--line)}.l td{padding:10px 8px 10px 0;border-bottom:1px solid var(--line)}
+.dl .it{display:flex;gap:16px;padding:14px 0;border-bottom:1px solid var(--line)}.dl .it time{width:56px;color:var(--mute);flex:none}.dl .it.fz{color:var(--mute)}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:12px 18px;border-radius:8px;max-width:92vw;z-index:9;display:none}
+.ov{position:fixed;inset:0;background:var(--bg);display:none;align-items:center;justify-content:center;z-index:20;padding:24px}.ov.on{display:flex}
+.ov ul{list-style:none;padding:0;margin:20px 0 0;min-height:190px;color:var(--mute)}.ov li{padding:3px 0;animation:f .4s}.ov li:last-child{color:var(--ink)}
+@keyframes f{from{opacity:0}}@media (prefers-reduced-motion:reduce){.ov li{animation:none}}
+.note{border:1px solid var(--line);padding:14px 16px;border-radius:8px;margin:14px 0;background:var(--panel)}
+.empty{text-align:center;padding:60px 10px;color:var(--mute)}.empty h2{color:var(--ink);margin-top:0}
+@media (max-width:820px){.app{flex-direction:column}nav{width:100%;height:auto;position:sticky;top:0;flex-direction:row;overflow-x:auto;padding:10px 12px;border-right:0;border-bottom:1px solid var(--line);background:var(--bg);z-index:5;align-items:center}.logo{display:none}nav select{width:auto;min-width:150px;margin:0 8px 0 0}nav button{white-space:nowrap}nav .n{display:none}main{padding:22px 16px 90px}.cols{grid-template-columns:1fr;gap:20px}h1{font-size:28px}}
+@media print{nav,.noprint{display:none!important}main{padding:0}}
+
+.login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+.login form,.login .box{width:100%;max-width:360px}
+.login .logo{font-size:30px;margin:0 0 4px}
+.login label{display:block;margin:16px 0 6px;font-size:13px;color:var(--mute)}
+.login input{width:100%}.login .btn{width:100%;margin-top:22px}
+.login .lk{all:unset;cursor:pointer;color:var(--mute);font-size:13px;display:inline-block;margin-top:16px;text-decoration:underline;min-height:24px}
+.code{letter-spacing:.5em;font-size:22px;text-align:center}
+.err{color:var(--crit);font-size:14px;margin-top:12px;min-height:20px}
+.tg{width:100%;min-height:40px;border:0;background:var(--panel);color:var(--mute);font:inherit;font-size:12px;cursor:pointer}.tg:hover{color:var(--ink)}.tg.on{background:repeating-linear-gradient(135deg,transparent 0 5px,var(--lab) 5px 6px);color:var(--warn)}
+</style></head><body>
+<div id="root"></div><div class="toast" id="toast" role="status"></div>
+<script>
+const $=s=>document.querySelector(s),R=$('#root');
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+async function api(p,o={}){const r=await fetch(p,{credentials:'same-origin',headers:{'content-type':'application/json'},...o,body:o.body?JSON.stringify(o.body):undefined});
+ let j={};try{j=await r.json()}catch(e){}
+ if(!r.ok){if(r.status==401)location.replace('/registry-login.html');throw new Error(typeof j.detail=='string'?j.detail:'Something went wrong. Please try again.')}return j}
+function toast(t,ok){const e=$('#toast');e.textContent=(ok?'✓ ':'⚠ ')+t;e.style.display='block';clearTimeout(toast.h);toast.h=setTimeout(()=>e.style.display='none',5000)}
+const API='/api/registry/';let me=null,V='ov',ed=null,L={};
+const NAV=[['ov','Overview'],['departments','Departments'],['faculty','Faculty'],['classes','Classes'],['rooms','Rooms'],['se','Account']];
+const TYPES='Classroom|Computer lab|Laboratory';
+const ENT={
+ departments:{title:'Departments',sub:'Departments exist here first. A department then signs up and claims its name.',one:'department',
+  cols:[['code','ID'],['name','Name'],['classes','Classes'],['faculty','Faculty'],['has_account','Login account',v=>v?'Yes':'Not yet']],
+  fields:[['name','Department name','text']]},
+ faculty:{title:'Faculty',sub:'One record per person. Every department can pick these teachers.',one:'teacher',
+  cols:[['faculty_code','ID'],['name','Name'],['department','Home department'],['designation','Designation'],['email','Email'],['sessions','Sessions',(v,r)=>v+' / '+r.max_weekly_sessions]],
+  fields:[['name','Name','text'],['home_department_id','Home department','sel:departments'],['designation','Designation','text'],['email','Official email','text'],['max_weekly_sessions','Max sessions per week','number',18]]},
+ classes:{title:'Classes',sub:'Classes and sections for every department.',one:'class',
+  cols:[['name','Class'],['department','Department'],['semester','Semester'],['section','Section'],['students','Students'],['home_room','Home room'],['subjects','Subjects']],
+  fields:[['name','Class name','text'],['department_id','Department','sel:departments','','lock'],['semester','Semester','number',1],['section','Section','text','A'],['students','Students','number'],['home_room_id','Home room (optional)','sel:rooms']]},
+ rooms:{title:'Rooms &amp; laboratories',sub:'One shared list. Departments book from it when they generate timetables.',one:'room',
+  cols:[['name','Name'],['room_type','Type'],['capacity','Capacity'],['sessions','Scheduled sessions']],
+  fields:[['name','Room name','text'],['room_type','Type','sel:'+TYPES,'Classroom'],['capacity','Capacity','number']]}};
+const head=(l,t,s,a)=>`<div class="row sp" style="align-items:flex-end"><div><div class="lab">${l}</div><h1>${t}</h1><p class="sub">${s}</p></div>${a||''}</div>`;
+const tab=(h,rows)=>`<div class="gw"><table class="l"><thead><tr>${h.map(x=>`<th>${x}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+function shell(inner){return `<div class="app"><nav aria-label="Main"><div class="logo">Tessellate</div><div class="sm" style="margin:0 10px 14px">College Registry</div>${NAV.map(([k,l])=>`<button data-v="${k}" ${V==k?'aria-current="page"':''}>${l}</button>`).join('')}</nav><main>${inner}</main></div>`}
+async function draw(){R.innerHTML=shell('<p class="sub">Loading…</p>');try{$('main').innerHTML=await page()}catch(e){$('main').innerHTML=`<div class="empty"><h2>We couldn’t load this page</h2><p>${esc(e.message)}</p></div>`}}
+async function page(){
+ if(V=='ov'){const o=await api(API+'overview');return head('Registry','College records','Shared data used by every department. Timetables are not visible here.')+
+  `<div class="stats">${[['Departments',o.departments],['Faculty',o.faculty],['Classes',o.classes],['Rooms & labs',o.rooms],['Department logins',o.department_accounts],['Subjects set by departments',o.subjects]].map(([a,b])=>`<div><b>${b}</b><span class="sm">${a}</span></div>`).join('')}</div>
+  <div class="cols"><section><h2>What this account does</h2><p>Adds and edits departments, faculty, classes and rooms. Changes appear immediately in every department’s workspace.</p></section>
+  <section><h2>What it cannot do</h2><p>It cannot see, create, edit or publish any timetable, and it gives no department priority. Subjects and weekly sessions stay with each department.</p></section></div>`}
+ if(V=='se')return head('Account','Registry account','Signed in as '+esc(me.username)+' · '+esc(me.email_hint))+`<div class="row noprint"><button class="btn" data-a="pw">Change password</button><button class="btn" data-a="out">Sign out</button></div>`;
+ const E=ENT[V],rows=await api(API+V);
+ for(const f of E.fields){if(f[2]=='sel:departments')L.departments=await api(API+'departments');if(f[2]=='sel:rooms')L.rooms=await api(API+'rooms')}
+ L.rows=rows;const cur=ed&&ed!='new'?rows.find(r=>r.id==ed):null;
+ return head('Registry',E.title,E.sub,`<button class="btn p noprint" data-a="new">Add ${E.one}</button>`)+(ed?form(E,cur):'')+
+  `<div class="row noprint" style="margin-bottom:10px"><input id="q" placeholder="Search…" aria-label="Search" style="width:min(320px,100%)"><span class="sm">${rows.length} total</span></div>`+
+  (rows.length?tab(E.cols.map(c=>c[1]).concat(['']),rows.map(r=>E.cols.map(c=>esc(c[2]?c[2](r[c[0]],r):r[c[0]])).concat([`<button class="btn" data-e="${r.id}">Edit</button>`]))):`<div class="empty"><h2>Nothing here yet</h2><p>Add the first ${E.one} above.</p></div>`)}
+function opts(src,val,blank){if(src=='sel:departments')return L.departments.map(d=>`<option value="${d.id}" ${d.id==val?'selected':''}>${esc(d.name)}</option>`).join('');
+ if(src=='sel:rooms')return '<option value="">None</option>'+L.rooms.map(d=>`<option value="${d.id}" ${d.id==val?'selected':''}>${esc(d.name)}</option>`).join('');
+ return src.slice(4).split('|').map(t=>`<option ${t==val?'selected':''}>${t}</option>`).join('')}
+function form(E,cur){return `<div class="note"><h2 style="margin-top:0">${cur?'Edit '+E.one:'Add '+E.one}</h2><div class="row">${E.fields.map(([k,l,t,d,lock])=>{const v=cur?cur[k]:(d??'');
+  const dis=cur&&lock?' disabled':'';return `<label>${l}<br>${t.startsWith('sel:')?`<select id="f_${k}"${dis}>${opts(t,v)}</select>`:`<input id="f_${k}" type="${t}" value="${esc(v)}"${t=='number'?' style="width:120px"':''}>`}</label>`}).join('')}</div>
+  <div class="row" style="margin-top:16px"><button class="btn p" data-a="save">${cur?'Save changes':'Add'}</button><button class="btn" data-a="cancel">Cancel</button>${cur?'<button class="btn" data-a="del" style="margin-left:auto">Delete</button>':''}</div></div>`}
+function body(E){const b={};for(const [k,,t] of E.fields){const e=$('#f_'+k);let v=e.value;if(t=='number')v=v===''?null:+v;else if(k.endsWith('_id'))v=v===''?null:+v;b[k]=v}return b}
+document.addEventListener('click',async ev=>{const t=ev.target.closest('button');if(!t)return;const D=t.dataset;
+ try{if(D.v){V=D.v;ed=null;draw()}
+ else if(D.e){ed=+D.e;await draw();scrollTo(0,0)}
+ else if(D.a=='new'){ed='new';draw()}
+ else if(D.a=='cancel'){ed=null;draw()}
+ else if(D.a=='save'){const E=ENT[V],b=body(E);if(ed=='new')await api(API+V,{method:'POST',body:b});else await api(API+V+'/'+ed,{method:'PUT',body:b});toast('Saved. Departments see this now.',1);ed=null;draw()}
+ else if(D.a=='del'){if(!confirm('Delete this '+ENT[V].one+'? This cannot be undone.'))return;await api(API+V+'/'+ed,{method:'DELETE'});toast('Deleted.',1);ed=null;draw()}
+ else if(D.a=='pw'){const c=prompt('Current password');if(!c)return;const n=prompt('New password (10+ characters, letters and numbers)');if(!n)return;await api(API+'auth/change-password',{method:'POST',body:{current:c,new:n}});toast('Password changed.',1)}
+ else if(D.a=='out'){await api(API+'auth/logout',{method:'POST'});location.replace('/registry-login.html')}}
+ catch(e){toast(e.message)}});
+document.addEventListener('input',ev=>{if(ev.target.id!='q')return;const q=ev.target.value.toLowerCase();document.querySelectorAll('main tbody tr').forEach(r=>r.style.display=r.textContent.toLowerCase().includes(q)?'':'none')});
+api(API+'auth/me').then(r=>{me=r;draw()}).catch(()=>location.replace('/registry-login.html'));
+</script></body></html>

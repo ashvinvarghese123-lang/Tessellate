@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Create account · Tessellate</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400&family=Instrument+Sans:wght@400;500;600&display=swap">
+<style>
+:root{--bg:#f6f4ef;--panel:#fbfaf7;--ink:#1c1c1a;--mute:#7a7872;--line:#e4e1d9;--acc:#4d6a63;--accbg:#e6ece9;--crit:#a23b34;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#161615;--panel:#1c1c1a;--ink:#ece9e1;--mute:#97948c;--line:#2e2d2a;--acc:#8fb3a9;--accbg:#233230;--crit:#e2837c}}
+:root[data-theme="dark"]{--bg:#161615;--panel:#1c1c1a;--ink:#ece9e1;--mute:#97948c;--line:#2e2d2a;--acc:#8fb3a9;--accbg:#233230;--crit:#e2837c}
+html{height:100%}*{box-sizing:border-box}
+body{margin:0;min-height:100%;background:var(--bg);color:var(--ink);font:15px/1.5 'Instrument Sans',system-ui,sans-serif}
+h1,.mark{font-family:Fraunces,Georgia,serif;font-weight:400;letter-spacing:-.01em}
+.wrap{display:grid;grid-template-columns:1.1fr 1fr;min-height:100vh}
+.brand{padding:48px 56px;border-right:1px solid var(--line);display:flex;flex-direction:column;justify-content:space-between}
+.mark{font-size:24px}
+.brand h2{font:400 clamp(30px,3.4vw,46px)/1.15 Fraunces,Georgia,serif;letter-spacing:-.015em;margin:0 0 18px;max-width:14ch}
+.brand p{color:var(--mute);margin:0;max-width:34ch}
+.grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;max-width:260px;margin:0 0 36px}
+.grid i{display:block;aspect-ratio:1;border:1px solid var(--line);border-radius:3px}.grid i.on{background:var(--accbg);border-color:var(--acc)}
+.side{display:flex;align-items:center;justify-content:center;padding:32px 24px}
+.box{width:100%;max-width:360px}
+.lab{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--mute)}
+h1{font-size:30px;margin:6px 0 8px;line-height:1.15}.sub{color:var(--mute);margin:0 0 8px}
+label{display:block;margin:20px 0 6px;font-size:13px;color:var(--mute)}
+input{width:100%;font:inherit;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:10px 12px;min-height:44px}
+input:focus-visible,.btn:focus-visible,.lk:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.pw{position:relative}.pw input{padding-right:64px}
+.pw button{all:unset;cursor:pointer;position:absolute;right:6px;top:6px;height:32px;padding:0 10px;font-size:13px;color:var(--mute);border-radius:5px}
+.btn{width:100%;margin-top:24px;font:inherit;font-weight:500;cursor:pointer;background:var(--ink);color:var(--bg);border:1px solid var(--ink);border-radius:7px;min-height:46px}
+.btn:disabled{opacity:.55;cursor:wait}.btn.sec{background:transparent;color:var(--ink);border-color:var(--line);margin-top:10px}
+.lk{all:unset;cursor:pointer;color:var(--mute);font-size:13px;text-decoration:underline;display:inline-block;margin-top:18px;min-height:24px}
+.err{color:var(--crit);font-size:14px;min-height:22px;margin-top:14px}
+.ok{color:var(--acc)}
+.code{letter-spacing:.6em;font-size:24px;text-align:center;padding-left:.6em}
+.steps{display:flex;gap:8px;margin-bottom:26px}.steps span{height:3px;flex:1;background:var(--line);border-radius:2px}.steps span.on{background:var(--ink)}
+.foot{font-size:12px;color:var(--mute);margin-top:34px}
+@media (max-width:820px){.wrap{grid-template-columns:1fr}.brand{padding:22px 24px;border:0;border-bottom:1px solid var(--line)}.brand h2,.brand p,.grid{display:none}.side{align-items:flex-start;padding-top:36px}}
+@media (prefers-reduced-motion:no-preference){.box{animation:in .35s ease}@keyframes in{from{opacity:0;transform:translateY(6px)}}}
+</style></head><body>
+<div class="wrap">
+ <aside class="brand" aria-hidden="false">
+  <div class="mark">Tessellate</div>
+  <div><div class="grid" aria-hidden="true">
+   <i class="on"></i><i></i><i></i><i class="on"></i><i></i><i></i><i class="on"></i><i></i><i></i><i class="on"></i><i class="on"></i><i></i><i></i><i class="on"></i><i></i><i></i><i></i><i class="on"></i><i></i><i class="on"></i><i class="on"></i><i></i><i></i><i class="on"></i><i></i></div>
+   <h2>Every department. Equal priority. Perfectly aligned.</h2>
+   <p>College timetables and shared resources, kept in step across every department.</p></div>
+  <div class="sub" style="font-size:13px">Simple on the surface. Intelligent underneath.</div>
+ </aside>
+ <main class="side"><div class="box" id="box"></div></main>
+</div>
+<script>
+const $=s=>document.querySelector(s),box=$('#box');
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let step='form',rid=null,hint='',cool=0,timer=null,busy=false,done={};
+async function api(p,body){const r=await fetch(p,{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
+ let j={};try{j=await r.json()}catch(e){}
+ if(!r.ok)throw new Error(typeof j.detail=='string'?j.detail:'Something went wrong. Please try again.');return j}
+const bar=n=>`<div class="steps" aria-hidden="true"><span class="on"></span><span class="${n>1?'on':''}"></span></div>`;
+function view(){
+ if(step=='form')box.innerHTML=`<form id="f" novalidate>${bar(1)}<div class="lab">New department</div><h1>Create your account</h1><p class="sub">One account for your whole department. Use your official college email.</p>
+  <label for="dn">Department name</label><input id="dn" autocomplete="organization" placeholder="e.g. Chemistry">
+  <label for="em">Department email</label><input id="em" type="email" autocomplete="email" placeholder="chemistry@college.edu">
+  <label for="un">Username</label><input id="un" autocapitalize="none" spellcheck="false" autocomplete="username" placeholder="e.g. chemistry">
+  <label for="pw">Password</label><div class="pw"><input id="pw" type="password" autocomplete="new-password"><button type="button" id="sh" aria-label="Show password">Show</button></div>
+  <label for="p2">Confirm password</label><input id="p2" type="password" autocomplete="new-password"><div class="sub" style="font-size:13px;margin-top:6px">At least 10 characters, with letters and numbers.</div>
+  <button class="btn" id="go">Continue</button><div class="err" id="e" role="alert"></div><a class="lk" href="/login.html">Already have an account? Sign in</a></form>`;
+ else if(step=='code')box.innerHTML=`<form id="f" novalidate>${bar(2)}<div class="lab">Confirm your email</div><h1>Check your email</h1><p class="sub">We sent a confirmation code to <b>${esc(hint)}</b>. Your account is created once you enter it.</p>
+  <label for="c">Confirmation code</label><input id="c" class="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="······">
+  <button class="btn" id="go">Create account</button><div class="err" id="e" role="alert"></div>
+  <button type="button" class="lk" id="rs" data-a="resend">${cool>0?'Resend code in '+cool+'s':'Resend code'}</button> <button type="button" class="lk" data-s="form" style="margin-left:14px">Back</button></form>`;
+ else box.innerHTML=`<div><div class="lab">All set</div><h1>Account created</h1><p class="sub"><b>${esc(done.department)}</b> is ready. Sign in with the username <b>${esc(done.username)}</b>. You will be asked for a code from your email each time.</p><a class="btn" href="/login.html" style="display:block;text-align:center;line-height:44px;text-decoration:none;margin-top:28px">Go to sign in</a></div>`;
+ const f=$('#dn')||$('#c');if(f)f.focus()}
+const msg=(m,good)=>{const e=$('#e');if(e){e.textContent=m;e.className='err'+(good?' ok':'')}};
+function tick(){cool=30;clearInterval(timer);timer=setInterval(()=>{cool--;const b=$('#rs');if(b)b.textContent=cool>0?'Resend code in '+cool+'s':'Resend code';if(cool<=0)clearInterval(timer)},1000)}
+function lock(on){busy=on;const g=$('#go');if(g)g.disabled=on}
+box.addEventListener('submit',async ev=>{ev.preventDefault();if(busy)return;msg('');
+ try{if(step=='form'){const v=id=>$('#'+id).value;
+   if(!v('dn').trim()||!v('em').trim()||!v('un').trim()||!v('pw'))return msg('Please fill in every field.');
+   if(v('pw')!==v('p2'))return msg('The two passwords don’t match.');
+   lock(true);const r=await api('/api/auth/signup',{department_name:v('dn'),email:v('em'),username:v('un'),password:v('pw')});rid=r.request_id;hint=r.email_hint;step='code';tick();view()}
+  else{const c=$('#c').value.trim();if(!/^\d{6}$/.test(c))return msg('Enter the 6-digit code from your email.');lock(true);
+   done=await api('/api/auth/signup/verify',{request_id:rid,code:c});step='done';view()}}
+ catch(e){msg(e.message)}finally{lock(false)}});
+box.addEventListener('click',async ev=>{const t=ev.target.closest('button');if(!t)return;
+ if(t.id=='sh'){const p=$('#pw'),q=$('#p2'),show=p.type=='password';p.type=q.type=show?'text':'password';t.textContent=show?'Hide':'Show';t.setAttribute('aria-label',show?'Hide password':'Show password')}
+ else if(t.dataset.s){step=t.dataset.s;view()}
+ else if(t.dataset.a=='resend'){if(cool>0)return;try{await api('/api/auth/signup/resend',{request_id:rid});tick();msg('A new code has been sent.',1)}catch(e){msg(e.message)}}});
+view();
+</script></body></html>
