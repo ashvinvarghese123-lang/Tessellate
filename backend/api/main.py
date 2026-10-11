@@ -13,7 +13,7 @@ from fastapi.staticfiles import StaticFiles
 import os
 from pydantic import BaseModel
 
-from engine.solver import generate, rebalance, validate_move
+from engine.solver import RULE_DEFS, generate, rebalance, validate_move, ov
 from .auth import current_department, router as auth_router
 from .registry import router as registry_router
 from .db import db
@@ -45,12 +45,48 @@ async def friendly(request, exc):   # never show SQL errors, stack traces or sol
     return JSONResponse(status_code=500, content={"detail": "Something went wrong. Please try again, and check the faculty and room settings if it continues."})
 
 
-def slots(conn):
-    return {r["id"]: (r["day"], r["period"], str(r["starts"])[:5], str(r["ends"])[:5]) for r in conn.execute("SELECT * FROM time_slot")}
+def hm(m):
+    return f"{m // 60:02d}:{m % 60:02d}"
 
 
-def when(s):
-    return f"{DAYS[s[0]]} · {s[2]}–{s[3]}"
+def tomin(v):
+    return int(v[:2]) * 60 + int(v[3:5])
+
+
+tmin = lambda t: t.hour * 60 + t.minute   # noqa: E731
+
+
+def when(day, start, end):
+    return f"{DAYS[day]} \u00b7 {hm(start)}\u2013{hm(end)}"
+
+
+def base_slots(conn):
+    """The college's reference grid. Teachers' unavailable periods are defined on it; departments may use their own times."""
+    return [dict(id=r["id"], day=r["day"], period=r["period"], start=tmin(r["starts"]), end=tmin(r["ends"]))
+            for r in conn.execute("SELECT * FROM time_slot ORDER BY day, period")]
+
+
+def default_settings(conn):
+    bs = base_slots(conn)
+    per = {}
+    for b in bs:
+        per.setdefault(b["period"], (b["start"], b["end"]))
+    return dict(days=sorted({b["day"] for b in bs}) or [0, 1, 2, 3, 4],
+                periods=[dict(start=hm(per[p][0]), end=hm(per[p][1])) for p in sorted(per)], rules={}, free=[])
+
+
+def load_settings(conn, dept_id):
+    row = conn.execute("SELECT config FROM department_settings WHERE department_id=%s", (dept_id,)).fetchone()
+    cfg = default_settings(conn)
+    if row:
+        cfg.update(row["config"])
+    cfg["saved"] = bool(row)
+    return cfg
+
+
+def solver_cfg(cfg):
+    return dict(days=cfg["days"], periods=[dict(start=tomin(p["start"]), end=tomin(p["end"])) for p in cfg["periods"]],
+                rules=cfg.get("rules", {}), free=cfg.get("free", []))
 
 
 def own_class(conn, d, class_id):
@@ -62,53 +98,48 @@ def own_class(conn, d, class_id):
     return c
 
 
-def shared(conn, sl):
+def shared(conn):
     """Teachers and rooms are college-wide records. Same data for every department."""
     teachers = {}
     for f in conn.execute("SELECT * FROM faculty WHERE active"):
-        un = conn.execute("""SELECT ts.day, ts.period FROM faculty_availability fa JOIN time_slot ts ON ts.id=fa.time_slot_id
+        un = conn.execute("""SELECT ts.day, ts.starts, ts.ends FROM faculty_availability fa JOIN time_slot ts ON ts.id=fa.time_slot_id
                              WHERE fa.faculty_id=%s AND fa.kind='unavailable'""", (f["id"],)).fetchall()
-        teachers[f["id"]] = dict(name=f["name"], max_load=f["max_weekly_sessions"], unavailable=[[u["day"], u["period"]] for u in un])
+        teachers[f["id"]] = dict(name=f["name"], max_load=f["max_weekly_sessions"],
+                                 unavailable=[[u["day"], tmin(u["starts"]), tmin(u["ends"])] for u in un])
     return teachers, [dict(id=r["id"], type=r["room_type"]) for r in conn.execute("SELECT * FROM room")]
 
 
-def placed(conn, sl, exclude_entry=None, only_class=None, exclude_class=None, dept_not=None):
-    """Sessions already saved, as 'busy' records that carry a plain-language reason."""
+def placed(conn, exclude_entry=None, exclude_class=None):
+    """Sessions already saved, as 'busy' records (real day and time range) with a plain-language reason."""
     q = """SELECT x.*, d.name department, s.name subject, c.name class_name FROM timetable_entry x
            JOIN class c ON c.id=x.class_id JOIN department d ON d.id=c.department_id
-           JOIN teacher_allocation a ON a.id=x.allocation_id JOIN subject s ON s.id=a.subject_id WHERE TRUE"""
-    out = []
-    for o in conn.execute(q):
-        if o["id"] == exclude_entry or o["class_id"] == exclude_class:
-            continue
-        day, per, _, _ = sl[o["time_slot_id"]]
-        out.append(dict(teacher=o["faculty_id"], room=o["room_id"], day=day, period=per, subject=o["subject"],
-                        department=o["department"], class_name=o["class_name"], **{"class": o["class_id"]}))
-    return out
+           JOIN teacher_allocation a ON a.id=x.allocation_id JOIN subject s ON s.id=a.subject_id"""
+    return [dict(teacher=o["faculty_id"], room=o["room_id"], day=o["day"], period=o["period"], start=o["start_min"], end=o["end_min"],
+                 subject=o["subject"], department=o["department"], class_name=o["class_name"], **{"class": o["class_id"]})
+            for o in conn.execute(q) if o["id"] != exclude_entry and o["class_id"] != exclude_class]
 
 
 def build_input(conn, d, class_id=None, joint=False):
-    sl = slots(conn)
-    cfg = conn.execute("SELECT days, periods FROM college LIMIT 1").fetchone()
-    teachers, rooms = shared(conn, sl)
+    teachers, rooms = shared(conn)
     where, args = ("", ()) if joint else ("WHERE c.department_id=%s" + (" AND c.id=%s" if class_id else ""), (d["id"],) + ((class_id,) if class_id else ()))
     classes = {c["id"]: dict(name=c["name"], department=c["code"]) for c in conn.execute(
-        "SELECT c.id, c.name, dp.code FROM class c JOIN department dp ON dp.id=c.department_id " + where.replace("c.department_id", "c.department_id"), args)}
+        "SELECT c.id, c.name, dp.code FROM class c JOIN department dp ON dp.id=c.department_id " + where, args)}
     allocs = [dict(**{"class": a["class_id"]}, subject=a["subject"], teacher=a["faculty_id"], sessions=a["sessions_per_week"],
                    room_type=a["required_room_type"], id=a["id"], department=a["code"])
               for a in conn.execute("""SELECT a.*, s.name subject, s.required_room_type, dp.code FROM teacher_allocation a
                   JOIN subject s ON s.id=a.subject_id JOIN class c ON c.id=a.class_id JOIN department dp ON dp.id=c.department_id """ + where, args)]
+    settings = {dp["code"]: solver_cfg(load_settings(conn, dp["id"]))
+                for dp in conn.execute("SELECT id, code FROM department") if joint or dp["id"] == d["id"]}
     ids = set(classes)
-    busy = [] if joint else [b for b in placed(conn, sl) if b["class"] not in ids]
-    # workload already used by sessions that stay as they are
-    for t, T in teachers.items():
+    busy = [] if joint else [b for b in placed(conn) if b["class"] not in ids]
+    for t, T in teachers.items():            # workload already used by sessions that stay as they are
         T["existing_load"] = sum(1 for b in busy if b["teacher"] == t)
-    data = dict(config=cfg, teachers=teachers, classes=classes, rooms=rooms, allocations=allocs, busy=busy)
+    data = dict(settings=settings, teachers=teachers, classes=classes, rooms=rooms, allocations=allocs, busy=busy)
     if joint:
         idx = {a["id"]: i for i, a in enumerate(allocs)}
-        data["current"] = [dict(allocation=idx[o["allocation_id"]], day=sl[o["time_slot_id"]][0], period=sl[o["time_slot_id"]][1], room=o["room_id"])
+        data["current"] = [dict(allocation=idx[o["allocation_id"]], day=o["day"], start=o["start_min"], room=o["room_id"])
                            for o in conn.execute("SELECT * FROM timetable_entry") if o["allocation_id"] in idx]
-    return data, sl
+    return data
 
 
 def note(conn, dept_id, action, entry_id=None, old=None, new=None, reason=None):
@@ -127,7 +158,7 @@ def generate_timetable(req: GenReq, conn=Depends(db), d=Depends(current_departme
         own_class(conn, d, req.class_id)
     with conn.transaction():
         conn.execute("SELECT pg_advisory_xact_lock(1)")      # one change to shared resources at a time
-        data, sl = build_input(conn, d, req.class_id)
+        data = build_input(conn, d, req.class_id)
         if not data["allocations"]:
             raise HTTPException(400, "Add classes and subjects first, then generate.")
         res = generate(data, 20)
@@ -137,20 +168,22 @@ def generate_timetable(req: GenReq, conn=Depends(db), d=Depends(current_departme
         if res["status"] != "ok":
             return dict(status="impossible", message="We couldn't create a valid timetable with the current settings.",
                         problems=res["problems"], suggestions=res["suggestions"], can_look_for_alternative=True)
-        by_slot = {(v[0], v[1]): k for k, v in sl.items()}
         conn.execute("DELETE FROM timetable_entry WHERE class_id = ANY(%s)", (list(data["classes"]),))
-        for e in res["entries"]:
-            conn.execute("""INSERT INTO timetable_entry (timetable_id, allocation_id, class_id, faculty_id, room_id, time_slot_id)
-                SELECT t.id, %s, %s, %s, %s, %s FROM timetable t WHERE t.class_id=%s""",
-                         (data["allocations"][e["allocation"]]["id"], e["class"], e["teacher"], e["room"], by_slot[(e["day"], e["period"])], e["class"]))
+        try:
+            for e in res["entries"]:
+                conn.execute("""INSERT INTO timetable_entry (timetable_id, allocation_id, class_id, faculty_id, room_id, day, period, start_min, end_min)
+                    SELECT t.id, %s, %s, %s, %s, %s, %s, %s, %s FROM timetable t WHERE t.class_id=%s""",
+                             (data["allocations"][e["allocation"]]["id"], e["class"], e["teacher"], e["room"], e["day"], e["period"], e["start"], e["end"], e["class"]))
+        except psycopg.errors.ExclusionViolation:
+            raise HTTPException(409, "Another department just booked one of these teachers or rooms. Please generate again.")
         note(conn, d["id"], "generate", new={"quality": res["score"], "sessions": len(res["entries"])})
-    return dict(status="ok", quality=res["score"], sessions=len(res["entries"]))
+    return dict(status="ok", quality=res["score"], sessions=len(res["entries"]), rules_used=res.get("rules_used", 0))
 
 
 @app.post("/api/alternatives")
 def look_for_alternative(conn=Depends(db), d=Depends(current_department)):
     """Equal priority: solves ALL departments together and reports what would change. Applies nothing."""
-    data, sl = build_input(conn, d, joint=True)
+    data = build_input(conn, d, joint=True)
     res = rebalance(data, 20)
     if res["status"] != "ok":
         return dict(status="impossible", message="Even with every department's timetable rearranged, the current settings don't fit.",
@@ -208,20 +241,20 @@ def classes(conn=Depends(db), d=Depends(current_department)):
 @app.get("/api/timetable/{class_id}")
 def class_timetable(class_id: int, conn=Depends(db), d=Depends(current_department)):
     own_class(conn, d, class_id)
-    sl = slots(conn)
-    rows = conn.execute("""SELECT e.id, e.time_slot_id, s.name subject, f.name teacher, r.name room, s.kind FROM timetable_entry e
+    rows = conn.execute("""SELECT e.id, e.day, e.period, e.start_min, e.end_min, s.name subject, f.name teacher, r.name room, s.kind FROM timetable_entry e
         JOIN teacher_allocation a ON a.id=e.allocation_id JOIN subject s ON s.id=a.subject_id
-        JOIN faculty f ON f.id=e.faculty_id JOIN room r ON r.id=e.room_id WHERE e.class_id=%s""", (class_id,)).fetchall()
-    return [dict(id=r["id"], day=sl[r["time_slot_id"]][0], period=sl[r["time_slot_id"]][1], subject=r["subject"], teacher=r["teacher"], room=r["room"], lab=r["kind"] == "Lab") for r in rows]
+        JOIN faculty f ON f.id=e.faculty_id JOIN room r ON r.id=e.room_id WHERE e.class_id=%s ORDER BY e.day, e.start_min""", (class_id,)).fetchall()
+    return [dict(id=r["id"], day=r["day"], period=r["period"], start=hm(r["start_min"]), end=hm(r["end_min"]), subject=r["subject"],
+                 teacher=r["teacher"], room=r["room"], lab=r["kind"] == "Lab") for r in rows]
 
 
 def view(conn, col, rid):
-    sl = slots(conn)
-    rows = conn.execute(f"""SELECT e.time_slot_id, s.name subject, f.name teacher, r.name room, c.name class_name, dp.name department
+    rows = conn.execute(f"""SELECT e.day, e.period, e.start_min, e.end_min, s.name subject, f.name teacher, r.name room, c.name class_name, dp.name department
         FROM timetable_entry e JOIN teacher_allocation a ON a.id=e.allocation_id JOIN subject s ON s.id=a.subject_id
         JOIN faculty f ON f.id=e.faculty_id JOIN room r ON r.id=e.room_id JOIN class c ON c.id=e.class_id
-        JOIN department dp ON dp.id=c.department_id WHERE e.{col}=%s""", (rid,)).fetchall()
-    return [dict(day=sl[r["time_slot_id"]][0], period=sl[r["time_slot_id"]][1], **{k: r[k] for k in ("subject", "teacher", "room", "class_name", "department")}) for r in rows]
+        JOIN department dp ON dp.id=c.department_id WHERE e.{col}=%s ORDER BY e.day, e.start_min""", (rid,)).fetchall()
+    return [dict(day=r["day"], period=r["period"], start=hm(r["start_min"]), end=hm(r["end_min"]), smin=r["start_min"], emin=r["end_min"],
+                 **{k: r[k] for k in ("subject", "teacher", "room", "class_name", "department")}) for r in rows]
 
 
 @app.get("/api/faculty")
@@ -293,23 +326,38 @@ class UnavReq(BaseModel):
     slots: list[list[int]]
 
 
+@app.get("/api/faculty/{fid}/base-availability")
+def base_availability(fid: int, conn=Depends(db), d=Depends(current_department)):
+    """The college's reference grid, used to edit a teacher's unavailable periods."""
+    mine = {r["time_slot_id"] for r in conn.execute("SELECT time_slot_id FROM faculty_availability WHERE faculty_id=%s AND kind='unavailable'", (fid,))}
+    ents = view(conn, "faculty_id", fid)
+    out = []
+    for b in base_slots(conn):
+        x = next((e for e in ents if e["day"] == b["day"] and ov(b["start"], b["end"], e["smin"], e["emin"])), None)
+        state = "busy" if x else "unavailable" if b["id"] in mine else "available"
+        out.append(dict(day=b["day"], period=b["period"], start=hm(b["start"]), end=hm(b["end"]), state=state,
+                        reason=f"Currently scheduled in {x['department']} \u2014 {x['class_name']}, {x['subject']}." if x else ""))
+    return out
+
+
 @app.put("/api/faculty/{fid}/unavailable")
 def set_unavailable(fid: int, req: UnavReq, conn=Depends(db), d=Depends(current_department)):
     f = own_faculty(conn, d, fid)
-    sl = slots(conn)
-    by = {(v[0], v[1]): k for k, v in sl.items()}
+    bs = base_slots(conn)
+    by = {(b["day"], b["period"]): b for b in bs}
     want = {tuple(x) for x in req.slots}
     if not want <= set(by):
         raise HTTPException(400, "One of those periods isn't a teaching period.")
     with conn.transaction():
         conn.execute("SELECT pg_advisory_xact_lock(1)")        # same lock as scheduling, so nothing slips in between
         for v in view(conn, "faculty_id", fid):
-            if (v["day"], v["period"]) in want:
-                s_ = next(x for x in sl.values() if x[0] == v["day"] and x[1] == v["period"])
-                raise HTTPException(409, f"{f['name']} is already teaching {v['department']} · {v['subject']} on {when(s_)}. Move that session first.")
+            for k in want:
+                b = by[k]
+                if b["day"] == v["day"] and ov(b["start"], b["end"], v["smin"], v["emin"]):
+                    raise HTTPException(409, f"{f['name']} is already teaching {v['department']} \u00b7 {v['subject']} on {when(v['day'], v['smin'], v['emin'])}. Move that session first.")
         conn.execute("DELETE FROM faculty_availability WHERE faculty_id=%s AND kind='unavailable'", (fid,))
         for k in want:
-            conn.execute("INSERT INTO faculty_availability (faculty_id, time_slot_id, kind) VALUES (%s,%s,'unavailable')", (fid, by[k]))
+            conn.execute("INSERT INTO faculty_availability (faculty_id, time_slot_id, kind) VALUES (%s,%s,'unavailable')", (fid, by[k]["id"]))
         note(conn, d["id"], "faculty_availability", new={"teacher": f["name"], "unavailable": len(want)})
     return dict(ok=True)
 
@@ -340,36 +388,36 @@ def room_timetable(rid: int, conn=Depends(db), d=Depends(current_department)):
     return view(conn, "room_id", rid)
 
 
-def availability(conn, col, rid):
-    """Each period is Available, Busy (with who is using it) or Unavailable (with why)."""
-    sl = slots(conn)
-    busy = {(b["day"], b["period"]): b for b in view(conn, col, rid)}
-    off = set()
+def availability(conn, col, rid, dept_id):
+    """Shown on the viewing department's OWN period times: Available, Busy (who is using it) or Unavailable (why)."""
+    cfg = load_settings(conn, dept_id)
+    ents = view(conn, col, rid)
+    off = []
     if col == "faculty_id":
-        off = {(sl[r["time_slot_id"]][0], sl[r["time_slot_id"]][1]) for r in conn.execute("SELECT time_slot_id FROM faculty_availability WHERE faculty_id=%s", (rid,))}
-    else:
-        off = {(sl[r["time_slot_id"]][0], sl[r["time_slot_id"]][1]) for r in conn.execute("SELECT time_slot_id FROM room_availability WHERE room_id=%s", (rid,))} if False else set()
+        off = [(r["day"], tmin(r["starts"]), tmin(r["ends"])) for r in conn.execute(
+            "SELECT ts.day, ts.starts, ts.ends FROM faculty_availability fa JOIN time_slot ts ON ts.id=fa.time_slot_id WHERE fa.faculty_id=%s AND fa.kind='unavailable'", (rid,))]
     out = []
-    for (day, per, a, b) in sorted(sl.values()):
-        k = (day, per)
-        if k in busy:
-            x = busy[k]
-            out.append(dict(day=day, period=per, state="busy", reason=f"Currently scheduled in {x['department']} — {x['class_name']}, {x['subject']}."))
-        elif k in off:
-            out.append(dict(day=day, period=per, state="unavailable", reason="Marked as not available at this time."))
-        else:
-            out.append(dict(day=day, period=per, state="available", reason=""))
+    for day in cfg["days"]:
+        for p, per in enumerate(cfg["periods"]):
+            s_, e_ = tomin(per["start"]), tomin(per["end"])
+            x = next((v for v in ents if v["day"] == day and ov(s_, e_, v["smin"], v["emin"])), None)
+            cell = dict(day=day, period=p, start=per["start"], end=per["end"], state="available", reason="")
+            if x:
+                cell.update(state="busy", reason=f"Currently scheduled in {x['department']} \u2014 {x['class_name']}, {x['subject']} ({hm(x['smin'])}\u2013{hm(x['emin'])}).")
+            elif any(od == day and ov(s_, e_, a, b) for od, a, b in off):
+                cell.update(state="unavailable", reason="Marked as not available at this time.")
+            out.append(cell)
     return out
 
 
 @app.get("/api/faculty/{fid}/availability")
 def faculty_availability(fid: int, conn=Depends(db), d=Depends(current_department)):
-    return availability(conn, "faculty_id", fid)
+    return availability(conn, "faculty_id", fid, d["id"])
 
 
 @app.get("/api/rooms/{rid}/availability")
 def room_availability(rid: int, conn=Depends(db), d=Depends(current_department)):
-    return availability(conn, "room_id", rid)
+    return availability(conn, "room_id", rid, d["id"])
 
 
 # ---------- department data ----------
@@ -406,6 +454,73 @@ def allocations(conn=Depends(db), d=Depends(current_department)):
         WHERE c.department_id=%s ORDER BY c.id, a.id""", (d["id"],)).fetchall()
 
 
+# ---------- timetable settings: each department decides how its timetable looks ----------
+class SettingsReq(BaseModel):
+    days: list[int]
+    periods: list[dict]
+    rules: dict = {}
+    free: list[list[int]] = []
+
+
+def clean_settings(req):
+    days = sorted(set(req.days))
+    if not days or any(not 0 <= x <= 6 for x in days):
+        raise HTTPException(400, "Choose at least one working day.")
+    if not 1 <= len(req.periods) <= 12:
+        raise HTTPException(400, "Use between 1 and 12 periods a day.")
+    periods, last = [], -1
+    for i, p in enumerate(req.periods, 1):
+        try:
+            s_, e_ = tomin(str(p["start"])), tomin(str(p["end"]))
+        except Exception:
+            raise HTTPException(400, f"Period {i}: please enter a start and end time.")
+        if not (0 <= s_ < e_ <= 24 * 60):
+            raise HTTPException(400, f"Period {i}: the end time must be after the start time.")
+        if s_ < last:
+            raise HTTPException(400, f"Period {i} starts before the previous period ends. List periods in time order without overlap.")
+        periods.append(dict(start=hm(s_), end=hm(e_)))
+        last = e_
+    rules = {}
+    for name, df in RULE_DEFS.items():
+        r = req.rules.get(name) or {}
+        mode = r.get("mode", "off")
+        if mode not in df["modes"]:
+            raise HTTPException(400, f"\u201c{df['title']}\u201d can't be set to {mode}.")
+        item = {"mode": mode}
+        if df["param"]:
+            v = r.get(df["param"]["key"], df["param"]["default"])
+            if not isinstance(v, int) or not df["param"]["min"] <= v <= df["param"]["max"]:
+                raise HTTPException(400, f"{df['param']['label']} should be between {df['param']['min']} and {df['param']['max']}.")
+            item[df["param"]["key"]] = v
+        rules[name] = item
+    free = sorted({(a, b) for a, b in req.free if a in days and 0 <= b < len(periods)})
+    return dict(days=days, periods=periods, rules=rules, free=[list(x) for x in free])
+
+
+def stale(conn, dept_id, cfg):
+    """True when saved sessions no longer match the department's current days and period times."""
+    grid = {(dd, tomin(p["start"]), tomin(p["end"])) for dd in cfg["days"] for p in cfg["periods"]}
+    return any((r["day"], r["start_min"], r["end_min"]) not in grid for r in conn.execute(
+        "SELECT e.day, e.start_min, e.end_min FROM timetable_entry e JOIN class c ON c.id=e.class_id WHERE c.department_id=%s", (dept_id,)))
+
+
+@app.get("/api/settings")
+def get_settings(conn=Depends(db), d=Depends(current_department)):
+    cfg = load_settings(conn, d["id"])
+    return dict(config=cfg, rule_defs=RULE_DEFS, stale=stale(conn, d["id"], cfg))
+
+
+@app.put("/api/settings")
+def save_settings(req: SettingsReq, conn=Depends(db), d=Depends(current_department)):
+    cfg = clean_settings(req)
+    old = load_settings(conn, d["id"])
+    conn.execute("""INSERT INTO department_settings (department_id, config) VALUES (%s,%s)
+                    ON CONFLICT (department_id) DO UPDATE SET config=EXCLUDED.config, updated_at=now()""", (d["id"], Jsonb(cfg)))
+    note(conn, d["id"], "settings", old={"periods": len(old["periods"]), "days": len(old["days"])}, new={"periods": len(cfg["periods"]), "days": len(cfg["days"])})
+    cfg["saved"] = True
+    return dict(config=cfg, stale=stale(conn, d["id"], cfg))
+
+
 # ---------- status ----------
 NEXT = {"draft": ["under_review"], "under_review": ["approved", "draft"], "approved": ["published", "draft"],
         "published": ["frozen"], "frozen": ["published"]}
@@ -433,45 +548,47 @@ class MoveReq(BaseModel):
 
 
 def check(conn, d, entry_id, day, period):
-    e = conn.execute("SELECT e.*, c.department_id, t.status FROM timetable_entry e JOIN class c ON c.id=e.class_id JOIN timetable t ON t.class_id=c.id WHERE e.id=%s", (entry_id,)).fetchone()
+    e = conn.execute("""SELECT e.*, c.department_id, t.status, s.name AS subject FROM timetable_entry e JOIN class c ON c.id=e.class_id
+        JOIN timetable t ON t.class_id=c.id JOIN teacher_allocation a ON a.id=e.allocation_id JOIN subject s ON s.id=a.subject_id WHERE e.id=%s""", (entry_id,)).fetchone()
     if not e:
         raise HTTPException(404, "We couldn't find that session.")
     if e["department_id"] != d["id"]:
         raise HTTPException(403, "This session belongs to another department's timetable.")
-    sl = slots(conn)
-    target = next((k for k, v in sl.items() if v[0] == day and v[1] == period), None)
-    if target is None:
-        return e, None, False, "That isn't a teaching period.", None
-    teachers, rooms_ = shared(conn, sl)
-    data = dict(teachers=teachers, rooms=rooms_, busy=placed(conn, sl, exclude_entry=entry_id))
-    ok, why = validate_move(data, {"class": e["class_id"], "teacher": e["faculty_id"], "room": e["room_id"]}, day, period)
+    cfg = load_settings(conn, d["id"])
+    if day not in cfg["days"] or not 0 <= period < len(cfg["periods"]):
+        return e, None, False, "That isn't one of your teaching periods."
+    s_, e_ = tomin(cfg["periods"][period]["start"]), tomin(cfg["periods"][period]["end"])
+    teachers, rooms_ = shared(conn)
+    data = dict(teachers=teachers, rooms=rooms_, busy=placed(conn, exclude_entry=entry_id), settings={d["code"]: solver_cfg(cfg)})
+    entry = {"class": e["class_id"], "teacher": e["faculty_id"], "room": e["room_id"], "subject": e["subject"], "department": d["code"]}
+    ok, why = validate_move(data, entry, day, period, s_, e_)
     room = e["room_id"]
     if ok:
-        taken = {b["room"] for b in data["busy"] if b["day"] == day and b["period"] == period}
+        taken = {b["room"] for b in data["busy"] if b["day"] == day and ov(s_, e_, b["start"], b["end"])}
         if room in taken:
             kind = next(r["type"] for r in rooms_ if r["id"] == room)
             room = next(r["id"] for r in rooms_ if r["type"] == kind and r["id"] not in taken)
-    return e, (target, room), ok, why, sl
+    return e, (day, period, s_, e_, room), ok, why
 
 
 def apply_move(conn, d, entry_id, day, period, reason, action):
     with conn.transaction():
         conn.execute("SELECT pg_advisory_xact_lock(1)")
-        e, tgt, ok, why, sl = check(conn, d, entry_id, day, period)   # re-checked inside the lock
+        e, tgt, ok, why = check(conn, d, entry_id, day, period)   # re-checked inside the lock
         if not ok:
             raise HTTPException(409, f"This change can't be made. {why}")
-        old = sl[e["time_slot_id"]]
         try:
-            conn.execute("UPDATE timetable_entry SET time_slot_id=%s, room_id=%s WHERE id=%s", (tgt[0], tgt[1], entry_id))
-        except psycopg.errors.UniqueViolation:
+            conn.execute("UPDATE timetable_entry SET day=%s, period=%s, start_min=%s, end_min=%s, room_id=%s WHERE id=%s",
+                         (tgt[0], tgt[1], tgt[2], tgt[3], tgt[4], entry_id))
+        except (psycopg.errors.ExclusionViolation, psycopg.errors.UniqueViolation):
             raise HTTPException(409, "This change can't be made. Someone just used that time. Please choose another period.")
-        note(conn, d["id"], action, entry_id, {"when": when(old)}, {"when": when(sl[tgt[0]])}, reason)
+        note(conn, d["id"], action, entry_id, {"when": when(e["day"], e["start_min"], e["end_min"])}, {"when": when(tgt[0], tgt[2], tgt[3])}, reason)
     return dict(ok=True, message="Change made.")
 
 
 @app.post("/api/entries/{entry_id}/check")
 def check_move(entry_id: int, req: MoveReq, conn=Depends(db), d=Depends(current_department)):
-    _, _, ok, why, _ = check(conn, d, entry_id, req.day, req.period)
+    _, _, ok, why = check(conn, d, entry_id, req.day, req.period)
     return dict(allowed=ok, message=why if not ok else "This change is allowed.")
 
 

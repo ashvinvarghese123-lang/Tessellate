@@ -70,5 +70,16 @@ Render rebuilds and deploys automatically. If something breaks, Render > Deploys
 - Know your backup and restore options on your Neon plan, and test a restore once.
 - Sessions, rate limits and lockouts are kept in the app/database, so a restart does not log people out, but sign-up rate limiting is per running instance.
 
+## Email on Render's free plan (important)
+Render's free web services block the normal email ports (25, 465, 587), so Gmail/SMTP codes never arrive there. Use an email service over HTTPS instead (works on every plan): Brevo.
+1. Create a free Brevo account, verify a sender address (Senders > add your email, click the link they email you).
+2. Brevo > SMTP & API > API keys > create a key.
+3. In Render > Environment add `BREVO_API_KEY` (the key) and set `SMTP_FROM` to the verified sender address. Save; Render redeploys.
+Paid Render plans can use SMTP on ports 465/587, but the HTTPS way works everywhere. If codes still do not arrive, open Render > Logs: a line starting "Email to ... was refused" or "could not be sent" says why.
+
+## Updating an existing live database for department timing and rules (migration 004)
+This update adds `backend/db/migrations/004_department_timing.sql`. It runs by itself at the next deploy (migrate.py is part of the start command). Existing sessions keep their days and times. Take a Neon backup or branch first, because it replaces the old per-slot uniqueness with time-overlap protection.
+Each department then chooses its days, period times, breaks and rules under **Rules**. Until a department saves its own settings it uses the college's original six periods and has NO optional rules turned on.
+
 ## Known gaps
 Excel/CSV import, PDF/Excel export and website faculty sync are not built. Email delivery has been tested only with a stand-in, not a real mail server: send yourself a code first.
