@@ -13,7 +13,7 @@ def clashes(entries):
     bad = 0
     for i, a in enumerate(entries):
         for b in entries[i + 1:]:
-            if a["day"] == b["day"] and ov(a["start"], a["end"], b["start"], b["end"]) and (a["teacher"] == b["teacher"] or a["class"] == b["class"] or a["room"] == b["room"]):
+            if a["day"] == b["day"] and ov(a["start"], a["end"], b["start"], b["end"]) and (a["teacher"] == b["teacher"] or a["class"] == b["class"] or (a["room"] is not None and a["room"] == b["room"])):
                 bad += 1
     return bad
 
@@ -95,7 +95,7 @@ ok(validate_move(dm, dict(e, department="MATH"), 4, 0, H("09:30"), H("10:30"))[1
 tiny = dict(base, rooms=[rooms[0], rooms[4]], teachers=dict(teachers, T3=T("Dr. Rahul Menon", 8)), settings={d: S() for d in depts})
 big = [A("CS1","L","T1",20,"Computer lab"),A("CS2","L2","T2",15,"Computer lab"),A("MA1","Calc","T3",12)]
 r3 = generate(dict(tiny, allocations=big), 5)
-ok(r3["status"] == "impossible" and any("needs 20 sessions" in p for p in r3["problems"]), "impossible timetable explained"); [print("   -", p) for p in r3["problems"]]
+ok(r3["status"] == "impossible" and any("20 sessions to teach" in p for p in r3["problems"]), "impossible timetable explained"); [print("   -", p) for p in r3["problems"]]
 
 # 5) equal priority: a joint re-balance finds a fit that 'first come first served' misses
 tz = {"Z": T("Dr. Z", 10, [(d, 0, 1440) for d in range(1, 5)] + [(0, H("11:00"), 1440), (0, 0, H("09:00"))])}
@@ -113,4 +113,14 @@ print("CS alone took:", (e0["day"], e0["start"]), "| Maths after CS:", stuck["st
 ok(stuck["status"] == "impossible", "first come, first served: Maths is blocked once CS has taken the only slot it can use")
 prop = rebalance(dict(d2, allocations=[cs_a, ma_a], busy=blocked, current=[dict(allocation=0, day=e0["day"], start=e0["start"], room=e0["room"])]), 5)
 ok(prop["status"] == "ok" and len(prop["entries"]) == 2 and clashes(prop["entries"]) == 0, "re-balance finds a college-wide fit; moved by dept: " + str(prop.get("moved_by_department")))
+
+# 6) rooms are switched off: timetables are made without rooms or labs (the situation on the live site)
+nr = generate(dict(base, allocations=alloc, use_rooms=False, rooms=[]), 20)
+ok(nr["status"] == "ok" and len(nr["entries"]) == sum(a["sessions"] for a in alloc), "no rooms in the college at all: the timetable is still made")
+ok(all(e["room"] is None for e in nr["entries"]), "sessions carry no room")
+tc = [e for e in nr["entries"] if True]; ok(clashes([dict(e, room=None) for e in tc]) == 0, "teacher and class clashes are still prevented without rooms")
+# 7) one root cause = one issue with one short fix (no pile of 'missing sessions')
+one = generate(dict(base, use_rooms=False, rooms=[], allocations=[A("CS1", "Big", "T1", 25)]), 5)
+ok(one["status"] == "impossible" and len(one["issues"]) >= 1 and all(set(i) >= {"issue", "fix"} for i in one["issues"]), "an impossible timetable gives clear issues, each with a short fix")
+print("   ->", one["issues"][0])
 print("ALL ENGINE CHECKS PASSED")

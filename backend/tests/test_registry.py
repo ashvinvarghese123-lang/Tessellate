@@ -1,5 +1,6 @@
 """Registry test. Needs the seeded DB:  SEED_PASSWORD=TestPass-1234 python db/seed.py && python tests/test_registry.py"""
 import os, re, sys
+os.environ["USE_ROOMS"] = "1"      # this test covers the dormant rooms feature
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 from fastapi.testclient import TestClient
 import api.auth as auth, api.registry as reg

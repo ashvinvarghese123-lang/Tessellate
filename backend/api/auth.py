@@ -217,7 +217,8 @@ def current_department(request: Request, conn=Depends(db)):
 
 @router.get("/me")
 def me(d=Depends(current_department)):
-    return dict(department=dict(code=d["code"], name=d["name"]), username=d["username"], email_hint=d["email_hint"])
+    from .config import USE_ROOMS
+    return dict(department=dict(code=d["code"], name=d["name"]), username=d["username"], email_hint=d["email_hint"], features=dict(rooms=USE_ROOMS))
 
 
 @router.post("/logout")

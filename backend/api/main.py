@@ -13,10 +13,11 @@ from fastapi.staticfiles import StaticFiles
 import os
 from pydantic import BaseModel
 
-from engine.solver import RULE_DEFS, generate, rebalance, validate_move, ov
+from engine.solver import RULE_DEFS, generate, issues, rebalance, validate_move, ov
 from .auth import current_department, router as auth_router
 from .registry import router as registry_router
 from .db import db
+from .config import USE_ROOMS
 
 # Refuse to start in production with unsafe settings (so a mistake shows up at deploy time, not as a breach later).
 if os.environ.get("TESSELLATE_ENV") == "production":
@@ -134,7 +135,7 @@ def build_input(conn, d, class_id=None, joint=False):
     busy = [] if joint else [b for b in placed(conn) if b["class"] not in ids]
     for t, T in teachers.items():            # workload already used by sessions that stay as they are
         T["existing_load"] = sum(1 for b in busy if b["teacher"] == t)
-    data = dict(settings=settings, teachers=teachers, classes=classes, rooms=rooms, allocations=allocs, busy=busy)
+    data = dict(settings=settings, teachers=teachers, classes=classes, rooms=rooms, allocations=allocs, busy=busy, use_rooms=USE_ROOMS)
     if joint:
         idx = {a["id"]: i for i, a in enumerate(allocs)}
         data["current"] = [dict(allocation=idx[o["allocation_id"]], day=o["day"], start=o["start_min"], room=o["room_id"])
@@ -167,7 +168,8 @@ def generate_timetable(req: GenReq, conn=Depends(db), d=Depends(current_departme
                                                         Jsonb(res["problems"]), d["account_id"]))
         if res["status"] != "ok":
             return dict(status="impossible", message="We couldn't create a valid timetable with the current settings.",
-                        problems=res["problems"], suggestions=res["suggestions"], can_look_for_alternative=True)
+                        issues=res["issues"], problems=res["problems"], suggestions=res["suggestions"],
+                        can_look_for_alternative=any(i.get("alt") for i in res["issues"]))
         conn.execute("DELETE FROM timetable_entry WHERE class_id = ANY(%s)", (list(data["classes"]),))
         try:
             for e in res["entries"]:
@@ -187,7 +189,7 @@ def look_for_alternative(conn=Depends(db), d=Depends(current_department)):
     res = rebalance(data, 20)
     if res["status"] != "ok":
         return dict(status="impossible", message="Even with every department's timetable rearranged, the current settings don't fit.",
-                    problems=res["problems"], suggestions=res["suggestions"])
+                    issues=res["issues"], problems=res["problems"], suggestions=res["suggestions"])
     names = {c["code"]: c["name"] for c in conn.execute("SELECT code, name FROM department")}
     return dict(status="proposal", quality=res["score"],
                 affected_departments=[dict(department=names.get(k, k), sessions_changed=v) for k, v in res["moved_by_department"].items()],
@@ -195,6 +197,21 @@ def look_for_alternative(conn=Depends(db), d=Depends(current_department)):
 
 
 # ---------- read: workspace + shared resources ----------
+@app.get("/api/conflicts")
+def conflicts(conn=Depends(db), d=Depends(current_department)):
+    """What is actually wrong, not a list of every unplaced session. Each item: one issue and one short fix."""
+    data = build_input(conn, d)
+    items = issues(data) if data["allocations"] else []
+    generated = conn.execute("SELECT count(*) n FROM timetable_entry e JOIN class c ON c.id=e.class_id WHERE c.department_id=%s", (d["id"],)).fetchone()["n"] > 0
+    if not items and generated:
+        miss = conn.execute("""SELECT count(*) n FROM teacher_allocation a JOIN class c ON c.id=a.class_id WHERE c.department_id=%s
+            AND a.sessions_per_week > (SELECT count(*) FROM timetable_entry e WHERE e.allocation_id=a.id)""", (d["id"],)).fetchone()["n"]
+        if miss:
+            items = [dict(issue=f"{miss} subject(s) don't have all their weekly sessions yet.",
+                          fix="Click Generate timetable again. If it still fails, change a Required rule to Prefer in Rules.")]
+    return dict(items=items, generated=generated)
+
+
 @app.get("/api/dashboard")
 def dashboard(conn=Depends(db), d=Depends(current_department)):
     n = lambda q, *a: conn.execute(q, a).fetchone()["n"]
@@ -243,7 +260,7 @@ def class_timetable(class_id: int, conn=Depends(db), d=Depends(current_departmen
     own_class(conn, d, class_id)
     rows = conn.execute("""SELECT e.id, e.day, e.period, e.start_min, e.end_min, s.name subject, f.name teacher, r.name room, s.kind FROM timetable_entry e
         JOIN teacher_allocation a ON a.id=e.allocation_id JOIN subject s ON s.id=a.subject_id
-        JOIN faculty f ON f.id=e.faculty_id JOIN room r ON r.id=e.room_id WHERE e.class_id=%s ORDER BY e.day, e.start_min""", (class_id,)).fetchall()
+        JOIN faculty f ON f.id=e.faculty_id LEFT JOIN room r ON r.id=e.room_id WHERE e.class_id=%s ORDER BY e.day, e.start_min""", (class_id,)).fetchall()
     return [dict(id=r["id"], day=r["day"], period=r["period"], start=hm(r["start_min"]), end=hm(r["end_min"]), subject=r["subject"],
                  teacher=r["teacher"], room=r["room"], lab=r["kind"] == "Lab") for r in rows]
 
@@ -251,7 +268,7 @@ def class_timetable(class_id: int, conn=Depends(db), d=Depends(current_departmen
 def view(conn, col, rid):
     rows = conn.execute(f"""SELECT e.day, e.period, e.start_min, e.end_min, s.name subject, f.name teacher, r.name room, c.name class_name, dp.name department
         FROM timetable_entry e JOIN teacher_allocation a ON a.id=e.allocation_id JOIN subject s ON s.id=a.subject_id
-        JOIN faculty f ON f.id=e.faculty_id JOIN room r ON r.id=e.room_id JOIN class c ON c.id=e.class_id
+        JOIN faculty f ON f.id=e.faculty_id LEFT JOIN room r ON r.id=e.room_id JOIN class c ON c.id=e.class_id
         JOIN department dp ON dp.id=c.department_id WHERE e.{col}=%s ORDER BY e.day, e.start_min""", (rid,)).fetchall()
     return [dict(day=r["day"], period=r["period"], start=hm(r["start_min"]), end=hm(r["end_min"]), smin=r["start_min"], emin=r["end_min"],
                  **{k: r[k] for k in ("subject", "teacher", "room", "class_name", "department")}) for r in rows]
@@ -375,6 +392,8 @@ def remove_faculty(fid: int, conn=Depends(db), d=Depends(current_department)):
 
 @app.get("/api/rooms")
 def rooms(conn=Depends(db), d=Depends(current_department)):
+    if not USE_ROOMS:
+        raise HTTPException(404, "Rooms aren't used yet.")
     return conn.execute("SELECT id, name, room_type, capacity FROM room ORDER BY id").fetchall()
 
 
@@ -385,6 +404,8 @@ def teacher_timetable(fid: int, conn=Depends(db), d=Depends(current_department))
 
 @app.get("/api/rooms/{rid}/timetable")
 def room_timetable(rid: int, conn=Depends(db), d=Depends(current_department)):
+    if not USE_ROOMS:
+        raise HTTPException(404, "Rooms aren't used yet.")
     return view(conn, "room_id", rid)
 
 
@@ -417,6 +438,8 @@ def faculty_availability(fid: int, conn=Depends(db), d=Depends(current_departmen
 
 @app.get("/api/rooms/{rid}/availability")
 def room_availability(rid: int, conn=Depends(db), d=Depends(current_department)):
+    if not USE_ROOMS:
+        raise HTTPException(404, "Rooms aren't used yet.")
     return availability(conn, "room_id", rid, d["id"])
 
 
@@ -434,9 +457,10 @@ def add_allocation(req: AllocReq, conn=Depends(db), d=Depends(current_department
     own_class(conn, d, req.class_id)
     if not 1 <= req.sessions <= 30:
         raise HTTPException(400, "Weekly sessions should be between 1 and 30.")
-    rt = req.lab or "Classroom"
+    lab = req.lab if USE_ROOMS else None      # lab types need rooms; ignored while rooms are off
+    rt = lab or "Classroom"
     sid = conn.execute("INSERT INTO subject (name, department_id, kind, required_room_type) VALUES (%s,%s,%s,%s) RETURNING id",
-                       (req.subject.strip(), d["id"], "Lab" if req.lab else "Lecture", rt)).fetchone()["id"]
+                       (req.subject.strip(), d["id"], "Lab" if lab else "Lecture", rt)).fetchone()["id"]
     try:
         conn.execute("INSERT INTO teacher_allocation (class_id, subject_id, faculty_id, sessions_per_week) VALUES (%s,%s,%s,%s)",
                      (req.class_id, sid, req.faculty_id, req.sessions))
@@ -559,13 +583,13 @@ def check(conn, d, entry_id, day, period):
         return e, None, False, "That isn't one of your teaching periods."
     s_, e_ = tomin(cfg["periods"][period]["start"]), tomin(cfg["periods"][period]["end"])
     teachers, rooms_ = shared(conn)
-    data = dict(teachers=teachers, rooms=rooms_, busy=placed(conn, exclude_entry=entry_id), settings={d["code"]: solver_cfg(cfg)})
+    data = dict(teachers=teachers, rooms=rooms_, busy=placed(conn, exclude_entry=entry_id), settings={d["code"]: solver_cfg(cfg)}, use_rooms=USE_ROOMS)
     entry = {"class": e["class_id"], "teacher": e["faculty_id"], "room": e["room_id"], "subject": e["subject"], "department": d["code"]}
     ok, why = validate_move(data, entry, day, period, s_, e_)
     room = e["room_id"]
     if ok:
-        taken = {b["room"] for b in data["busy"] if b["day"] == day and ov(s_, e_, b["start"], b["end"])}
-        if room in taken:
+        taken = {b["room"] for b in data["busy"] if b["day"] == day and ov(s_, e_, b["start"], b["end"]) and b["room"] is not None}
+        if USE_ROOMS and room is not None and room in taken:
             kind = next(r["type"] for r in rooms_ if r["id"] == room)
             room = next(r["id"] for r in rooms_ if r["type"] == kind and r["id"] not in taken)
     return e, (day, period, s_, e_, room), ok, why

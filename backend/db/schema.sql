@@ -255,3 +255,5 @@ CREATE VIEW faculty_busy AS
 SELECT e.faculty_id, e.day, e.period, e.start_min, e.end_min, d.name AS department, c.name AS class_name, s.name AS subject
 FROM timetable_entry e JOIN class c ON c.id = e.class_id JOIN department d ON d.id = c.department_id
 JOIN teacher_allocation a ON a.id = e.allocation_id JOIN subject s ON s.id = a.subject_id;
+-- Rooms are optional for now: a timetable session may have no room. Room data is kept for later.
+ALTER TABLE timetable_entry ALTER COLUMN room_id DROP NOT NULL;

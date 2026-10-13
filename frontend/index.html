@@ -73,6 +73,7 @@ table.l{width:100%;border-collapse:collapse}.l th{text-align:left;font-weight:50
 <div class="ov" id="ov" role="dialog" aria-label="Working"><div style="max-width:420px;width:100%"><div class="lab">Preparing timetable</div><h1 id="ovt">Timetable</h1><ul id="steps" aria-live="polite"></ul></div></div>
 <script>
 const DAYS=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'],tmn=t=>+t.slice(0,2)*60+ +t.slice(3,5);
+const roomsOn=()=>!!(me&&me.features&&me.features.rooms);
 const STD=[['09:00','10:00'],['10:00','11:00'],['11:15','12:15'],['12:15','13:15'],['14:00','15:00'],['15:00','16:00']];
 const $=s=>document.querySelector(s),R=$('#root');
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -94,7 +95,7 @@ function loginHtml(){
  <label for="u">Department username</label><input id="u" autocapitalize="none" required><button type="button" class="btn" data-go="sendreset">Send reset code</button>
  <label for="t">Reset code from the email</label><input id="t"><label for="n">New password (10+ characters, letters and numbers)</label><input id="n" type="password" autocomplete="new-password">
  <button class="btn p">Set new password</button><div class="err" id="e" role="alert"></div><button type="button" class="lk" data-go="login">Back to sign in</button></form></div>`}
-function shell(inner){return `<div class="app"><nav aria-label="Main"><div class="logo">Tessellate</div><div class="sm" style="margin:0 10px 14px">${esc(me.department.name)}</div>${NAV.map(([k,l])=>`<button data-v="${k}" ${V==k?'aria-current="page"':''}>${l}</button>`).join('')}</nav><main>${inner}</main></div>`}
+function shell(inner){return `<div class="app"><nav aria-label="Main"><div class="logo">Tessellate</div><div class="sm" style="margin:0 10px 14px">${esc(me.department.name)}</div>${NAV.filter(([k])=>k!='ro'||roomsOn()).map(([k,l])=>`<button data-v="${k}" ${V==k?'aria-current="page"':''}>${l}</button>`).join('')}</nav><main>${inner}</main></div>`}
 const head=(l,t,s,a)=>`<div class="row sp" style="align-items:flex-end"><div><div class="lab">${l}</div><h1>${t}</h1><p class="sub">${s}</p></div>${a||''}</div>`;
 const tab=(h,rows)=>`<table class="l"><thead><tr>${h.map(x=>`<th>${x}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
 const STL={draft:'Draft',under_review:'Under review',approved:'Approved',published:'Published',frozen:'Frozen'},NXT={draft:['Submit for review','under_review'],under_review:['Approve','approved'],approved:['Publish','published'],published:['Freeze','frozen'],frozen:['Unfreeze','published']};
@@ -121,11 +122,10 @@ async function page(){
   tab(['ID','Name','Home department','Sessions','Actions'],fv.map(x=>[x.faculty_code,esc(x.name),esc(x.department),`${x.sessions} / ${x.max_weekly_sessions}`,`<div class="row"><button class="btn" data-fav="${x.id}">Availability</button>${x.editable?`<button class="btn" data-fe="${x.id}">Edit</button>`:`<span class="sm">Managed by ${esc(dOf(x))}</span>`}</div>`]))+(av&&!panel?'<h2>'+esc(f.find(x=>x.id==S.fav).name)+'</h2>'+avGrid(av):'')}
  if(V=='ro'){const r=await api('/api/rooms'),show=S.rt=='lab'?r.filter(x=>x.room_type!='Classroom'):r,av=S.rav?await api(`/api/rooms/${S.rav}/availability`):null;
   return head('Shared','Rooms &amp; laboratories','One list for the whole college')+`<div class="seg noprint" role="group">${[['all','All'],['lab','Laboratories']].map(([k,l])=>`<button data-rt="${k}" aria-pressed="${S.rt==k}">${l}</button>`).join('')}</div>`+tab(['Name','Type','Capacity','Availability'],show.map(x=>[esc(x.name),x.room_type,x.capacity,`<button class="btn" data-rav="${x.id}">View</button>`]))+(av?'<h2>'+esc(r.find(x=>x.id==S.rav).name)+'</h2>'+avGrid(av):'')}
- if(V=='co'){const a=await api('/api/allocations'),f=await api('/api/faculty'),m=a.filter(x=>x.placed<x.sessions_per_week);
-  const w=f.filter(x=>x.sessions/x.max_weekly_sessions>.85);
-  return head('Review','Conflicts',m.length?m.length+' items need attention':'Everything looks good')+(m.length||w.length?'':'<div class="empty"><h2>✓ No scheduling conflicts</h2></div>')+
-  m.map(x=>`<div class="item"><span class="tag c">Issue</span><b>Missing sessions</b><div>${esc(x.subject)} · ${esc(x.class_name)}: ${x.placed} of ${x.sessions_per_week} placed.</div><div class="sm">Suggestion: choose another teacher, increase available periods, or add another room.</div></div>`).join('')+
-  w.map(x=>`<div class="item"><span class="tag w">Warning</span><b>Teacher workload</b><div>${esc(x.name)} is at ${x.sessions} of ${x.max_weekly_sessions} sessions.</div></div>`).join('')+(S.gen?genPanel():'')}
+ if(V=='co'){const r=await api('/api/conflicts'),items=(S.gen&&S.gen.issues)||r.items;
+  const alt=S.alt?(S.alt.status=='proposal'?`<div class="note"><b>A better college-wide arrangement exists.</b><p>${esc(S.alt.message)}</p>${S.alt.affected_departments.map(x=>`<div class="item">${esc(x.department)}: ${x.sessions_changed} sessions would change</div>`).join('')}</div>`:`<div class="note"><b>${esc(S.alt.message)}</b></div>`):'';
+  return head('Review','Conflicts',items.length?'What needs fixing':'Nothing to fix')+(items.length?items.map(x=>`<div class="item"><span class="tag c">Issue</span><b>${esc(x.issue)}</b><div style="margin-top:4px">Fix: ${esc(x.fix)}</div></div>`).join(''):`<div class="empty"><h2>✓ No conflicts</h2><p>${r.generated?'Your timetable has no problems.':'Generate your timetable to see if anything needs fixing.'}</p></div>`)+
+  (items.some(x=>x.alt)?`<div class="row noprint" style="margin-top:14px"><button class="btn" data-a="alt">Look for a better college-wide arrangement</button></div>`:'')+alt}
  if(V=='se'){const h=await api('/api/audit');return head('Account',esc(me.department.name),'Signed in as '+esc(me.username)+' · '+esc(me.email_hint))+
   `<div class="row noprint"><button class="btn" data-a="pw">Change password</button><button class="btn" data-a="outall">Sign out of all devices</button><button class="btn" data-a="out">Sign out</button></div><h2>Recent changes</h2>`+(h.length?tab(['When','What','Details'],h.map(x=>[new Date(x.at).toLocaleString(),esc(x.action.replace('_',' ')),esc(x.reason||(x.new_value&&x.new_value.when)||'')])):'<p class="sub">No changes recorded yet.</p>')}}
 function facForm(ed,a){const v=ed||{},cell=(d,p)=>{const c=a.find(x=>x.day==d&&x.period==p);if(c&&c.state=='busy')return `<div class="bz off" style="min-height:40px" title="${esc(c.reason)}">Teaching</div>`;const on=S.un.has(d+','+p);return `<button type="button" class="tg ${on?'on':''}" data-un="${d},${p}" aria-pressed="${on}">${on?'Unavailable':'Available'}</button>`};
@@ -149,13 +149,13 @@ async function tt(){const [cs,st]=await Promise.all([api('/api/classes'),api('/a
  rws=rws.sort((a,b)=>a.s<b.s?-1:a.s>b.s?1:0);
  const days=[...new Set(cfg.days.concat(rows.map(r=>r.day)))].sort((a,b)=>a-b),narrow=innerWidth<820,ds=narrow?[days.includes(S.dy)?S.dy:days[0]]:days;
  const cell=(d,r)=>{const e=rows.find(x=>x.day==d&&x.start==r.s&&x.end==r.e);if(!e)return '<div class="fr">'+((cfg.free||[]).some(f=>f[0]==d&&f[1]==r.p)?'Kept free':'Free')+'</div>';
-  return `<div class="c ${e.lab?'lb':''}" ${S.mode=='class'?`draggable="true" data-id="${e.id}"`:''} tabindex="0"><b>${esc(e.subject)}</b><span>${esc(S.mode=='class'?e.teacher:e.class_name)}</span><span>${esc(S.mode=='room'?e.teacher:e.room)}</span></div>`};
+  return `<div class="c ${e.lab?'lb':''}" ${S.mode=='class'?`draggable="true" data-id="${e.id}"`:''} tabindex="0"><b>${esc(e.subject)}</b><span>${esc(S.mode=='class'?e.teacher:e.class_name)}</span>${roomsOn()?`<span>${esc(S.mode=='room'?e.teacher:e.room)}</span>`:''}</div>`};
  let g=`<div class="gw"><table class="g"><thead><tr><th></th>${ds.map(d=>`<th>${DAYS[d]}</th>`).join('')}</tr></thead><tbody>`,prev=null;
  for(const r of rws){if(prev&&tmn(r.s)-tmn(prev.e)>=5)g+=`<tr><td class="t"></td><td class="br" colspan="${ds.length}">BREAK · ${tmn(r.s)-tmn(prev.e)} MIN</td></tr>`;
   g+=`<tr><td class="t">${r.s}<br>${r.e}</td>${ds.map(d=>`<td ${r.p>=0&&S.mode=='class'?`data-d="${d}" data-p="${r.p}"`:''}>${cell(d,r)}</td>`).join('')}</tr>`;prev=r}
  return head('Timetable',esc((ents.find(e=>e[0]==S.sel)||[])[1]),S.mode=='class'?'Drag a session to another period. Every change is checked against the whole college and your rules.':'Shared view across all departments. Read only.',gen)+
  (st.stale?`<div class="note"><b>Your period times or days changed.</b> Generate the timetable again to apply them.</div>`:'')+
- `<div class="row noprint"><div class="seg" role="group" aria-label="View">${[['class','Class'],['teacher','Teacher'],['room','Room / lab']].map(([k,l])=>`<button data-m="${k}" aria-pressed="${S.mode==k}">${l}</button>`).join('')}</div><select id="sel" aria-label="Select">${ents.map(([i,n])=>`<option value="${i}" ${i==S.sel?'selected':''}>${esc(n)}</option>`).join('')}</select><button class="btn" data-a="print">Print</button><button class="btn" data-v="ru">Timing &amp; rules</button></div>`+
+ `<div class="row noprint"><div class="seg" role="group" aria-label="View">${[['class','Class'],['teacher','Teacher']].concat(roomsOn()?[['room','Room / lab']]:[]).map(([k,l])=>`<button data-m="${k}" aria-pressed="${S.mode==k}">${l}</button>`).join('')}</div><select id="sel" aria-label="Select">${ents.map(([i,n])=>`<option value="${i}" ${i==S.sel?'selected':''}>${esc(n)}</option>`).join('')}</select><button class="btn" data-a="print">Print</button><button class="btn" data-v="ru">Timing &amp; rules</button></div>`+
  (narrow?`<div class="seg noprint" style="margin-top:12px">${days.map(i=>`<button data-dy="${i}" aria-pressed="${ds[0]==i}">${DAYS[i].slice(0,3)}</button>`).join('')}</div>`:'')+g+'</tbody></table></div>'}
 async function ru(){if(!S.rcfg){const r=await api('/api/settings');S.rcfg=JSON.parse(JSON.stringify(r.config));S.rdefs=r.rule_defs;S.rstale=r.stale}
  const c=S.rcfg,D=S.rdefs,MODE={off:'Off',prefer:'Prefer when possible',require:'Always required'};
@@ -175,11 +175,9 @@ const facOpts=(f,d)=>f.filter(x=>!d||dOf(x)==d).sort((a,b)=>a.name.localeCompare
 async function su(){const [a,c,f]=await Promise.all([api('/api/allocations'),api('/api/classes'),api('/api/faculty')]);S.fl=f;
  return head('Curriculum','Subjects','Class → subject → sessions per week → faculty',gen)+
  `<div class="note"><div class="row"><label>Class<br><select id="bc">${c.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('')}</select></label><label>Subject<br><input id="bs" placeholder="e.g. Python"></label>
- <label>Type<br><select id="bl"><option value="">Lecture</option><option>Computer lab</option><option>Laboratory</option></select></label><label>Sessions per week<br><select id="bn">${[1,2,3,4,5,6].map(n=>`<option ${n==3?'selected':''}>${n}</option>`).join('')}</select></label>
+ ${roomsOn()?`<label>Type<br><select id="bl"><option value="">Lecture</option><option>Computer lab</option><option>Laboratory</option></select></label>`:''}<label>Sessions per week<br><select id="bn">${[1,2,3,4,5,6].map(n=>`<option ${n==3?'selected':''}>${n}</option>`).join('')}</select></label>
  <label>Faculty department<br><select id="bd">${deptOpts(f,S.bd||'')}</select></label><label>Faculty<br><select id="bt">${facOpts(f,S.bd||'')}</select></label><label><br><button class="btn p" data-a="add">Add subject</button></label></div></div>`+
  tab(['Class','Subject','Faculty','Placed'],a.map(x=>[esc(x.class_name),esc(x.subject),esc(x.teacher),`${x.placed} / ${x.sessions_per_week}`]))}
-function genPanel(){const g=S.gen;if(g.status=='proposal')return `<div class="note"><b>A better college-wide arrangement exists.</b><p>${esc(g.message)}</p>${g.affected_departments.map(x=>`<div class="item">${esc(x.department)}: ${x.sessions_changed} sessions would change</div>`).join('')}</div>`;
- return `<div class="note"><b>${esc(g.message||'We couldn’t create a valid timetable with the current settings.')}</b>${(g.problems||[]).map(p=>`<div class="item">${esc(p)}</div>`).join('')}<p class="sm">Try: ${(g.suggestions||[]).map(esc).join(' · ')}</p>${g.status=='impossible'&&g.can_look_for_alternative?'<button class="btn" data-a="alt">Look for a better college-wide arrangement</button>':''}</div>`}
 function run(fn){const ov=$('#ov'),ul=$('#steps'),st=['Checking faculty availability…','Checking shared resources…','Resolving cross-department conflicts…','Balancing workloads…','Optimizing rooms…','Finalizing schedule…'];
  $('#ovt').textContent=me.department.name;ul.innerHTML='';ov.classList.add('on');let i=0;const iv=setInterval(()=>{if(i<st.length)ul.insertAdjacentHTML('beforeend',`<li>${st[i++]}</li>`)},350);
  fn().then(r=>{clearInterval(iv);ul.insertAdjacentHTML('beforeend',r.status=='ok'?`<li>✓ Timetable ready · no clashes · ${r.rules_used?r.quality+'% on your '+r.rules_used+' rule(s)':'no rules chosen yet'}</li>`:'<li>We couldn’t fit every session</li>');setTimeout(()=>{ov.classList.remove('on');S.gen=r.status=='ok'?null:r;if(r.status!='ok')V='co';draw()},1100)}).catch(e=>{clearInterval(iv);ov.classList.remove('on');toast(e.message)})}
@@ -194,7 +192,7 @@ document.addEventListener('click',async ev=>{const t=ev.target.closest('button')
  try{if(D.go=='forgot'||D.go=='login'){screen=D.go;draw()}
  else if(D.go=='resend'){if(cool>0)return;await api('/api/auth/resend',{method:'POST',body:{challenge_id:ch}});tick();toast('A new code has been sent.',1)}
  else if(D.go=='sendreset'){const r=await api('/api/auth/forgot',{method:'POST',body:{username:$('#u').value}});err(r.message)}
- else if(D.v){V=D.v;S.gen=null;S.rcfg=null;draw()}else if(D.m){S.mode=D.m;S.sel=null;draw()}else if(D.dy){S.dy=+D.dy;draw()}
+ else if(D.v){V=D.v;S.gen=null;S.alt=null;S.rcfg=null;draw()}else if(D.m){S.mode=D.m;S.sel=null;draw()}else if(D.dy){S.dy=+D.dy;draw()}
  else if(D.un){if(S.un.has(D.un))S.un.delete(D.un);else S.un.add(D.un);const on=S.un.has(D.un);t.classList.toggle('on',on);t.setAttribute('aria-pressed',on);t.textContent=on?'Unavailable':'Available'}
  else if(D.fe){S.fe=+D.fe;S.fav=null;draw()}
  else if(D.a=='newfac'){S.fe='new';S.fav=null;draw()}
@@ -205,9 +203,9 @@ document.addEventListener('click',async ev=>{const t=ev.target.closest('button')
  else if(D.a=='rmfac'){const n=$('#fn').value;if(!confirm('Remove '+n+' from the faculty list? This can only be done if they have no subjects.'))return;await api('/api/faculty/'+S.fe,{method:'DELETE'});S.fe=null;toast('Teacher removed.',1);draw()} else if(D.fav){S.fav=D.fav;draw()}else if(D.rav){S.rav=D.rav;draw()}else if(D.rt){S.rt=D.rt;draw()}
  else if(D.why!==undefined){$('#why').textContent=D.why}
  else if(D.a=='gen')run(()=>api('/api/generate',{method:'POST',body:{}}));
- else if(D.a=='alt'){S.gen=await api('/api/alternatives',{method:'POST'});draw()}
+ else if(D.a=='alt'){S.alt=await api('/api/alternatives',{method:'POST'});draw()}
  else if(D.a=='st'){await api('/api/status',{method:'PUT',body:{status:D.s}});toast('Status updated.',1);draw()}
- else if(D.a=='add'){const b=$('#bs').value.trim();if(!b)return toast('Enter a subject name first.');await api('/api/allocations',{method:'POST',body:{class_id:+$('#bc').value,subject:b,faculty_id:+$('#bt').value,sessions:+$('#bn').value,lab:$('#bl').value||null}});toast('Subject added. Generate to schedule it.',1);draw()}
+ else if(D.a=='add'){const b=$('#bs').value.trim();if(!b)return toast('Enter a subject name first.');await api('/api/allocations',{method:'POST',body:{class_id:+$('#bc').value,subject:b,faculty_id:+$('#bt').value,sessions:+$('#bn').value,lab:($('#bl')&&$('#bl').value)||null}});toast('Subject added. Generate to schedule it.',1);draw()}
  else if(D.a=='addclass'){const n=$('#kn').value.trim();if(!n)return toast('Enter a class name first.');await api('/api/classes',{method:'POST',body:{name:n,semester:+$('#ks').value,section:$('#kc').value||'A',students:$('#kt').value?+$('#kt').value:null}});toast('Class added.',1);draw()}
  else if(D.a=='rmper'){const c=S.rcfg;c.periods.splice(+D.i,1);c.free=c.free.filter(f=>f[1]<c.periods.length);redraw()}
  else if(D.a=='addper'){const c=S.rcfg,l=c.periods[c.periods.length-1],st=l?tmn(l.end)+15:540,en=st+60;if(en>1439||c.periods.length>=12)return toast('No room for another period today.');const f=n=>String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0');c.periods.push({start:f(st),end:f(en)});redraw()}

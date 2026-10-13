@@ -81,11 +81,12 @@ def _indexes(data):
 hit = lambda lst, s, e: any(ov(s, e, a, b) for a, b in lst)  # noqa: E731
 
 
-def diagnose(data):
-    """Plain-language reasons a timetable cannot exist. Only reports what is certainly impossible."""
+def issues(data):
+    """Root causes only, each with ONE short fix. Only reports what is certainly impossible."""
     out = []
     bt, br, bc, off = _indexes(data)
     allocs = data["allocations"]
+    use_rooms = data.get("use_rooms", True)
     t_need, c_need, r_need = defaultdict(int), defaultdict(int), defaultdict(int)
     t_depts = defaultdict(set)
     for a in allocs:
@@ -101,24 +102,36 @@ def diagnose(data):
     for t, need in t_need.items():
         T = data["teachers"][t]
         cap = sum(len(usable(dp, lambda d, s, e: hit(off[(t, d)], s, e) or hit(bt[(t, d)], s, e))) for dp in t_depts[t])
-        cap = min(cap, T["max_load"] - T.get("existing_load", 0))
+        cap = max(min(cap, T["max_load"] - T.get("existing_load", 0)), 0)
         if need > cap:
-            out.append(f"{T['name']} needs {need} sessions, but only {max(cap, 0)} suitable periods are available.")
+            out.append(dict(issue=f"{T['name']} has {need} sessions to teach but only {cap} free periods.",
+                            fix="Give some of their subjects to another teacher, or add periods or days in Rules."))
     for c, need in c_need.items():
         dept = data["classes"][c]["department"]
         cap = len(usable(dept, lambda d, s, e: hit(bc[(c, d)], s, e)))
         if need > cap:
-            out.append(f"{data['classes'][c]['name']} needs {need} sessions but has only {cap} free periods.")
-    for rt, need in r_need.items():
-        rs = [r for r in data["rooms"] if r["type"] == rt]
-        if not rs:
-            out.append(f"No {rt.lower()} exists yet, but {need} sessions need one.")
-            continue
-        depts = {a["department"] for a in allocs if a["room_type"] == rt}
-        cap = sum(len(usable(dp, lambda d, s, e: False)) for dp in depts) * len(rs)   # generous upper bound, so it never blocks a possible timetable
-        if rt != "Classroom" and need > cap:
-            out.append(f"{rt}s are needed for {need} sessions but only about {cap} slots exist. Add another {rt.lower()}.")
+            out.append(dict(issue=f"{data['classes'][c]['name']} has {need} sessions a week but only {cap} free periods.",
+                            fix="Reduce some weekly sessions, or add periods or days in Rules."))
+    if use_rooms:
+        for rt, need in r_need.items():
+            rs = [r for r in data["rooms"] if r["type"] == rt]
+            if not rs:
+                out.append(dict(issue=f"No {rt.lower()} exists, but {need} sessions need one.", fix=f"Ask the College Registry to add a {rt.lower()}."))
+                continue
+            depts = {a["department"] for a in allocs if a["room_type"] == rt}
+            cap = sum(len(usable(dp, lambda d, s, e: False)) for dp in depts) * len(rs)   # generous upper bound
+            if rt != "Classroom" and need > cap:
+                out.append(dict(issue=f"{rt}s are needed for {need} sessions but only about {cap} slots exist.", fix=f"Ask the College Registry to add another {rt.lower()}."))
     return out
+
+
+def diagnose(data):
+    return [i["issue"] for i in issues(data)]
+
+
+def _impossible(items):
+    return dict(status="impossible", entries=[], issues=items, problems=[i["issue"] for i in items],
+                suggestions=list(dict.fromkeys(i["fix"] for i in items)))
 
 
 def _atoms(m, items):
@@ -135,11 +148,13 @@ def _atoms(m, items):
 def generate(data, time_limit=30, workers=None):
     """Return {status, entries, score, problems, suggestions}. Never returns an invalid timetable."""
     workers = workers or int(os.environ.get("SOLVER_WORKERS", "8"))   # set SOLVER_WORKERS=2 on a small server
-    probs = diagnose(data)
-    if probs:
-        return dict(status="impossible", entries=[], problems=probs, suggestions=SUGGEST)
+    found = issues(data)
+    if found:
+        return _impossible(found)
 
-    allocs, rooms = data["allocations"], data["rooms"]
+    use_rooms = data.get("use_rooms", True)
+    allocs = data["allocations"]
+    rooms = data["rooms"] if use_rooms else [dict(id=None, type=None)]       # no rooms: one imaginary "no room" choice
     bt, br, bc, off = _indexes(data)
     m = cp_model.CpModel()
     x, info = {}, {}
@@ -150,9 +165,10 @@ def generate(data, time_limit=30, workers=None):
             if (d, p) in free or hit(off[(a["teacher"], d)], s, e) or hit(bt[(a["teacher"], d)], s, e) or hit(bc[(a["class"], d)], s, e):
                 continue
             for r in rooms:
-                if r["type"] == a["room_type"] and not hit(br[(r["id"], d)], s, e):
-                    x[i, d, p, r["id"]] = m.NewBoolVar(f"x{i}_{d}_{p}_{r['id']}")
-                    info[i, d, p, r["id"]] = (s, e)
+                if use_rooms and (r["type"] != a["room_type"] or hit(br[(r["id"], d)], s, e)):
+                    continue
+                x[i, d, p, r["id"]] = m.NewBoolVar(f"x{i}_{d}_{p}_{r['id']}")
+                info[i, d, p, r["id"]] = (s, e)
 
     A, AD, TS, CS, ov_groups = defaultdict(list), defaultdict(list), defaultdict(list), defaultdict(list), defaultdict(list)
     for (i, d, p, r), v in x.items():
@@ -162,12 +178,13 @@ def generate(data, time_limit=30, workers=None):
         TS[a["teacher"], a["department"], d, p].append(v)
         CS[a["class"], d, p].append(v)
         ov_groups["t", a["teacher"], d].append((s, e, v))
-        ov_groups["r", r, d].append((s, e, v))
+        if r is not None:
+            ov_groups["r", r, d].append((s, e, v))
         ov_groups["c", a["class"], d].append((s, e, v))
     for i, a in enumerate(allocs):
         if not A[i]:
-            return dict(status="impossible", entries=[], suggestions=SUGGEST, problems=[
-                f"{a['subject']} for {data['classes'][a['class']]['name']} has no period where the teacher, a suitable room and the class are all free."])
+            return _impossible([dict(issue=f"{a['subject']} ({data['classes'][a['class']]['name']}) has no period where the teacher and the class are both free.",
+                                     fix="Choose another teacher for this subject, or add periods or days in Rules.")])
 
     # ---- Always-on rules ----
     for i, a in enumerate(allocs):
@@ -290,11 +307,11 @@ def generate(data, time_limit=30, workers=None):
     st = sv.Solve(m)
     if st not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
         required = sorted({RULE_DEFS[n]["title"] for dp in {a["department"] for a in allocs} for n in RULE_DEFS if rule(data, dp, n)[0] == "require"})
-        probs = ["We couldn't fit every required session without a clash with the current settings."]
         if required:
-            probs.append("Rules set to Required: " + "; ".join(required) + ".")
-        return dict(status="impossible", entries=[], problems=probs,
-                    suggestions=(["Change a Required rule to Prefer on the Rules page"] if required else []) + SUGGEST)
+            return _impossible([dict(issue="Your Required rules are too strict, so the sessions can't all fit: " + "; ".join(required) + ".",
+                                     fix="Change one of these rules from Always required to Prefer when possible in Rules.")])
+        return _impossible([dict(issue="These sessions can't all fit without clashing with other departments' timetables.",
+                                 fix="Ask the other department to move a session, or add periods or days in Rules.", alt=True)])
     entries = []
     for (i, d, p, r), v in x.items():
         if sv.Value(v):
@@ -376,8 +393,8 @@ def validate_move(data, entry, day, period, start, end):
         mode, mx = rule(data, entry["department"], "class_day_max")
         if mode == "require" and len(same_day) + 1 > mx:
             return False, f"Your rule allows at most {mx} periods per day for a class."
-    taken = {b["room"] for b in here}
-    if entry["room"] in taken:
+    taken = {b["room"] for b in here if b["room"] is not None}
+    if data.get("use_rooms", True) and entry["room"] in taken:
         kind = next(r["type"] for r in data["rooms"] if r["id"] == entry["room"])
         if not any(r["type"] == kind and r["id"] not in taken for r in data["rooms"]):
             return False, "Every suitable room is already being used at that time."

@@ -22,6 +22,12 @@ Tests: `python backend\tests\test_signup.py`
 ## Timing and rules chosen by each department
 Under **Rules** a department sets its working days, period start/end times (gaps are breaks), periods to keep free, and which optional rules apply (Off / Prefer / Always required). Clash checks are always on. Shared teachers and rooms are compared by real time, so two departments can use different bell times without overlapping. Existing database: it is applied by `python backend\db\migrate.py` (migration 004). Tests: `python backend\tests\test_rules.py`.
 
+## Rooms are switched off (for now)
+Timetables are made without rooms or labs. The Rooms page, room view, room on timetable cells, lab subject types and class home rooms are hidden, and nothing is deleted. To bring rooms back later set the environment variable `USE_ROOMS=1` (locally in PowerShell: `$env:USE_ROOMS = "1"` before starting the server; on Render add it under Environment). Database change: migration 005 (applied by `python backend\db\migrate.py`).
+
+## Conflicts page
+Shows only the real issue and one short fix. Tests: `python backend\tests\test_conflicts.py`.
+
 ## College Registry (external, data-only login)
 - Sign in at http://localhost:8000/registry-login.html (linked from the department login page). Same security: password + emailed code.
 - It edits the shared records every department reads: departments, faculty (including moving a teacher to another department), classes, rooms/labs. Changes show immediately in every department workspace.

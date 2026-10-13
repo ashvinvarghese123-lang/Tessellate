@@ -81,5 +81,8 @@ Paid Render plans can use SMTP on ports 465/587, but the HTTPS way works everywh
 This update adds `backend/db/migrations/004_department_timing.sql`. It runs by itself at the next deploy (migrate.py is part of the start command). Existing sessions keep their days and times. Take a Neon backup or branch first, because it replaces the old per-slot uniqueness with time-overlap protection.
 Each department then chooses its days, period times, breaks and rules under **Rules**. Until a department saves its own settings it uses the college's original six periods and has NO optional rules turned on.
 
+## Rooms switched off (migration 005)
+Rooms are hidden and timetables are made without them. The update runs `005_rooms_optional.sql` by itself at the next deploy. To turn rooms back on later: Render > Environment > add `USE_ROOMS` = `1`.
+
 ## Known gaps
 Excel/CSV import, PDF/Excel export and website faculty sync are not built. Email delivery has been tested only with a stand-in, not a real mail server: send yourself a code first.

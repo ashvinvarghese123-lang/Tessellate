@@ -118,7 +118,8 @@ def current_registry(request: Request, conn=Depends(db)):
 
 @router.get("/auth/me")
 def me(u=Depends(current_registry)):
-    return dict(username=u["username"], email_hint=u["email_hint"])
+    from .config import USE_ROOMS
+    return dict(username=u["username"], email_hint=u["email_hint"], features=dict(rooms=USE_ROOMS))
 
 
 @router.post("/auth/logout")
