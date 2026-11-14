@@ -101,11 +101,15 @@ def issues(data):
 
     for t, need in t_need.items():
         T = data["teachers"][t]
-        cap = sum(len(usable(dp, lambda d, s, e: hit(off[(t, d)], s, e) or hit(bt[(t, d)], s, e))) for dp in t_depts[t])
-        cap = max(min(cap, T["max_load"] - T.get("existing_load", 0)), 0)
-        if need > cap:
-            out.append(dict(issue=f"{T['name']} has {need} sessions to teach but only {cap} free periods.",
-                            fix="Give some of their subjects to another teacher, or add periods or days in Rules."))
+        free = sum(len(usable(dp, lambda d, s, e: hit(off[(t, d)], s, e) or hit(bt[(t, d)], s, e))) for dp in t_depts[t])
+        limit = max(T["max_load"] - T.get("existing_load", 0), 0)          # weekly limit minus sessions they already have elsewhere
+        if need > min(free, limit):
+            if limit < free:
+                out.append(dict(issue=f"{T['name']} has {need} sessions to teach but can only teach {limit} more this week (weekly limit {T['max_load']}).",
+                                fix="Raise their weekly limit in Faculty, or give some of their subjects to another teacher."))
+            else:
+                out.append(dict(issue=f"{T['name']} has {need} sessions to teach but only {free} free periods.",
+                                fix="Give some subjects to another teacher, mark fewer periods unavailable, or add periods or days in Rules."))
     for c, need in c_need.items():
         dept = data["classes"][c]["department"]
         cap = len(usable(dept, lambda d, s, e: hit(bc[(c, d)], s, e)))
