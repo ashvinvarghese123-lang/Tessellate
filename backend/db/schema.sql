@@ -341,11 +341,74 @@ ALTER TABLE timetable_entry ALTER COLUMN timetable_id DROP NOT NULL;
 ALTER TABLE timetable_entry ALTER COLUMN faculty_id DROP NOT NULL;
 
 ALTER TABLE timetable_entry DROP CONSTRAINT IF EXISTS te_no_teacher_overlap;
-ALTER TABLE timetable_entry ADD CONSTRAINT te_no_teacher_overlap EXCLUDE USING gist (faculty_id WITH =, day WITH =, span WITH &&) WHERE (faculty_id IS NOT NULL);
-
 ALTER TABLE timetable_entry DROP CONSTRAINT IF EXISTS te_no_class_overlap;
-ALTER TABLE timetable_entry ADD CONSTRAINT te_no_class_overlap EXCLUDE USING gist (class_id WITH =, day WITH =, span WITH &&) WHERE (class_id IS NOT NULL);
-
 ALTER TABLE timetable_entry DROP CONSTRAINT IF EXISTS te_no_section_overlap;
-ALTER TABLE timetable_entry ADD CONSTRAINT te_no_section_overlap EXCLUDE USING gist (section_id WITH =, day WITH =, span WITH &&) WHERE (section_id IS NOT NULL);
+
+-- High-Performance Database Indexes for Timetable Grid, Conflicts & Allocations
+CREATE INDEX IF NOT EXISTS idx_te_class ON timetable_entry(class_id);
+CREATE INDEX IF NOT EXISTS idx_te_offering ON timetable_entry(course_offering_id);
+CREATE INDEX IF NOT EXISTS idx_te_faculty ON timetable_entry(faculty_id);
+CREATE INDEX IF NOT EXISTS idx_te_room ON timetable_entry(room_id);
+CREATE INDEX IF NOT EXISTS idx_te_day_period ON timetable_entry(day, period);
+CREATE INDEX IF NOT EXISTS idx_te_day_span ON timetable_entry(day, start_min, end_min);
+CREATE INDEX IF NOT EXISTS idx_audit_dept ON audit_log(department_id, id DESC);
+CREATE INDEX IF NOT EXISTS idx_class_dept ON class(department_id);
+CREATE INDEX IF NOT EXISTS idx_alloc_class ON teacher_allocation(class_id);
+CREATE INDEX IF NOT EXISTS idx_alloc_faculty ON teacher_allocation(faculty_id);
+
+-- Timetable Entry Overlap Trigger
+CREATE OR REPLACE FUNCTION check_timetable_entry_overlaps() RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.faculty_id IS NOT NULL AND EXISTS (
+        SELECT 1 FROM timetable_entry
+        WHERE id <> coalesce(NEW.id, -1)
+          AND faculty_id = NEW.faculty_id
+          AND day = NEW.day
+          AND start_min < NEW.end_min
+          AND end_min > NEW.start_min
+    ) THEN
+        RAISE EXCEPTION 'Teacher overlap conflict' USING ERRCODE = '23P01';
+    END IF;
+
+    IF NEW.room_id IS NOT NULL AND EXISTS (
+        SELECT 1 FROM timetable_entry
+        WHERE id <> coalesce(NEW.id, -1)
+          AND room_id = NEW.room_id
+          AND day = NEW.day
+          AND start_min < NEW.end_min
+          AND end_min > NEW.start_min
+    ) THEN
+        RAISE EXCEPTION 'Room overlap conflict' USING ERRCODE = '23P01';
+    END IF;
+
+    IF NEW.class_id IS NOT NULL AND EXISTS (
+        SELECT 1 FROM timetable_entry
+        WHERE id <> coalesce(NEW.id, -1)
+          AND class_id = NEW.class_id
+          AND day = NEW.day
+          AND start_min < NEW.end_min
+          AND end_min > NEW.start_min
+    ) THEN
+        RAISE EXCEPTION 'Class overlap conflict' USING ERRCODE = '23P01';
+    END IF;
+
+    IF NEW.section_id IS NOT NULL AND EXISTS (
+        SELECT 1 FROM timetable_entry
+        WHERE id <> coalesce(NEW.id, -1)
+          AND section_id = NEW.section_id
+          AND day = NEW.day
+          AND start_min < NEW.end_min
+          AND end_min > NEW.start_min
+    ) THEN
+        RAISE EXCEPTION 'Section overlap conflict' USING ERRCODE = '23P01';
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_timetable_entry_overlaps ON timetable_entry;
+CREATE TRIGGER trg_timetable_entry_overlaps
+BEFORE INSERT OR UPDATE ON timetable_entry
+FOR EACH ROW EXECUTE FUNCTION check_timetable_entry_overlaps();
 

@@ -1,159 +1,511 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="utf-8">
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Tessellate · College Timetable &amp; Resource Synchronization</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;500;600&family=Instrument+Sans:wght@400;500;600;700&display=swap">
+<title>TESSellate · College Timetable &amp; Resource Synchronization</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-:root{
-  --bg:#f6f4ef;--panel:#fbfaf7;--ink:#1c1c1a;--mute:#7a7872;--line:#e4e1d9;
-  --acc:#4d6a63;--accbg:#e6ece9;--lab:#ebe7dc;--warn:#9a6a1f;--warnbg:#faf2e6;
-  --crit:#a23b34;--critbg:#fceeed;--good:#2e6b4d;--goodbg:#e8f4ec;
-  box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)
+/* =========================================================================
+   1. DESIGN SYSTEM TOKENS (Linear / Stripe Inspired)
+   ========================================================================= */
+:root {
+  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  /* Neutral Surface Palette - Light Mode */
+  --bg-app: #f8fafc;
+  --bg-surface: #ffffff;
+  --bg-surface-hover: #f1f5f9;
+  --bg-subtle: #f1f5f9;
+  --bg-muted: #e2e8f0;
+  
+  /* Text Colors */
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+  --text-tertiary: #94a3b8;
+  --text-inverse: #ffffff;
+
+  /* Borders */
+  --border-subtle: #e2e8f0;
+  --border-strong: #cbd5e1;
+  --border-focus: #3b82f6;
+
+  /* Brand Accent: Sophisticated Royal Indigo / Blue */
+  --brand: #2563eb;
+  --brand-hover: #1d4ed8;
+  --brand-subtle: #eff6ff;
+  --brand-border: #bfdbfe;
+  --brand-text: #1d4ed8;
+
+  /* Semantic Feedback */
+  --success: #10b981;
+  --success-subtle: #ecfdf5;
+  --success-border: #a7f3d0;
+  --success-text: #047857;
+
+  --warning: #f59e0b;
+  --warning-subtle: #fffbeb;
+  --warning-border: #fde68a;
+  --warning-text: #b45309;
+
+  --danger: #ef4444;
+  --danger-subtle: #fef2f2;
+  --danger-border: #fecaca;
+  --danger-text: #b91c1c;
+
+  /* Course Category Badges */
+  --badge-mdc-bg: #fff1f2;
+  --badge-mdc-border: #fecdd3;
+  --badge-mdc-text: #e11d48;
+  --badge-minor-bg: #fffbeb;
+  --badge-minor-border: #fde68a;
+  --badge-minor-text: #b45309;
+  --badge-reg-bg: #f0fdf4;
+  --badge-reg-border: #bbf7d0;
+  --badge-reg-text: #15803d;
+
+  /* Geometry & Elevation */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 9999px;
+
+  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.06);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.08), 0 2px 4px -2px rgb(0 0 0 / 0.04);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.08), 0 4px 6px -4px rgb(0 0 0 / 0.03);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.04);
+
+  --sidebar-width: 240px;
+  --sidebar-width-collapsed: 68px;
+  --topbar-height: 56px;
+
+  --timing-fast: 120ms;
+  --timing-normal: 180ms;
+  --ease-smooth: cubic-bezier(0.16, 1, 0.3, 1);
 }
-@media (prefers-color-scheme:dark){
-  :root:not([data-theme="light"]){
-    --bg:#161615;--panel:#1c1c1a;--ink:#ece9e1;--mute:#97948c;--line:#2e2d2a;
-    --acc:#8fb3a9;--accbg:#233230;--lab:#262521;--warn:#d9a54e;--warnbg:#2f2619;
-    --crit:#e2837c;--critbg:#35201f;--good:#68ba8e;--goodbg:#1c2d24
-  }
+
+[data-theme="dark"] {
+  --bg-app: #0b0f17;
+  --bg-surface: #121a24;
+  --bg-surface-hover: #192332;
+  --bg-subtle: #192332;
+  --bg-muted: #243144;
+
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --text-tertiary: #475569;
+  --text-inverse: #0f172a;
+
+  --border-subtle: #1e293b;
+  --border-strong: #334155;
+  --border-focus: #60a5fa;
+
+  --brand: #3b82f6;
+  --brand-hover: #60a5fa;
+  --brand-subtle: #172554;
+  --brand-border: #1e3a8a;
+  --brand-text: #93c5fd;
+
+  --success: #10b981;
+  --success-subtle: #064e3b;
+  --success-border: #047857;
+  --success-text: #6ee7b7;
+
+  --warning: #f59e0b;
+  --warning-subtle: #451a03;
+  --warning-border: #78350f;
+  --warning-text: #fcd34d;
+
+  --danger: #ef4444;
+  --danger-subtle: #450a0a;
+  --danger-border: #7f1d1d;
+  --danger-text: #fca5a5;
+
+  --badge-mdc-bg: #3f101a;
+  --badge-mdc-border: #881337;
+  --badge-mdc-text: #fda4af;
+  --badge-minor-bg: #3b2204;
+  --badge-minor-border: #78350f;
+  --badge-minor-text: #fde68a;
+  --badge-reg-bg: #072e1c;
+  --badge-reg-border: #14532d;
+  --badge-reg-text: #86efac;
+
+  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.5);
+  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.6);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.6);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.6);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.7);
 }
-:root[data-theme="dark"]{
-  --bg:#161615;--panel:#1c1c1a;--ink:#ece9e1;--mute:#97948c;--line:#2e2d2a;
-  --acc:#8fb3a9;--accbg:#233230;--lab:#262521;--warn:#d9a54e;--warnbg:#2f2619;
-  --crit:#e2837c;--critbg:#35201f;--good:#68ba8e;--goodbg:#1c2d24
+
+/* Base Styles */
+*,*::before,*::after{box-sizing:border-box}
+html{height:100%;-webkit-text-size-adjust:100%}
+body{margin:0;min-height:100%;background:var(--bg-app);color:var(--text-primary);font:14px/1.5 var(--font-sans);-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;transition:background-color var(--timing-normal) ease,color var(--timing-normal) ease}
+
+h1,h2,h3,h4,h5{margin:0;color:var(--text-primary);font-weight:600;letter-spacing:-0.015em}
+h1{font-size:24px;line-height:1.2}
+h2{font-size:18px;line-height:1.25}
+h3{font-size:15px;line-height:1.3}
+p{margin:0 0 12px;color:var(--text-secondary)}
+.sub{color:var(--text-secondary);font-size:13px;line-height:1.4}
+.sm{font-size:12px;color:var(--text-muted)}
+.mono{font-family:var(--font-mono)}
+
+/* Layout Shell */
+.app-shell{display:flex;min-height:100vh}
+.sidebar{
+  width:var(--sidebar-width);flex:none;height:100vh;position:sticky;top:0;
+  background:var(--bg-surface);border-right:1px solid var(--border-subtle);
+  display:flex;flex-direction:column;z-index:20;
+  transition:width var(--timing-normal) var(--ease-smooth);
 }
-html{scroll-padding-top:env(safe-area-inset-top,0px);height:100%}*{box-sizing:border-box}
-body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:15px/1.5 'Instrument Sans',system-ui,sans-serif}
-h1,h2,h3,.logo{font-family:Fraunces,Georgia,serif;font-weight:400;letter-spacing:-.01em}
-h1{font-size:32px;margin:2px 0 6px;line-height:1.15}h2{font-size:20px;margin:24px 0 10px}h3{font-size:16px;margin:12px 0 6px}
-.app{display:flex;min-height:100vh}
+.sidebar.collapsed{width:var(--sidebar-width-collapsed)}
 
-/* Left Navigation - Exactly 5 Sections */
-nav.sidebar{width:220px;padding:26px 16px;border-right:1px solid var(--line);position:sticky;top:0;height:100vh;flex:none;display:flex;flex-direction:column;gap:4px;background:var(--bg);z-index:10}
-.logo{font-size:22px;margin:0 10px 14px}
-nav.sidebar button.nav-btn{all:unset;cursor:pointer;padding:10px 14px;border-radius:8px;color:var(--mute);min-height:42px;display:flex;align-items:center;justify-content:space-between;font-weight:500;transition:all .15s ease}
-nav.sidebar button.nav-btn:hover{color:var(--ink);background:rgba(0,0,0,0.03)}
-nav.sidebar button.nav-btn[aria-current=page]{color:var(--ink);background:var(--accbg);font-weight:600}
-nav.sidebar .nav-foot{margin-top:auto;border-top:1px solid var(--line);padding-top:14px;display:flex;flex-direction:column;gap:4px}
+.sidebar-header{
+  height:var(--topbar-height);padding:0 16px;display:flex;align-items:center;
+  justify-content:space-between;border-bottom:1px solid var(--border-subtle);
+}
+.brand-link{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--text-primary)}
+.brand-logo-mark{
+  width:28px;height:28px;border-radius:var(--radius-sm);background:linear-gradient(135deg,var(--brand),#4f46e5);
+  color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow-sm);flex:none;
+}
+.brand-title{font-weight:700;font-size:16px;letter-spacing:-0.02em}
+.sidebar.collapsed .brand-title{display:none}
 
-main.main-content{flex:1;padding:32px 40px 80px;min-width:0;max-width:1380px}
-.lab{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--mute)}
-.sub{color:var(--mute);margin:0 0 18px}.sm{font-size:13px;color:var(--mute)}
-.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.sp{justify-content:space-between}
-.btn{font:inherit;font-size:14px;font-weight:500;cursor:pointer;border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:8px 16px;border-radius:7px;min-height:38px;display:inline-flex;align-items:center;gap:6px;transition:all .15s ease}
-.btn:hover{border-color:var(--mute)}.btn.p{background:var(--ink);color:var(--bg);border-color:var(--ink)}
-.btn.crit{background:var(--crit);color:#fff;border-color:var(--crit)}.btn.ok{background:var(--good);color:#fff;border-color:var(--good)}
-.btn:disabled{opacity:.45;cursor:not-allowed}
-:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
-select,input,textarea{font:inherit;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:8px 12px;min-height:38px}
+.sidebar-nav{padding:14px 10px;display:flex;flex-direction:column;gap:3px;flex:1;overflow-y:auto}
+.nav-item{
+  all:unset;cursor:pointer;display:flex;align-items:center;gap:10px;padding:8px 12px;
+  border-radius:var(--radius-md);color:var(--text-secondary);font-weight:500;font-size:13.5px;
+  transition:all var(--timing-fast) ease;position:relative;user-select:none;
+}
+.nav-item:hover{background:var(--bg-subtle);color:var(--text-primary)}
+.nav-item[aria-current="page"]{background:var(--brand-subtle);color:var(--brand);font-weight:600}
+.nav-item[aria-current="page"]::before{
+  content:'';position:absolute;left:-10px;top:8px;bottom:8px;width:3px;
+  background:var(--brand);border-radius:0 var(--radius-xs) var(--radius-xs) 0;
+}
+.nav-icon{display:inline-flex;align-items:center;justify-content:center;flex:none}
+.sidebar.collapsed .nav-text{display:none}
+.sidebar.collapsed .nav-item{justify-content:center;padding:10px}
 
-/* Minimal Useful Dashboard */
-.dash-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin:20px 0}
-.metric-card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px 20px}
-.metric-card .num{font:400 34px Fraunces,serif;line-height:1;margin:6px 0 2px}
-.dash-grid{display:grid;grid-template-columns:1.2fr 1fr;gap:24px;margin-top:20px}
-.status-card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:22px}
-.audit-list{list-style:none;padding:0;margin:12px 0 0}
-.audit-item{padding:10px 0;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:12px;font-size:13px}
+.sidebar-footer{padding:12px;border-top:1px solid var(--border-subtle);display:flex;flex-direction:column;gap:4px}
+.dept-pill{
+  background:var(--bg-subtle);border:1px solid var(--border-subtle);border-radius:var(--radius-md);
+  padding:8px 10px;display:flex;align-items:center;justify-content:space-between;
+}
+.sidebar.collapsed .dept-pill{display:none}
 
-/* Timetable Editor & Layout */
-.tt-layout{display:flex;gap:20px;align-items:flex-start;margin-top:16px}
-.tt-main{flex:1;min-width:0}
-.tt-toolbar{background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:12px 16px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px}
-.pending-badge{background:var(--warnbg);color:var(--warn);border:1px solid var(--warn);padding:4px 10px;border-radius:20px;font-size:12px;font-weight:600;display:inline-flex;align-items:center;gap:6px}
+/* Main Area & Topbar */
+.main-wrapper{flex:1;min-width:0;display:flex;flex-direction:column;background:var(--bg-app)}
+.topbar{
+  height:var(--topbar-height);padding:0 28px;background:var(--bg-surface);
+  border-bottom:1px solid var(--border-subtle);display:flex;align-items:center;
+  justify-content:space-between;position:sticky;top:0;z-index:15;
+}
+.breadcrumb{display:flex;align-items:center;gap:8px;font-size:13.5px}
+.topbar-actions{display:flex;align-items:center;gap:10px}
 
-/* Interactive Timetable Grid */
-.gw{overflow-x:auto;background:var(--panel);border:1px solid var(--line);border-radius:10px}
-table.g{border-collapse:collapse;width:100%;min-width:760px;table-layout:fixed}
-.g th{font-weight:600;color:var(--mute);font-size:13px;text-align:center;padding:12px 8px;border-bottom:1px solid var(--line);background:var(--panel)}
-.g th.th-time{width:80px;text-align:right;padding-right:12px}
-.g td{border:1px solid var(--line);padding:4px;height:96px;vertical-align:top;background:var(--panel);transition:background .15s}
-.g td.t{border-left:0;border-right:1px solid var(--line);background:none;color:var(--mute);font-size:12px;padding:10px 10px 0 0;text-align:right;vertical-align:top}
-.g td.br{height:26px;background:repeating-linear-gradient(135deg,transparent 0 6px,var(--line) 6px 7px);color:var(--mute);font-size:11px;text-align:center;vertical-align:middle;letter-spacing:.08em}
-.g td.drag-over{outline:2px dashed var(--acc);outline-offset:-2px;background:var(--accbg)!important}
+.content-body{padding:28px 32px 80px;flex:1;max-width:1440px;width:100%;margin:0 auto}
 
-/* Session Cards */
+/* Design System Buttons */
+.btn{
+  font:inherit;font-size:13.5px;font-weight:500;cursor:pointer;display:inline-flex;
+  align-items:center;justify-content:center;gap:7px;padding:0 14px;height:36px;
+  border-radius:var(--radius-md);border:1px solid var(--border-subtle);background:var(--bg-surface);
+  color:var(--text-primary);box-shadow:var(--shadow-xs);transition:all var(--timing-fast) ease;
+  user-select:none;white-space:nowrap;
+}
+.btn:hover{background:var(--bg-subtle);border-color:var(--border-strong);color:var(--text-primary)}
+.btn:active{transform:translateY(1px)}
+.btn:focus-visible{outline:2px solid var(--border-focus);outline-offset:2px}
+.btn.btn-primary{background:var(--brand);color:#fff;border-color:var(--brand);box-shadow:0 1px 3px 0 rgba(37,99,235,0.25)}
+.btn.btn-primary:hover{background:var(--brand-hover);border-color:var(--brand-hover)}
+.btn.btn-danger{background:var(--danger);color:#fff;border-color:var(--danger)}
+.btn.btn-danger:hover{background:#dc2626}
+.btn.btn-ghost{border-color:transparent;background:transparent;box-shadow:none}
+.btn.btn-ghost:hover{background:var(--bg-subtle)}
+.btn.btn-sm{height:30px;padding:0 10px;font-size:12.5px;border-radius:var(--radius-sm)}
+.btn.btn-lg{height:42px;padding:0 18px;font-size:14.5px;border-radius:var(--radius-lg)}
+.btn:disabled{opacity:0.5;cursor:not-allowed;pointer-events:none}
+
+/* Design System Inputs & Controls */
+input,select,textarea{
+  font:inherit;font-size:13.5px;color:var(--text-primary);background:var(--bg-surface);
+  border:1px solid var(--border-subtle);border-radius:var(--radius-md);height:36px;
+  padding:0 12px;outline:none;transition:border-color var(--timing-fast) ease,box-shadow var(--timing-fast) ease;
+  box-shadow:var(--shadow-xs);width:100%;
+}
+input:hover,select:hover,textarea:hover{border-color:var(--border-strong)}
+input:focus,select:focus,textarea:focus{border-color:var(--border-focus);box-shadow:0 0 0 3px rgba(59,130,246,0.15)}
+textarea{height:auto;padding:10px 12px}
+label{display:block;font-size:12.5px;font-weight:600;color:var(--text-secondary);margin-bottom:6px}
+.form-group{margin-bottom:16px}
+.form-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px}
+
+/* Cards & Surfaces */
+.card{
+  background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius-lg);
+  box-shadow:var(--shadow-xs);padding:20px;transition:box-shadow var(--timing-normal) ease;
+}
+.card:hover{box-shadow:var(--shadow-sm)}
+.card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+
+/* Badges & Pills */
+.badge{
+  display:inline-flex;align-items:center;gap:4px;padding:2px 8px;font-size:11.5px;
+  font-weight:600;border-radius:var(--radius-full);line-height:1.3;
+}
+.badge-brand{background:var(--brand-subtle);color:var(--brand-text);border:1px solid var(--brand-border)}
+.badge-success{background:var(--success-subtle);color:var(--success-text);border:1px solid var(--success-border)}
+.badge-warning{background:var(--warning-subtle);color:var(--warning-text);border:1px solid var(--warning-border)}
+.badge-danger{background:var(--danger-subtle);color:var(--danger-text);border:1px solid var(--danger-border)}
+.badge-neutral{background:var(--bg-subtle);color:var(--text-secondary);border:1px solid var(--border-subtle)}
+
+/* Segmented Control & Subtabs */
+.segmented-tabs{display:inline-flex;background:var(--bg-subtle);padding:3px;border-radius:var(--radius-md);gap:2px}
+.segmented-tab{
+  all:unset;cursor:pointer;padding:6px 14px;font-size:13px;font-weight:500;
+  color:var(--text-secondary);border-radius:var(--radius-sm);transition:all var(--timing-fast) ease;
+}
+.segmented-tab:hover{color:var(--text-primary)}
+.segmented-tab.active{background:var(--bg-surface);color:var(--text-primary);font-weight:600;box-shadow:var(--shadow-xs)}
+
+/* Professional Data Tables */
+.table-container{
+  background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius-lg);
+  overflow-x:auto;box-shadow:var(--shadow-xs);
+}
+table.data-table{width:100%;border-collapse:collapse;text-align:left;font-size:13.5px}
+.data-table th{
+  padding:12px 16px;font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:0.04em;
+  color:var(--text-muted);border-bottom:1px solid var(--border-subtle);background:var(--bg-subtle);white-space:nowrap;
+}
+.data-table td{padding:14px 16px;border-bottom:1px solid var(--border-subtle);color:var(--text-primary);vertical-align:middle}
+.data-table tbody tr:hover{background:var(--bg-surface-hover)}
+.data-table tbody tr:last-child td{border-bottom:none}
+
+/* Search Bar in Tables */
+.table-toolbar{
+  padding:14px 16px;border-bottom:1px solid var(--border-subtle);display:flex;
+  align-items:center;justify-content:space-between;gap:12px;background:var(--bg-surface);flex-wrap:wrap;
+}
+.search-input-wrapper{position:relative;width:280px;max-width:100%}
+.search-input-wrapper input{padding-left:34px;height:34px;font-size:13px}
+.search-icon{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-muted);pointer-events:none}
+
+/* Timetable Editor Specific Styling */
+.tt-workspace{display:flex;gap:20px;align-items:flex-start}
+.tt-grid-area{flex:1;min-width:0}
+.tt-header-toolbar{
+  background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius-lg);
+  padding:14px 18px;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between;
+  flex-wrap:wrap;gap:12px;box-shadow:var(--shadow-xs);
+}
+
+.tt-grid-table{
+  border-collapse:collapse;width:100%;min-width:760px;table-layout:fixed;
+  background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius-lg);overflow:hidden;
+}
+.tt-grid-table th{
+  padding:12px 10px;text-align:center;font-weight:600;font-size:12.5px;
+  color:var(--text-secondary);background:var(--bg-subtle);border-bottom:1px solid var(--border-subtle);
+}
+.tt-grid-table th.time-col{width:86px;text-align:right;padding-right:12px}
+.tt-grid-table td{
+  border:1px solid var(--border-subtle);padding:6px;height:98px;vertical-align:top;
+  background:var(--bg-surface);transition:background var(--timing-fast) ease;position:relative;
+}
+.tt-grid-table td.time-cell{
+  background:none;border-left:none;border-right:1px solid var(--border-subtle);
+  color:var(--text-muted);font-size:12px;padding:10px 12px 0 0;text-align:right;
+}
+.tt-grid-table td.break-cell{
+  height:28px;background:repeating-linear-gradient(135deg,transparent 0 6px,var(--bg-subtle) 6px 7px);
+  color:var(--text-muted);font-size:11px;text-align:center;vertical-align:middle;font-weight:500;letter-spacing:0.06em;
+}
+.tt-grid-table td.drag-target-over{
+  outline:2px dashed var(--brand);outline-offset:-2px;background:var(--brand-subtle)!important;
+}
+
+/* Timetable Cards */
 .session-card{
-  padding:8px 10px;height:100%;border-radius:6px;background:var(--bg);
-  border-left:4px solid var(--acc);box-shadow:0 1px 3px rgba(0,0,0,0.05);
-  cursor:grab;user-select:none;display:flex;flex-direction:column;justify-content:space-between;
-  transition:transform .12s, box-shadow .12s;position:relative;
+  padding:9px 10px;height:100%;border-radius:var(--radius-md);background:var(--bg-surface);
+  border:1px solid var(--border-subtle);border-left:3.5px solid var(--brand);
+  box-shadow:var(--shadow-xs);cursor:grab;display:flex;flex-direction:column;justify-content:space-between;
+  transition:transform var(--timing-fast) ease,box-shadow var(--timing-fast) ease,border-color var(--timing-fast) ease;
+  user-select:none;position:relative;
 }
-.session-card:active{cursor:grabbing;transform:scale(0.98);box-shadow:0 4px 12px rgba(0,0,0,0.12)}
-.session-card.mdc{border-left-color:var(--crit);background:var(--critbg)}
-.session-card.minor{border-left-color:var(--warn);background:var(--warnbg)}
-.session-card.lab{border-left-color:#3a6b88;background:var(--lab)}
-.session-card.pending-move{box-shadow:0 0 0 2px var(--warn);animation:glow 1.5s infinite alternate}
-@keyframes glow{from{box-shadow:0 0 0 1px var(--warn)}to{box-shadow:0 0 0 3px var(--warn)}}
-.session-title{font-weight:600;font-size:13px;line-height:1.2;margin-bottom:2px;display:flex;justify-content:space-between;align-items:flex-start}
-.session-sub{font-size:12px;color:var(--mute);line-height:1.25}
-.session-tags{display:flex;gap:4px;margin-top:4px}
-.pill{font-size:10px;font-weight:700;text-transform:uppercase;padding:1px 5px;border-radius:3px;letter-spacing:.04em}
-.pill.mdc{background:var(--crit);color:#fff}.pill.minor{background:var(--warn);color:#fff}.pill.reg{background:var(--acc);color:#fff}
+.session-card:hover{
+  box-shadow:var(--shadow-md);transform:translateY(-1px);border-color:var(--border-strong);
+}
+.session-card:active{cursor:grabbing;transform:scale(0.98);box-shadow:var(--shadow-lg)}
+.session-card.card-mdc{border-left-color:var(--badge-mdc-text);background:var(--badge-mdc-bg)}
+.session-card.card-minor{border-left-color:var(--badge-minor-text);background:var(--badge-minor-bg)}
+.session-card.card-lab{border-left-color:#0284c7;background:#f0f9ff}
+.session-card.pending-change{
+  box-shadow:0 0 0 2px var(--warning);animation:pulsePending 1.6s infinite alternate;
+}
+@keyframes pulsePending{
+  from{box-shadow:0 0 0 1.5px var(--warning)}
+  to{box-shadow:0 0 0 3.5px var(--warning)}
+}
+.session-card-title{font-weight:600;font-size:12.5px;line-height:1.2;color:var(--text-primary)}
+.session-card-meta{font-size:11.5px;color:var(--text-muted);display:flex;align-items:center;gap:4px;margin-top:2px}
 
-/* Highlight conflicting cell */
-.cell-conflict-pulse{animation:conflictPulse 1s infinite alternate!important}
-@keyframes conflictPulse{
-  0%{background:var(--critbg);outline:3px solid var(--crit);outline-offset:-2px}
-  100%{background:transparent;outline:3px solid transparent;outline-offset:-2px}
+/* Conflict Cell Pulsing Highlight */
+.cell-conflict-pulse{animation:pulseCell 1s infinite alternate!important}
+@keyframes pulseCell{
+  0%{background:var(--danger-subtle);outline:2.5px solid var(--danger);outline-offset:-2px}
+  100%{background:transparent;outline:2.5px solid transparent;outline-offset:-2px}
 }
 
-/* Same-Window Side Panel for Conflicts */
-.conflict-panel{
-  width:360px;flex:none;background:var(--panel);border:1px solid var(--line);
-  border-radius:10px;padding:20px;position:sticky;top:20px;max-height:calc(100vh - 40px);
-  overflow-y:auto;display:flex;flex-direction:column;gap:14px;box-shadow:0 4px 18px rgba(0,0,0,0.04)
+/* Side Panel for Conflict Center */
+.side-conflict-panel{
+  width:350px;flex:none;background:var(--bg-surface);border:1px solid var(--border-subtle);
+  border-radius:var(--radius-lg);padding:18px;position:sticky;top:calc(var(--topbar-height) + 18px);
+  max-height:calc(100vh - var(--topbar-height) - 36px);overflow-y:auto;box-shadow:var(--shadow-sm);
+  display:flex;flex-direction:column;gap:14px;
 }
-.conflict-header{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);padding-bottom:12px}
-.conflict-status{padding:6px 12px;border-radius:20px;font-size:12px;font-weight:600;display:inline-flex;align-items:center;gap:6px}
-.conflict-status.ok{background:var(--goodbg);color:var(--good);border:1px solid var(--good)}
-.conflict-status.bad{background:var(--critbg);color:var(--crit);border:1px solid var(--crit)}
-.conflict-status.checking{background:var(--accbg);color:var(--acc)}
-.conflict-card{
-  background:var(--bg);border:1px solid var(--line);border-left:4px solid var(--crit);
-  border-radius:7px;padding:12px 14px;cursor:pointer;transition:transform .12s, border-color .12s
+.conflict-card-item{
+  background:var(--bg-app);border:1px solid var(--border-subtle);border-left:3.5px solid var(--danger);
+  border-radius:var(--radius-md);padding:12px;cursor:pointer;transition:transform var(--timing-fast) ease,border-color var(--timing-fast) ease;
 }
-.conflict-card:hover{border-color:var(--crit);transform:translateX(-2px)}
-.conflict-card.warning{border-left-color:var(--warn)}
-.conflict-issue{font-weight:600;font-size:13px;line-height:1.35;margin-bottom:6px;color:var(--ink)}
-.conflict-fix{font-size:12px;color:var(--mute);line-height:1.3}
+.conflict-card-item:hover{border-color:var(--danger);transform:translateX(-2px);box-shadow:var(--shadow-xs)}
 
-/* Quick Edit Modal */
-.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.45);backdrop-filter:blur(2px);display:flex;align-items:center;justify-content:center;z-index:100;padding:20px}
-.modal-content{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:24px 28px;max-width:480px;width:100%;box-shadow:0 12px 32px rgba(0,0,0,0.18)}
-
-/* Sub-tabs */
-.sub-tabs{display:flex;border-bottom:1px solid var(--line);margin:16px 0 20px;gap:8px;overflow-x:auto}
-.sub-tab-btn{all:unset;cursor:pointer;padding:8px 14px;color:var(--mute);font-weight:500;border-bottom:2px solid transparent;white-space:nowrap}
-.sub-tab-btn:hover{color:var(--ink)}
-.sub-tab-btn.active{color:var(--ink);font-weight:600;border-bottom-color:var(--ink)}
-
-/* Tables */
-table.l{width:100%;border-collapse:collapse;margin:12px 0}
-.l th{text-align:left;font-weight:600;color:var(--mute);font-size:13px;padding:10px 10px;border-bottom:1px solid var(--line)}
-.l td{padding:12px 10px;border-bottom:1px solid var(--line);font-size:14px}
-.tag{display:inline-block;font-size:11px;font-weight:600;border:1px solid currentColor;border-radius:4px;padding:1px 7px;margin-right:6px}
-.tag.ok{color:var(--good)}.tag.c{color:var(--crit)}.tag.w{color:var(--warn)}.tag.i{color:var(--mute)}
-.bar{height:6px;background:var(--line);border-radius:3px;margin-top:6px;overflow:hidden}.bar i{display:block;height:100%;background:var(--acc)}.bar.ov i{background:var(--crit)}
-.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:12px 20px;border-radius:8px;z-index:999;box-shadow:0 6px 20px rgba(0,0,0,0.2);display:none;font-weight:500}
-.note{border:1px solid var(--line);padding:16px 18px;border-radius:9px;margin:16px 0;background:var(--panel)}
-.empty{text-align:center;padding:50px 16px;color:var(--mute)}.empty h2{color:var(--ink);margin-top:0}
-@media (max-width:980px){
-  .app{flex-direction:column}
-  nav.sidebar{width:100%;height:auto;position:sticky;top:0;flex-direction:row;overflow-x:auto;padding:10px 14px;border-right:0;border-bottom:1px solid var(--line)}
-  .logo{display:none}nav.sidebar .nav-foot{display:none}
-  main.main-content{padding:20px 16px 60px}
-  .tt-layout{flex-direction:column}.conflict-panel{width:100%;position:static;max-height:none}
-  .dash-grid{grid-template-columns:1fr}
+/* Modal Dialog */
+.modal-backdrop{
+  position:fixed;inset:0;background:rgba(15,23,42,0.45);backdrop-filter:blur(3px);
+  display:flex;align-items:center;justify-content:center;z-index:100;padding:20px;
+  animation:fadeIn 150ms ease;
 }
-</style></head><body>
-<div id="root"></div>
-<div class="toast" id="toast" role="status"></div>
+.modal-box{
+  background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius-xl);
+  padding:24px;width:100%;max-width:480px;box-shadow:var(--shadow-xl);animation:scaleIn 180ms var(--ease-smooth);
+}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes scaleIn{from{opacity:0;transform:scale(0.96)}to{opacity:1;transform:scale(1)}}
+
+/* Dashboard Metric Cards */
+.metrics-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:16px;margin:20px 0}
+.metric-tile{
+  background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius-lg);
+  padding:18px 20px;box-shadow:var(--shadow-xs);display:flex;flex-direction:column;justify-content:space-between;
+}
+.metric-tile-num{font-size:32px;font-weight:700;letter-spacing:-0.03em;color:var(--text-primary);line-height:1;margin:8px 0 4px}
+
+/* Toast */
+.toast-bar{
+  position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--text-primary);
+  color:var(--text-inverse);padding:10px 18px;border-radius:var(--radius-full);font-size:13.5px;
+  font-weight:500;box-shadow:var(--shadow-lg);display:none;z-index:999;align-items:center;gap:8px;
+}
+
+@media(max-width:960px){
+  .sidebar{position:fixed;left:-260px;transition:left var(--timing-normal) ease}
+  .sidebar.mobile-open{left:0}
+  .tt-workspace{flex-direction:column}
+  .side-conflict-panel{width:100%;position:static;max-height:none}
+  .content-body{padding:20px 16px 60px}
+}
+</style>
+</head>
+<body>
+
+<div class="app-shell">
+  <!-- Sidebar -->
+  <aside class="sidebar" id="app-sidebar" aria-label="Main Navigation">
+    <div class="sidebar-header">
+      <a href="/" class="brand-link" title="TESSellate Timetable Synchronization">
+        <div class="brand-logo-mark">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h7v7H4z"/><path d="M13 4h7v7h-7z"/><path d="M4 13h7v7H4z"/><path d="M13 13h7v7h-7z"/></svg>
+        </div>
+        <span class="brand-title">TESSellate</span>
+      </a>
+      <button class="btn btn-ghost btn-sm" id="btn-sidebar-collapse" onclick="toggleSidebar()" title="Toggle Sidebar" style="padding:4px;height:28px;width:28px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><path d="M9 3v18"/></svg>
+      </button>
+    </div>
+
+    <!-- 5 Core Navigation Sections -->
+    <nav class="sidebar-nav" id="sidebar-nav-list">
+      <button class="nav-item" data-v="dash" aria-current="page" onclick="nav('dash')">
+        <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg></span>
+        <span class="nav-text">Dashboard</span>
+      </button>
+
+      <button class="nav-item" data-v="tt" onclick="nav('tt')">
+        <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/><path d="M8 18h.01"/><path d="M12 18h.01"/><path d="M16 18h.01"/></svg></span>
+        <span class="nav-text">Timetable</span>
+      </button>
+
+      <button class="nav-item" data-v="su" onclick="nav('su')">
+        <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/><path d="M6 6h10"/><path d="M6 10h10"/></svg></span>
+        <span class="nav-text">Subjects</span>
+      </button>
+
+      <button class="nav-item" data-v="ru" onclick="nav('ru')">
+        <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/><line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/><line x1="21" x2="16" y1="20" y2="20"/><line x1="12" x2="3" y1="20" y2="20"/><line x1="14" x2="14" y1="2" y2="6"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="16" x2="16" y1="18" y2="22"/></svg></span>
+        <span class="nav-text">Rules</span>
+      </button>
+
+      <button class="nav-item" data-v="se" onclick="nav('se')">
+        <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></span>
+        <span class="nav-text">Settings</span>
+      </button>
+    </nav>
+
+    <!-- Sidebar Footer -->
+    <div class="sidebar-footer">
+      <div class="dept-pill" id="sidebar-dept-pill">
+        <div>
+          <div style="font-weight:600;font-size:12.5px" id="lbl-dept-name">Loading...</div>
+          <div class="sm" id="lbl-dept-cat">Academic 2026–27</div>
+        </div>
+      </div>
+      <button class="nav-item" onclick="logout()" style="color:var(--danger)">
+        <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg></span>
+        <span class="nav-text">Sign out</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- Main Workspace -->
+  <div class="main-wrapper">
+    <header class="topbar">
+      <div class="breadcrumb" id="topbar-breadcrumb">
+        <span style="font-weight:600" id="bc-title">Dashboard</span>
+      </div>
+      <div class="topbar-actions">
+        <!-- Theme Toggle -->
+        <button class="btn btn-ghost btn-sm" onclick="toggleTheme()" id="btn-theme-toggle" title="Switch Light / Dark Theme">
+          <svg id="theme-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+        </button>
+        <span class="badge badge-brand" id="hdr-category-badge">Aided</span>
+      </div>
+    </header>
+
+    <main class="content-body" id="main-content">
+      <!-- Dynamic View Mounted Here -->
+    </main>
+  </div>
+</div>
+
+<div class="toast-bar" id="toast"></div>
 <div id="modal-slot"></div>
 
 <script>
 const DAYS=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
-const $=s=>document.querySelector(s),R=$('#root');
+const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const hm=m=>`${Math.floor(m/60).toString().padStart(2,'0')}:${(m%60).toString().padStart(2,'0')}`;
 const tomin=t=>+t.slice(0,2)*60+ +t.slice(3,5);
@@ -165,103 +517,105 @@ let S={
   classes:[],
   settings:null,
   ttEntries:[],
-  pendingMoves:{}, // { [id]: { id, day, period, originalDay, originalPeriod, faculty_id, room_id, deleted } }
+  pendingMoves:{},
   undoStack:[],
   conflicts:[],
   isValid:true,
   validating:false,
-  sidePanelOpen:true,
-  subTab:'alloc', // in 'su' or 'ru'
-  editingSession:null,
-  highlightedCells:new Set(), // Set of "day,period"
-  stuOff:null
+  subTab:'alloc',
+  highlightedCells:new Set(),
+  stuOff:null,
+  searchQuery:''
 };
+
+// Theme Management
+function initTheme(){
+  const saved = localStorage.getItem('tess_theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  document.documentElement.setAttribute('data-theme', saved);
+  updateThemeIcon(saved);
+}
+function toggleTheme(){
+  const cur = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+  const nw = cur === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', nw);
+  localStorage.setItem('tess_theme', nw);
+  updateThemeIcon(nw);
+}
+function updateThemeIcon(th){
+  const el = $('#theme-icon');
+  if(!el) return;
+  if(th==='dark'){
+    el.innerHTML = '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>';
+  } else {
+    el.innerHTML = '<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>';
+  }
+}
+initTheme();
+
+function toggleSidebar(){
+  const sb = $('#app-sidebar');
+  sb.classList.toggle('collapsed');
+}
 
 async function api(p,o={}){
   const r=await fetch(p,{credentials:'same-origin',headers:{'content-type':'application/json'},...o,body:o.body?JSON.stringify(o.body):undefined});
   let j={};try{j=await r.json()}catch(e){}
   if(!r.ok){
     if(r.status==401&&me){location.replace('/login.html')}
-    const msg = typeof j.detail=='string'?j.detail: (j.detail&&j.detail.message)?j.detail.message:'Something went wrong.';
+    const msg = typeof j.detail=='string'?j.detail:(j.detail&&j.detail.message)?j.detail.message:'Something went wrong.';
     throw new Error(msg);
   }
   return j;
 }
 
-function toast(t,good=true){
-  const e=$('#toast');e.innerHTML=(good?'✓ ':'⚠ ')+esc(t);e.style.display='block';
-  clearTimeout(toast.h);toast.h=setTimeout(()=>e.style.display='none',4500);
+function toast(t, good=true){
+  const el=$('#toast');el.innerHTML=(good?'✓ ':'⚠ ')+esc(t);el.style.display='flex';
+  clearTimeout(toast.h);toast.h=setTimeout(()=>el.style.display='none',4000);
 }
 
-// 5 Main Navigation Items
-const NAV=[
-  ['dash','Dashboard'],
-  ['tt','Timetable'],
-  ['su','Subjects'],
-  ['ru','Rules'],
-  ['se','Settings']
-];
-
-function shell(inner){
-  const cat=me&&me.department&&me.department.category;
-  const catBadge=cat?`<span class="tag ${cat=='Aided'?'ok':'w'}" style="font-size:10px;padding:1px 6px" title="Organizational classification · Equal scheduling priority">${esc(cat)}</span>`:'';
-  return `<div class="app">
-    <nav class="sidebar" aria-label="Main Navigation">
-      <div class="logo">Tessellate</div>
-      <div class="sm" style="margin:0 10px 14px;display:flex;align-items:center;justify-content:space-between">
-        <span style="font-weight:600">${esc(me.department.name)}</span>
-        ${catBadge}
-      </div>
-      ${NAV.map(([k,l])=>`<button class="nav-btn" data-v="${k}" ${V==k?'aria-current="page"':''}>${l}</button>`).join('')}
-      <div class="nav-foot">
-        <button class="nav-btn" data-v="se" ${V=='se'?'aria-current="page"':''}>⚙ Settings</button>
-        <button class="nav-btn" data-a="logout" style="color:var(--crit)">Sign out</button>
-      </div>
-    </nav>
-    <main class="main-content">${inner}</main>
-  </div>`;
+function nav(v){
+  V=v;
+  document.querySelectorAll('#sidebar-nav-list .nav-item').forEach(b => {
+    b.setAttribute('aria-current', b.dataset.v === v ? 'page' : 'false');
+  });
+  render();
 }
 
-const head=(label,title,sub,action='')=>`
-  <div class="row sp" style="align-items:flex-end;margin-bottom:20px">
-    <div>
-      <div class="lab">${label}</div>
-      <h1>${title}</h1>
-      <p class="sub">${sub}</p>
-    </div>
-    <div class="row">${action}</div>
-  </div>`;
-
-const tab=(headers,rows)=>`
-  <table class="l">
-    <thead><tr>${headers.map(h=>`<th>${h}</th>`).join('')}</tr></thead>
-    <tbody>${rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</tbody>
-  </table>`;
-
-async function draw(){
-  if(!me){
-    try{ me = await api('/api/auth/me'); }
-    catch(e){ location.replace('/login.html'); return; }
-  }
-  R.innerHTML = shell('<p class="sub">Loading...</p>');
+async function init(){
   try{
-    $('main.main-content').innerHTML = await renderPage();
+    me = await api('/api/auth/me');
+    $('#lbl-dept-name').textContent = me.department.name;
+    $('#lbl-dept-cat').textContent = `${me.department.category} · 2026–27`;
+    $('#hdr-category-badge').textContent = me.department.category;
+    $('#hdr-category-badge').className = `badge ${me.department.category==='Aided'?'badge-brand':'badge-warning'}`;
+    render();
   }catch(e){
-    $('main.main-content').innerHTML = `<div class="empty"><h2>Could not load view</h2><p>${esc(e.message)}</p></div>`;
+    location.replace('/login.html');
   }
 }
 
-async function renderPage(){
-  if(V=='dash') return renderDashboard();
-  if(V=='tt') return renderTimetable();
-  if(V=='su') return renderSubjects();
-  if(V=='ru') return renderRules();
-  if(V=='se') return renderSettings();
-  return '<div class="empty">Page not found</div>';
+async function render(){
+  const titles = {dash:'Dashboard', tt:'Timetable Editor', su:'Subjects & Curriculum', ru:'Scheduling Rules', se:'Settings'};
+  $('#bc-title').textContent = titles[V] || 'Overview';
+  const main = $('#main-content');
+  main.innerHTML = `<div style="padding:40px 0;text-align:center;color:var(--text-muted)">Loading...</div>`;
+  try {
+    if(V==='dash') main.innerHTML = await renderDashboard();
+    else if(V==='tt') main.innerHTML = await renderTimetable();
+    else if(V==='su') main.innerHTML = await renderSubjects();
+    else if(V==='ru') main.innerHTML = await renderRules();
+    else if(V==='se') main.innerHTML = await renderSettings();
+  } catch(e){
+    main.innerHTML = `<div class="card" style="text-align:center;padding:40px">
+      <h3>Could not load section</h3>
+      <p class="sub">${esc(e.message)}</p>
+      <button class="btn btn-sm" onclick="render()">Try again</button>
+    </div>`;
+  }
 }
 
 /* =========================================================================
-   1. DASHBOARD
+   MODULE 1: DASHBOARD
    ========================================================================= */
 async function renderDashboard(){
   const [d, cf, audit] = await Promise.all([
@@ -269,85 +623,101 @@ async function renderDashboard(){
     api('/api/conflicts'),
     api('/api/audit')
   ]);
-  const conflictsCount = (cf.items||[]).length;
-  const isComplete = d.sessions > 0 && conflictsCount === 0;
+  const conflictCount = (cf.items||[]).length;
+  const isGenerated = d.sessions > 0;
 
-  return head('Overview', `${esc(d.department.name)} Department`, `Institutional Category: ${esc(d.department.category)} · Equal Scheduling Priority`,
-    `<button class="btn p" data-v="tt">Open Timetable Editor</button>
-     <button class="btn" data-a="gen">Generate Timetable</button>`)+
-  `<div class="dash-metrics">
-    <div class="metric-card">
-      <div class="lab">Total Subjects</div>
-      <div class="num">${d.subjects||0}</div>
-      <div class="sm">Course allocations</div>
-    </div>
-    <div class="metric-card">
-      <div class="lab">Classes &amp; Sections</div>
-      <div class="num">${d.classes||0}</div>
-      <div class="sm">Student cohorts</div>
-    </div>
-    <div class="metric-card">
-      <div class="lab">Total Teachers</div>
-      <div class="num">${d.faculty||0}</div>
-      <div class="sm">Assigned faculty</div>
-    </div>
-    <div class="metric-card">
-      <div class="lab">Scheduled Sessions</div>
-      <div class="num">${d.sessions||0}</div>
-      <div class="sm">Weekly lectures &amp; labs</div>
-    </div>
-  </div>
-
-  <div class="dash-grid">
-    <div class="status-card">
-      <h2>Timetable Status</h2>
-      <p class="sub">Current schedule health and college-wide alignment.</p>
-      <div style="margin:16px 0">
-        <div class="row sp">
-          <div><b>Completion Status:</b> ${d.sessions > 0 ? (d.status[0] ? d.status[0].toUpperCase() : 'GENERATED') : 'NOT STARTED'}</div>
-          <div>${isComplete ? '<span class="tag ok">✓ Fully Scheduled</span>' : '<span class="tag w">Pending Setup</span>'}</div>
-        </div>
-        <div class="bar ${conflictsCount>0?'ov':''}" style="margin:10px 0 16px">
-          <i style="width:${d.sessions>0?100:20}%"></i>
-        </div>
+  return `
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:24px;flex-wrap:wrap;gap:16px">
+      <div>
+        <div class="sm" style="text-transform:uppercase;letter-spacing:0.06em;font-weight:600;color:var(--brand)">Department Overview</div>
+        <h1 style="margin-top:4px">${esc(d.department.name)}</h1>
+        <p class="sub" style="margin:2px 0 0">Institutional Classification: <b>${esc(d.department.category)}</b> · Equal priority scheduling across shared college resources.</p>
       </div>
-      <div class="note" style="margin-top:14px;background:var(--bg)">
-        <div class="row sp">
+      <div style="display:flex;gap:10px">
+        <button class="btn" onclick="generateTimetable()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21h5v-5"/></svg> Generate Timetable</button>
+        <button class="btn btn-primary" onclick="nav('tt')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/></svg> Open Timetable Editor</button>
+      </div>
+    </div>
+
+    <div class="metrics-row">
+      <div class="metric-tile">
+        <div class="sm" style="font-weight:600">Total Subjects</div>
+        <div class="metric-tile-num">${d.subjects||0}</div>
+        <div class="sm">Course allocations</div>
+      </div>
+      <div class="metric-tile">
+        <div class="sm" style="font-weight:600">Classes &amp; Sections</div>
+        <div class="metric-tile-num">${d.classes||0}</div>
+        <div class="sm">Student cohorts</div>
+      </div>
+      <div class="metric-tile">
+        <div class="sm" style="font-weight:600">Total Faculty</div>
+        <div class="metric-tile-num">${d.faculty||0}</div>
+        <div class="sm">Assigned teachers</div>
+      </div>
+      <div class="metric-tile">
+        <div class="sm" style="font-weight:600">Weekly Sessions</div>
+        <div class="metric-tile-num">${d.sessions||0}</div>
+        <div class="sm">Lectures &amp; labs placed</div>
+      </div>
+    </div>
+
+    <div class="form-row" style="margin-top:20px;grid-template-columns:1.2fr 1fr">
+      <div class="card">
+        <div class="card-header">
           <div>
-            <b>Detected Conflicts:</b> ${conflictsCount === 0 ? '<span style="color:var(--good)">0 conflicts detected</span>' : `<span style="color:var(--crit);font-weight:600">${conflictsCount} conflict(s) found</span>`}
-            <div class="sm" style="margin-top:2px">${conflictsCount === 0 ? 'All faculty, classrooms, and student selections are perfectly synchronized.' : 'Some sessions have double-bookings or student clash.'}</div>
+            <h3>Timetable Completion &amp; Health</h3>
+            <p class="sub" style="margin:2px 0 0">College-wide resource synchronization status.</p>
           </div>
-          <button class="btn sm" data-v="tt" style="white-space:nowrap">${conflictsCount>0?'Resolve in Editor':'View Timetable'}</button>
+          <div>${isGenerated ? (conflictCount===0 ? '<span class="badge badge-success">✓ Synced &amp; Compliant</span>' : `<span class="badge badge-danger">⚠ ${conflictCount} Conflict(s)</span>`) : '<span class="badge badge-warning">Draft Mode</span>'}</div>
+        </div>
+
+        <div style="background:var(--bg-subtle);border-radius:var(--radius-md);padding:14px;border:1px solid var(--border-subtle);margin-bottom:16px">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span style="font-weight:600;font-size:13px">Constraint Verification</span>
+            <span class="sm">${isGenerated ? (conflictCount===0 ? '100% Valid' : 'Needs attention') : 'Pending generation'}</span>
+          </div>
+          <div style="height:6px;background:var(--border-subtle);border-radius:3px;margin:8px 0;overflow:hidden">
+            <div style="height:100%;width:${isGenerated?(conflictCount===0?100:60):20}%;background:${conflictCount>0?'var(--danger)':'var(--success)'}"></div>
+          </div>
+          <div class="sm" style="color:var(--text-muted)">
+            ${conflictCount===0 ? 'No teacher, classroom or student clashes detected across college.' : `${conflictCount} scheduling clash(es) detected. Open the Timetable Editor to resolve them.`}
+          </div>
+        </div>
+
+        <div style="display:flex;gap:10px">
+          <button class="btn btn-sm btn-primary" onclick="nav('tt')">Launch Timetable Workspace →</button>
         </div>
       </div>
-      <div class="row" style="margin-top:18px">
-        <button class="btn p" data-v="tt">Interactive Timetable Editor →</button>
-      </div>
-    </div>
 
-    <div class="status-card">
-      <h2>Recent Updates</h2>
-      <p class="sub">Latest timetable and resource actions.</p>
-      ${audit&&audit.length ? `
-      <ul class="audit-list">
-        ${audit.slice(0, 5).map(a => {
-          const dt = a.at ? new Date(a.at).toLocaleDateString(undefined, {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : 'Recent';
-          const act = (a.action||'update').replace(/_/g,' ');
-          return `<li class="audit-item">
-            <div>
-              <b style="text-transform:capitalize">${esc(act)}</b>
-              <div class="sm">${a.reason ? esc(a.reason) : (a.new_value? 'Updated configuration' : 'System update')}</div>
-            </div>
-            <div class="sm" style="color:var(--mute);white-space:nowrap">${dt}</div>
-          </li>`;
-        }).join('')}
-      </ul>` : '<p class="sub">No recent updates recorded.</p>'}
-    </div>
-  </div>`;
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <h3>Recent Timetable Updates</h3>
+            <p class="sub" style="margin:2px 0 0">Latest audit records for this department.</p>
+          </div>
+        </div>
+        ${audit&&audit.length ? `
+          <div style="display:flex;flex-direction:column;gap:10px">
+            ${audit.slice(0, 5).map(a => {
+              const dt = a.at ? new Date(a.at).toLocaleDateString(undefined, {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : 'Recent';
+              const act = (a.action||'update').replace(/_/g,' ');
+              return `<div style="display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:8px;border-bottom:1px solid var(--border-subtle)">
+                <div>
+                  <div style="font-weight:600;font-size:13px;text-transform:capitalize">${esc(act)}</div>
+                  <div class="sm">${a.reason ? esc(a.reason) : (a.new_value? 'Applied configuration changes' : 'System update')}</div>
+                </div>
+                <div class="sm mono" style="color:var(--text-muted);white-space:nowrap">${dt}</div>
+              </div>`;
+            }).join('')}
+          </div>
+        ` : '<p class="sub">No recent activity recorded.</p>'}
+      </div>
+    </div>`;
 }
 
 /* =========================================================================
-   2. TIMETABLE EDITOR (Interactive Drag-and-Drop + Side Panel)
+   MODULE 2: TIMETABLE EDITOR (Interactive Grid + Drag & Drop + Side Panel)
    ========================================================================= */
 async function renderTimetable(){
   const [classes, st] = await Promise.all([
@@ -358,8 +728,11 @@ async function renderTimetable(){
   S.settings = st.config;
 
   if(!classes.length){
-    return head('Timetable Editor', 'Department Timetable', 'Interactive schedule editor')+
-      `<div class="empty"><h2>No classes found</h2><p>Add classes and subjects before opening the timetable editor.</p><button class="btn p" data-v="su">Go to Subjects &amp; Classes</button></div>`;
+    return `<div class="card" style="text-align:center;padding:50px">
+      <h3>No Classes Found</h3>
+      <p class="sub">Please create classes and subjects before opening the timetable editor.</p>
+      <button class="btn btn-primary" onclick="nav('su')">Go to Subjects &amp; Classes</button>
+    </div>`;
   }
 
   if(!S.selClass || !classes.some(c=>c.id==S.selClass)){
@@ -369,7 +742,6 @@ async function renderTimetable(){
     S.conflicts = [];
   }
 
-  // Fetch entries for selected class
   const rawEntries = await api(`/api/timetable/${S.selClass}`);
   S.ttEntries = rawEntries;
 
@@ -393,52 +765,64 @@ async function renderTimetable(){
   const periods = S.settings.periods || [];
 
   // Generate grid HTML
-  let gridHtml = `<div class="gw"><table class="g" id="tt-grid">
-    <thead>
-      <tr>
-        <th class="th-time">Time</th>
-        ${days.map(d=>`<th>${DAYS[d]}</th>`).join('')}
-      </tr>
-    </thead>
-    <tbody>`;
+  let gridHtml = `
+  <div class="table-container" style="border-radius:var(--radius-lg)">
+    <table class="tt-grid-table" id="tt-grid">
+      <thead>
+        <tr>
+          <th class="time-col">Period</th>
+          ${days.map(d=>`<th>${DAYS[d]}</th>`).join('')}
+        </tr>
+      </thead>
+      <tbody>`;
 
   periods.forEach((p, pIdx) => {
     gridHtml += `<tr>
-      <td class="t"><b>${p.start}</b><br><span class="sm">${p.end}</span></td>`;
+      <td class="time-cell">
+        <div style="font-weight:600;color:var(--text-primary)">P${pIdx+1}</div>
+        <div class="sm">${p.start}</div>
+        <div class="sm" style="color:var(--text-muted)">${p.end}</div>
+      </td>`;
+
     days.forEach(d => {
-      // Find session(s) in this cell
       const cellSessions = Object.values(simulatedMap).filter(s => s.day == d && s.period == pIdx);
-      const isFreeRule = (S.settings.free||[]).some(f => f[0] == d && f[1] == pIdx);
+      const isFree = (S.settings.free||[]).some(f => f[0] == d && f[1] == pIdx);
       const isHighlighted = S.highlightedCells.has(`${d},${pIdx}`);
 
-      gridHtml += `<td data-day="${d}" data-period="${pIdx}" class="${isHighlighted ? 'cell-conflict-pulse' : ''}" ondragover="ttDragOver(event)" ondragleave="ttDragLeave(event)" ondrop="ttDrop(event, ${d}, ${pIdx})">`;
+      gridHtml += `<td data-day="${d}" data-period="${pIdx}" class="${isHighlighted ? 'cell-conflict-pulse' : ''}" ondragover="onCellDragOver(event)" ondragleave="onCellDragLeave(event)" ondrop="onCellDrop(event, ${d}, ${pIdx})">`;
 
       if(cellSessions.length > 0){
         cellSessions.forEach(s => {
           const isPending = !!S.pendingMoves[s.id];
-          const isMdc = s.entry_type == 'MDC';
-          const isMinor = s.entry_type == 'Minor';
+          const isMdc = s.entry_type === 'MDC';
+          const isMinor = s.entry_type === 'Minor';
           const isLab = s.lab;
-          const cardClass = isMdc ? 'mdc' : isMinor ? 'minor' : isLab ? 'lab' : '';
+          const cardClass = isMdc ? 'card-mdc' : isMinor ? 'card-minor' : isLab ? 'card-lab' : '';
 
-          gridHtml += `<div class="session-card ${cardClass} ${isPending?'pending-move':''}" draggable="true" data-id="${s.id}" ondragstart="ttDragStart(event, ${s.id})" onclick="openQuickEdit(${s.id})">
-            <div>
-              <div class="session-title">
-                <b>${esc(s.subject)}</b>
-                ${isPending ? '<span class="pill minor" style="font-size:9px">Moved</span>' : ''}
+          gridHtml += `
+            <div class="session-card ${cardClass} ${isPending?'pending-change':''}" draggable="true" data-id="${s.id}" ondragstart="onCardDragStart(event, ${s.id})" onclick="openSessionModal(${s.id})">
+              <div>
+                <div style="display:flex;justify-content:space-between;align-items:flex-start">
+                  <div class="session-card-title">${esc(s.subject)}</div>
+                  ${isPending ? '<span class="badge badge-warning" style="font-size:9.5px;padding:1px 5px">Moved</span>' : ''}
+                </div>
+                <div class="session-card-meta">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                  ${esc(s.teacher)}
+                </div>
+                <div class="session-card-meta">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><line x1="3" x2="21" y1="9" y2="9"/><line x1="9" x2="9" y1="21" y2="9"/></svg>
+                  ${esc(s.room || '—')}
+                </div>
               </div>
-              <div class="session-sub">${esc(s.teacher)}</div>
-              <div class="session-sub">${esc(s.room || '—')}</div>
-            </div>
-            <div class="session-tags">
-              ${isMdc ? '<span class="pill mdc">MDC</span>' : isMinor ? '<span class="pill minor">Minor</span>' : '<span class="pill reg">Lecture</span>'}
-            </div>
-          </div>`;
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
+                <span class="badge ${isMdc?'badge-danger':isMinor?'badge-warning':'badge-neutral'}" style="font-size:10px">${isMdc?'MDC':isMinor?'Minor':(s.lab?'Lab':'Lecture')}</span>
+              </div>
+            </div>`;
         });
       } else {
-        gridHtml += `<div class="sm" style="color:var(--mute);padding:6px;height:100%;display:flex;align-items:center;justify-content:center;opacity:0.4">${isFreeRule ? 'Kept free' : 'Empty'}</div>`;
+        gridHtml += `<div class="sm" style="color:var(--text-tertiary);height:100%;display:flex;align-items:center;justify-content:center;opacity:0.4">${isFree ? 'Kept free' : 'Empty'}</div>`;
       }
-
       gridHtml += `</td>`;
     });
     gridHtml += `</tr>`;
@@ -446,131 +830,130 @@ async function renderTimetable(){
 
   gridHtml += `</tbody></table></div>`;
 
-  // Render Conflicts Side Panel
+  // Right Side Conflict Center
   const conflictCount = S.conflicts.length;
-  const statusBadge = S.validating ?
-    `<div class="conflict-status checking">Checking...</div>` :
+  const statusPill = S.validating ?
+    `<span class="badge badge-warning">Validating...</span>` :
     conflictCount === 0 ?
-    `<div class="conflict-status ok">✓ Valid · Ready to save</div>` :
-    `<div class="conflict-status bad">⚠ ${conflictCount} Conflict(s)</div>`;
+    `<span class="badge badge-success">✓ 0 Conflicts</span>` :
+    `<span class="badge badge-danger">⚠ ${conflictCount} Conflict(s)</span>`;
 
   const sidePanelHtml = `
-    <div class="conflict-panel" id="conflict-panel">
-      <div class="conflict-header">
+    <div class="side-conflict-panel" id="side-conflict-panel">
+      <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border-subtle);padding-bottom:12px">
         <div>
-          <div class="lab">Validation Status</div>
-          <h3 style="margin:2px 0 0">Check Conflicts</h3>
+          <h3 style="font-size:14px">Conflict Center</h3>
+          <div class="sm">Real-time scheduling validation</div>
         </div>
-        ${statusBadge}
+        ${statusPill}
       </div>
 
-      <div class="row sp">
-        <button class="btn sm p" onclick="runCheckConflicts()" style="flex:1">Re-Check Now</button>
-        <button class="btn sm" onclick="clearHighlights()" title="Clear grid highlights">Clear Highlights</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-sm btn-primary" onclick="validateCurrentBatch()" style="flex:1">Re-check Schedule</button>
+        <button class="btn btn-sm" onclick="clearHighlights()" title="Clear highlight rings">Clear</button>
       </div>
 
       <div style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:10px">
         ${conflictCount === 0 ? `
-          <div style="text-align:center;padding:30px 10px;color:var(--good)">
-            <div style="font-size:32px;margin-bottom:8px">✓</div>
-            <b>No Conflicts Found</b>
-            <p class="sm" style="color:var(--mute);margin-top:4px">Your proposed timetable satisfies all faculty availability, classroom limits, student cross-enrollment and common slot rules.</p>
+          <div style="text-align:center;padding:36px 14px">
+            <div style="width:40px;height:40px;border-radius:var(--radius-full);background:var(--success-subtle);color:var(--success);display:flex;align-items:center;justify-content:center;margin:0 auto 10px">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+            <div style="font-weight:600;font-size:13.5px">Zero Conflicts Found</div>
+            <p class="sm" style="margin-top:4px">All teacher assignments, rooms, and enrolled students are aligned.</p>
           </div>
         ` : `
-          <div class="sm" style="color:var(--mute)">Click any issue to highlight its cell on the grid:</div>
-          ${S.conflicts.map((c, i) => `
-            <div class="conflict-card" onclick="highlightConflictCells(${JSON.stringify(c.cells||[]).replace(/"/g,'&quot;')})">
-              <div class="conflict-issue">${esc(c.issue)}</div>
-              <div class="conflict-fix"><b>Fix:</b> ${esc(c.fix)}</div>
+          <div class="sm" style="color:var(--text-muted)">Click any conflict card to highlight conflicting cells:</div>
+          ${S.conflicts.map(c => `
+            <div class="conflict-card-item" onclick="highlightCells(${JSON.stringify(c.cells||[]).replace(/"/g,'&quot;')})">
+              <div style="font-weight:600;font-size:12.5px;color:var(--danger)">${esc(c.issue)}</div>
+              <div class="sm" style="margin-top:4px"><b>Fix:</b> ${esc(c.fix)}</div>
             </div>
           `).join('')}
         `}
       </div>
     </div>`;
 
-  return head('Interactive Timetable Editor', esc(classes.find(c=>c.id==S.selClass)?.name || 'Class Timetable'),
-    'Drag and drop sessions between periods and days. Changes are checked immediately against the entire college.')+
-  `<div class="tt-toolbar">
-    <div class="row">
-      <label class="sm"><b>Class:</b>&nbsp;
-        <select id="tt-class-sel" onchange="switchClass(this.value)">
-          ${classes.map(c=>`<option value="${c.id}" ${c.id==S.selClass?'selected':''}>${esc(c.name)}</option>`).join('')}
-        </select>
-      </label>
-      <button class="btn" data-a="gen">Generate Timetable</button>
+  return `
+    <div class="tt-header-toolbar">
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <label style="margin:0;display:flex;align-items:center;gap:8px;font-size:13px">
+          <b>Class:</b>
+          <select id="tt-class-dropdown" onchange="onClassChange(this.value)" style="width:auto;min-width:180px">
+            ${classes.map(c=>`<option value="${c.id}" ${c.id==S.selClass?'selected':''}>${esc(c.name)}</option>`).join('')}
+          </select>
+        </label>
+        <button class="btn btn-sm" onclick="generateTimetable()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg> Regenerate</button>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:10px">
+        ${pendingCount > 0 ? `<span class="badge badge-warning">● ${pendingCount} unsaved change(s)</span>` : ''}
+        <button class="btn btn-sm" onclick="undoLastMove()" ${S.undoStack.length===0?'disabled':''}>↺ Undo</button>
+        <button class="btn btn-sm" onclick="discardAllEdits()" ${pendingCount===0?'disabled':''}>Discard</button>
+        <button class="btn btn-sm btn-primary" onclick="saveBatchEdits()" ${pendingCount===0?'disabled':''}>💾 Save Changes</button>
+      </div>
     </div>
 
-    <div class="row">
-      ${pendingCount > 0 ? `<div class="pending-badge">● ${pendingCount} unsaved change(s)</div>` : ''}
-      <button class="btn" onclick="undoMove()" ${S.undoStack.length===0?'disabled':''}>↺ Undo</button>
-      <button class="btn" onclick="discardEdits()" ${pendingCount===0?'disabled':''}>Discard All</button>
-      <button class="btn ${conflictCount>0?'w':'ok'}" onclick="saveBatchChanges()" ${pendingCount===0?'disabled':''}>💾 Save Changes</button>
-    </div>
-  </div>
-
-  <div class="tt-layout">
-    <div class="tt-main">${gridHtml}</div>
-    ${sidePanelHtml}
-  </div>`;
+    <div class="tt-workspace">
+      <div class="tt-grid-area">${gridHtml}</div>
+      ${sidePanelHtml}
+    </div>`;
 }
 
-// Drag & Drop handlers
-let draggedSessionId = null;
+// Drag & Drop Handlers
+let draggedCardId = null;
 
-function ttDragStart(ev, id){
-  draggedSessionId = id;
+function onCardDragStart(ev, id){
+  draggedCardId = id;
   ev.dataTransfer.setData('text/plain', String(id));
   ev.dataTransfer.effectAllowed = 'move';
 }
 
-function ttDragOver(ev){
+function onCellDragOver(ev){
   ev.preventDefault();
   ev.dataTransfer.dropEffect = 'move';
   const td = ev.target.closest('td[data-day]');
-  if(td) td.classList.add('drag-over');
+  if(td) td.classList.add('drag-target-over');
 }
 
-function ttDragLeave(ev){
+function onCellDragLeave(ev){
   const td = ev.target.closest('td[data-day]');
-  if(td) td.classList.remove('drag-over');
+  if(td) td.classList.remove('drag-target-over');
 }
 
-async function ttDrop(ev, targetDay, targetPeriod){
+async function onCellDrop(ev, targetDay, targetPeriod){
   ev.preventDefault();
   const td = ev.target.closest('td[data-day]');
-  if(td) td.classList.remove('drag-over');
+  if(td) td.classList.remove('drag-target-over');
 
-  const id = draggedSessionId || +ev.dataTransfer.getData('text/plain');
+  const id = draggedCardId || +ev.dataTransfer.getData('text/plain');
   if(!id) return;
 
-  // Find dragged session in ttEntries or simulated
   const currentEntry = S.ttEntries.find(e => e.id == id);
   if(!currentEntry) return;
 
-  const currentDay = S.pendingMoves[id] ? S.pendingMoves[id].day : currentEntry.day;
-  const currentPeriod = S.pendingMoves[id] ? S.pendingMoves[id].period : currentEntry.period;
+  const curDay = S.pendingMoves[id] ? S.pendingMoves[id].day : currentEntry.day;
+  const curPeriod = S.pendingMoves[id] ? S.pendingMoves[id].period : currentEntry.period;
 
-  if(currentDay === targetDay && currentPeriod === targetPeriod) return;
+  if(curDay === targetDay && curPeriod === targetPeriod) return;
 
-  // Check if an existing session is in target cell (swap behavior)
+  // Check if session exists in target cell (swap)
   const existingInTarget = S.ttEntries.find(e => {
     const d = S.pendingMoves[e.id] ? S.pendingMoves[e.id].day : e.day;
     const p = S.pendingMoves[e.id] ? S.pendingMoves[e.id].period : e.period;
     return d === targetDay && p === targetPeriod && (!S.pendingMoves[e.id] || !S.pendingMoves[e.id].deleted);
   });
 
-  // Record undo step
-  const undoItem = {
+  // Record undo
+  S.undoStack.push({
     movedId: id,
-    prevDay: currentDay,
-    prevPeriod: currentPeriod,
+    prevDay: curDay,
+    prevPeriod: curPeriod,
     swappedId: existingInTarget ? existingInTarget.id : null,
     swapPrevDay: targetDay,
     swapPrevPeriod: targetPeriod
-  };
-  S.undoStack.push(undoItem);
+  });
 
-  // Apply move to dragged item
   S.pendingMoves[id] = {
     id: id,
     day: targetDay,
@@ -579,26 +962,24 @@ async function ttDrop(ev, targetDay, targetPeriod){
     room_id: currentEntry.room_id
   };
 
-  // If occupied, automatically swap
   if(existingInTarget){
     S.pendingMoves[existingInTarget.id] = {
       id: existingInTarget.id,
-      day: currentDay,
-      period: currentPeriod,
+      day: curDay,
+      period: curPeriod,
       faculty_id: existingInTarget.faculty_id,
       room_id: existingInTarget.room_id
     };
     toast(`Swapped ${currentEntry.subject} with ${existingInTarget.subject}`);
   } else {
-    toast(`Moved ${currentEntry.subject} to ${DAYS[targetDay]} Period ${targetPeriod+1}`);
+    toast(`Moved ${currentEntry.subject} to ${DAYS[targetDay]} P${targetPeriod+1}`);
   }
 
-  // Trigger non-blocking conflict check
-  runCheckConflicts(false);
-  draw();
+  validateCurrentBatch(false);
+  render();
 }
 
-function undoMove(){
+function undoLastMove(){
   if(!S.undoStack.length) return;
   const step = S.undoStack.pop();
 
@@ -607,11 +988,7 @@ function undoMove(){
     if(orig && orig.day === step.prevDay && orig.period === step.prevPeriod){
       delete S.pendingMoves[step.movedId];
     } else {
-      S.pendingMoves[step.movedId] = {
-        id: step.movedId,
-        day: step.prevDay,
-        period: step.prevPeriod
-      };
+      S.pendingMoves[step.movedId] = { id: step.movedId, day: step.prevDay, period: step.prevPeriod };
     }
   }
 
@@ -620,30 +997,26 @@ function undoMove(){
     if(origSwap && origSwap.day === step.swapPrevDay && origSwap.period === step.swapPrevPeriod){
       delete S.pendingMoves[step.swappedId];
     } else {
-      S.pendingMoves[step.swappedId] = {
-        id: step.swappedId,
-        day: step.swapPrevDay,
-        period: step.swapPrevPeriod
-      };
+      S.pendingMoves[step.swappedId] = { id: step.swappedId, day: step.swapPrevDay, period: step.swapPrevPeriod };
     }
   }
 
   toast('Undid last move');
-  runCheckConflicts(false);
-  draw();
+  validateCurrentBatch(false);
+  render();
 }
 
-function discardEdits(){
-  if(!confirm('Discard all pending moves and restore saved schedule?')) return;
+function discardAllEdits(){
+  if(!confirm('Discard all pending moves and restore original schedule?')) return;
   S.pendingMoves = {};
   S.undoStack = [];
   S.conflicts = [];
   S.highlightedCells.clear();
-  toast('All unsaved edits discarded');
-  draw();
+  toast('Unsaved changes discarded');
+  render();
 }
 
-async function runCheckConflicts(showFeedback=true){
+async function validateCurrentBatch(showNotification=true){
   S.validating = true;
   try{
     const moves = Object.values(S.pendingMoves);
@@ -653,70 +1026,68 @@ async function runCheckConflicts(showFeedback=true){
     });
     S.isValid = res.valid;
     S.conflicts = res.items || [];
-    if(showFeedback){
+    if(showNotification){
       if(res.valid) toast('Schedule is valid with zero conflicts!', true);
-      else toast(`Detected ${S.conflicts.length} conflict(s). Review in side panel.`, false);
+      else toast(`Detected ${S.conflicts.length} conflict(s).`, false);
     }
   } catch(e){
     toast(e.message, false);
   } finally {
     S.validating = false;
-    updateSidePanelOnly();
+    updateSideConflictPanel();
   }
 }
 
-function updateSidePanelOnly(){
-  const panel = $('#conflict-panel');
+function updateSideConflictPanel(){
+  const panel = $('#side-conflict-panel');
   if(!panel) return;
   const conflictCount = S.conflicts.length;
-  const statusBadge = S.validating ?
-    `<div class="conflict-status checking">Checking...</div>` :
+  const statusPill = S.validating ?
+    `<span class="badge badge-warning">Validating...</span>` :
     conflictCount === 0 ?
-    `<div class="conflict-status ok">✓ Valid · Ready to save</div>` :
-    `<div class="conflict-status bad">⚠ ${conflictCount} Conflict(s)</div>`;
+    `<span class="badge badge-success">✓ 0 Conflicts</span>` :
+    `<span class="badge badge-danger">⚠ ${conflictCount} Conflict(s)</span>`;
 
   panel.innerHTML = `
-    <div class="conflict-header">
+    <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border-subtle);padding-bottom:12px">
       <div>
-        <div class="lab">Validation Status</div>
-        <h3 style="margin:2px 0 0">Check Conflicts</h3>
+        <h3 style="font-size:14px">Conflict Center</h3>
+        <div class="sm">Real-time scheduling validation</div>
       </div>
-      ${statusBadge}
+      ${statusPill}
     </div>
 
-    <div class="row sp">
-      <button class="btn sm p" onclick="runCheckConflicts()" style="flex:1">Re-Check Now</button>
-      <button class="btn sm" onclick="clearHighlights()" title="Clear grid highlights">Clear Highlights</button>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-sm btn-primary" onclick="validateCurrentBatch()" style="flex:1">Re-check Schedule</button>
+      <button class="btn btn-sm" onclick="clearHighlights()" title="Clear highlight rings">Clear</button>
     </div>
 
     <div style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:10px">
       ${conflictCount === 0 ? `
-        <div style="text-align:center;padding:30px 10px;color:var(--good)">
-          <div style="font-size:32px;margin-bottom:8px">✓</div>
-          <b>No Conflicts Found</b>
-          <p class="sm" style="color:var(--mute);margin-top:4px">Your proposed timetable satisfies all faculty availability, classroom limits, student cross-enrollment and common slot rules.</p>
+        <div style="text-align:center;padding:36px 14px">
+          <div style="width:40px;height:40px;border-radius:var(--radius-full);background:var(--success-subtle);color:var(--success);display:flex;align-items:center;justify-content:center;margin:0 auto 10px">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+          <div style="font-weight:600;font-size:13.5px">Zero Conflicts Found</div>
+          <p class="sm" style="margin-top:4px">All teacher assignments, rooms, and enrolled students are aligned.</p>
         </div>
       ` : `
-        <div class="sm" style="color:var(--mute)">Click any issue to highlight its cell on the grid:</div>
+        <div class="sm" style="color:var(--text-muted)">Click any conflict card to highlight conflicting cells:</div>
         ${S.conflicts.map(c => `
-          <div class="conflict-card" onclick="highlightConflictCells(${JSON.stringify(c.cells||[]).replace(/"/g,'&quot;')})">
-            <div class="conflict-issue">${esc(c.issue)}</div>
-            <div class="conflict-fix"><b>Fix:</b> ${esc(c.fix)}</div>
+          <div class="conflict-card-item" onclick="highlightCells(${JSON.stringify(c.cells||[]).replace(/"/g,'&quot;')})">
+            <div style="font-weight:600;font-size:12.5px;color:var(--danger)">${esc(c.issue)}</div>
+            <div class="sm" style="margin-top:4px"><b>Fix:</b> ${esc(c.fix)}</div>
           </div>
         `).join('')}
       `}
     </div>`;
 }
 
-function highlightConflictCells(cells){
+function highlightCells(cells){
   S.highlightedCells.clear();
-  (cells||[]).forEach(c => {
-    S.highlightedCells.add(`${c.day},${c.period}`);
-  });
-  // Update cell styles directly on the DOM
+  (cells||[]).forEach(c => S.highlightedCells.add(`${c.day},${c.period}`));
   document.querySelectorAll('#tt-grid td[data-day]').forEach(td => {
-    const d = +td.dataset.day;
-    const p = +td.dataset.period;
+    const d = +td.dataset.day, p = +td.dataset.period;
     if(S.highlightedCells.has(`${d},${p}`)){
       td.classList.add('cell-conflict-pulse');
       td.scrollIntoView({behavior:'smooth', block:'nearest'});
@@ -733,35 +1104,34 @@ function clearHighlights(){
   });
 }
 
-async function saveBatchChanges(){
+async function saveBatchEdits(){
   if(S.conflicts.length > 0){
-    if(!confirm(`There are currently ${S.conflicts.length} conflict(s) detected. The server requires all conflicts to be resolved before saving. Attempt save anyway?`)){
+    if(!confirm(`There are ${S.conflicts.length} conflict(s) detected. The backend requires zero conflicts to save. Try saving anyway?`)){
       return;
     }
   }
-
   const moves = Object.values(S.pendingMoves);
   try{
     const res = await api('/api/timetables/save-batch', {
       method: 'POST',
       body: { class_id: S.selClass, moves }
     });
-    toast(res.message || 'All timetable changes saved successfully!', true);
+    toast(res.message || 'Timetable saved successfully!', true);
     S.pendingMoves = {};
     S.undoStack = [];
     S.conflicts = [];
     S.highlightedCells.clear();
-    draw();
+    render();
   } catch(e){
     toast(e.message, false);
-    runCheckConflicts(false);
+    validateCurrentBatch(false);
   }
 }
 
-function switchClass(cid){
+function onClassChange(cid){
   if(Object.keys(S.pendingMoves).length > 0){
-    if(!confirm('You have unsaved moves for this class. Switching classes will discard unsaved moves. Continue?')){
-      $('#tt-class-sel').value = S.selClass;
+    if(!confirm('You have unsaved moves for this class. Discard them?')){
+      $('#tt-class-dropdown').value = S.selClass;
       return;
     }
   }
@@ -769,46 +1139,47 @@ function switchClass(cid){
   S.pendingMoves = {};
   S.undoStack = [];
   S.conflicts = [];
-  draw();
+  render();
 }
 
-// Quick edit session dialog
-async function openQuickEdit(entryId){
+async function openSessionModal(entryId){
   const entry = S.ttEntries.find(e => e.id == entryId);
   if(!entry) return;
   const [fac, rooms] = await Promise.all([
     api('/api/faculty'),
-    roomsOn() ? api('/api/rooms') : []
+    (me&&me.features&&me.features.rooms) ? api('/api/rooms') : []
   ]);
 
   const modal = $('#modal-slot');
   modal.innerHTML = `
-    <div class="modal-overlay" onclick="if(event.target===this)closeModal()">
-      <div class="modal-content">
-        <div class="lab">Quick Edit Session</div>
-        <h2>${esc(entry.subject)}</h2>
-        <p class="sub">${entry.entry_type == 'regular' ? 'Regular Subject' : esc(entry.entry_type)} · ${DAYS[entry.day]} Period ${entry.period+1}</p>
+    <div class="modal-backdrop" onclick="if(event.target===this)closeModal()">
+      <div class="modal-box">
+        <div class="sm" style="font-weight:600;text-transform:uppercase;color:var(--brand)">Session Configuration</div>
+        <h2 style="margin:4px 0 2px">${esc(entry.subject)}</h2>
+        <p class="sub">${DAYS[entry.day]} · Period ${entry.period+1}</p>
 
-        <form id="quick-edit-form" onsubmit="submitQuickEdit(event, ${entryId})">
-          <label>Assign Teacher<br>
-            <select id="qe_fac" style="width:100%;margin-top:4px">
+        <form onsubmit="onQuickEditSave(event, ${entryId})">
+          <div class="form-group">
+            <label>Assigned Faculty</label>
+            <select id="mdl_fac">
               ${fac.map(f => `<option value="${f.id}" ${f.id == entry.faculty_id ? 'selected' : ''}>${esc(f.name)} (${esc(f.faculty_code)})</option>`).join('')}
             </select>
-          </label>
+          </div>
 
-          ${roomsOn() ? `
-          <label style="display:block;margin-top:14px">Assign Room / Laboratory<br>
-            <select id="qe_room" style="width:100%;margin-top:4px">
+          ${rooms.length ? `
+          <div class="form-group">
+            <label>Room / Laboratory</label>
+            <select id="mdl_room">
               <option value="">No specific room</option>
               ${rooms.map(r => `<option value="${r.id}" ${r.id == entry.room_id ? 'selected' : ''}>${esc(r.name)} (${r.room_type})</option>`).join('')}
             </select>
-          </label>` : ''}
+          </div>` : ''}
 
-          <div class="row sp" style="margin-top:24px">
-            <button type="button" class="btn crit" onclick="deleteSessionDirect(${entryId})">Delete Session</button>
-            <div class="row">
-              <button type="button" class="btn" onclick="closeModal()">Cancel</button>
-              <button type="submit" class="btn p">Apply Changes</button>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:24px">
+            <button type="button" class="btn btn-sm btn-danger" onclick="onDeleteSession(${entryId})">Delete</button>
+            <div style="display:flex;gap:8px">
+              <button type="button" class="btn btn-sm" onclick="closeModal()">Cancel</button>
+              <button type="submit" class="btn btn-sm btn-primary">Save Changes</button>
             </div>
           </div>
         </form>
@@ -820,239 +1191,375 @@ function closeModal(){
   $('#modal-slot').innerHTML = '';
 }
 
-async function submitQuickEdit(ev, entryId){
+async function onQuickEditSave(ev, entryId){
   ev.preventDefault();
-  const facId = +$('#qe_fac').value;
-  const roomId = $('#qe_room') ? (+$('#qe_room').value || null) : null;
-
-  try {
+  const facId = +$('#mdl_fac').value;
+  const roomId = $('#mdl_room') ? (+$('#mdl_room').value || null) : null;
+  try{
     await api(`/api/entries/${entryId}`, {
       method: 'PUT',
       body: { faculty_id: facId, room_id: roomId }
     });
     closeModal();
-    toast('Session details updated', true);
-    draw();
+    toast('Session updated', true);
+    render();
   } catch(e){
     toast(e.message, false);
   }
 }
 
-async function deleteSessionDirect(entryId){
-  if(!confirm('Permanently remove this scheduled session?')) return;
-  try {
+async function onDeleteSession(entryId){
+  if(!confirm('Permanently delete this scheduled session?')) return;
+  try{
     await api(`/api/entries/${entryId}`, { method: 'DELETE' });
     closeModal();
     toast('Session deleted', true);
-    draw();
+    render();
   } catch(e){
     toast(e.message, false);
   }
 }
 
 /* =========================================================================
-   3. SUBJECTS SECTION (Allocations, MDC/Minor, Offerings, Enrollment, Classes)
+   MODULE 3: SUBJECTS (Allocations, MDC/Minor, Offerings, Enrollment, Classes)
    ========================================================================= */
 async function renderSubjects(){
-  const tabName = S.subTab || 'alloc';
-
-  const subTabs = [
-    ['alloc', 'Department Subjects'],
-    ['courses', 'MDC &amp; Minor Catalog'],
-    ['offerings', 'Offerings &amp; Sections'],
-    ['enroll', 'Cross-Enrollment'],
-    ['classes', 'Classes &amp; Cohorts']
+  const tab = S.subTab || 'alloc';
+  const tabs = [
+    ['alloc','Department Allocations'],
+    ['courses','MDC &amp; Minor Catalog'],
+    ['offerings','Course Offerings'],
+    ['enroll','Cross-Enrollment'],
+    ['classes','Classes &amp; Sections']
   ];
 
-  let tabContent = '';
-  if(tabName === 'alloc') tabContent = await renderAllocationsTab();
-  else if(tabName === 'courses') tabContent = await renderCoursesTab();
-  else if(tabName === 'offerings') tabContent = await renderOfferingsTab();
-  else if(tabName === 'enroll') tabContent = await renderEnrollmentTab();
-  else if(tabName === 'classes') tabContent = await renderClassesTab();
+  let body = '';
+  if(tab==='alloc') body = await renderAllocationsTab();
+  else if(tab==='courses') body = await renderCoursesTab();
+  else if(tab==='offerings') body = await renderOfferingsTab();
+  else if(tab==='enroll') body = await renderEnrollmentTab();
+  else if(tab==='classes') body = await renderClassesTab();
 
-  return head('Curriculum &amp; Offerings', 'Subjects &amp; Courses', 'Manage department subjects, college-wide MDC &amp; Minor courses, sections, and cross-department student enrollment.')+
-  `<div class="sub-tabs">
-    ${subTabs.map(([k, l]) => `<button class="sub-tab-btn ${tabName===k?'active':''}" onclick="switchSubTab('${k}')">${l}</button>`).join('')}
-  </div>
-  <div>${tabContent}</div>`;
+  return `
+    <div style="margin-bottom:20px">
+      <h1>Curriculum &amp; Course Offerings</h1>
+      <p class="sub">Manage department courses, college-wide MDC &amp; Minor selections, and student cross-enrollment.</p>
+    </div>
+
+    <div class="segmented-tabs" style="margin-bottom:20px">
+      ${tabs.map(([k,l]) => `<button class="segmented-tab ${tab===k?'active':''}" onclick="S.subTab='${k}';render()">${l}</button>`).join('')}
+    </div>
+
+    ${body}`;
 }
 
-function switchSubTab(k){
-  S.subTab = k;
-  draw();
-}
-
-// 3.1 Department Subjects & Allocations
 async function renderAllocationsTab(){
   const [a, c, f] = await Promise.all([api('/api/allocations'), api('/api/classes'), api('/api/faculty')]);
-  return `<div class="note">
-    <h3 style="margin-top:0">Add Department Subject</h3>
-    <div class="row">
-      <label>Class<br><select id="bc">${c.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('')}</select></label>
-      <label>Subject Name<br><input id="bs" placeholder="e.g. Python Programming" style="width:200px"></label>
-      ${roomsOn()?`<label>Type<br><select id="bl"><option value="">Lecture</option><option>Computer lab</option><option>Laboratory</option></select></label>`:''}
-      <label>Weekly Sessions<br><select id="bn">${[1,2,3,4,5,6].map(n=>`<option ${n==3?'selected':''}>${n}</option>`).join('')}</select></label>
-      <label>Faculty<br><select id="bt">${f.map(x=>`<option value="${x.id}">${esc(x.name)} (${esc(x.department||'')})</option>`).join('')}</select></label>
-      <label><br><button class="btn p" data-a="addalloc">Add Subject</button></label>
+  const q = S.searchQuery.toLowerCase();
+  const filtered = a.filter(x => !q || x.subject.toLowerCase().includes(q) || x.class_name.toLowerCase().includes(q) || (x.teacher||'').toLowerCase().includes(q));
+
+  return `
+    <div class="card" style="margin-bottom:20px">
+      <h3>Add Department Subject Allocation</h3>
+      <p class="sub">Allocate a subject to a class cohort with weekly frequency.</p>
+      <div class="form-row" style="margin-top:14px">
+        <div>
+          <label>Class</label>
+          <select id="alloc_cls">${c.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('')}</select>
+        </div>
+        <div>
+          <label>Subject Title</label>
+          <input id="alloc_sub" placeholder="e.g. Data Structures">
+        </div>
+        <div>
+          <label>Weekly Sessions</label>
+          <select id="alloc_ses">${[1,2,3,4,5,6].map(n=>`<option ${n==3?'selected':''}>${n}</option>`).join('')}</select>
+        </div>
+        <div>
+          <label>Faculty</label>
+          <select id="alloc_fac">${f.map(x=>`<option value="${x.id}">${esc(x.name)} (${esc(x.department||'')})</option>`).join('')}</select>
+        </div>
+      </div>
+      <div style="margin-top:14px">
+        <button class="btn btn-primary btn-sm" onclick="submitAddAlloc()">+ Allocate Subject</button>
+      </div>
     </div>
-  </div>`+
-  (a.length ? tab(['Class', 'Subject', 'Faculty', 'Sessions Placed'], a.map(x=>[
-    `<b>${esc(x.class_name)}</b>`,
-    esc(x.subject),
-    esc(x.teacher),
-    `${x.placed} / ${x.sessions_per_week}`
-  ])) : '<p class="sub">No subjects added yet.</p>');
+
+    <div class="table-container">
+      <div class="table-toolbar">
+        <div class="search-input-wrapper">
+          <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          <input placeholder="Search allocations..." value="${esc(S.searchQuery)}" oninput="S.searchQuery=this.value;render()">
+        </div>
+        <div class="sm">${filtered.length} allocation(s)</div>
+      </div>
+      <table class="data-table">
+        <thead><tr><th>Class</th><th>Subject</th><th>Faculty</th><th>Sessions Placed</th></tr></thead>
+        <tbody>
+          ${filtered.length ? filtered.map(x=>`
+            <tr>
+              <td><b>${esc(x.class_name)}</b></td>
+              <td>${esc(x.subject)}</td>
+              <td>${esc(x.teacher)}</td>
+              <td><span class="badge badge-brand">${x.placed} / ${x.sessions_per_week}</span></td>
+            </tr>
+          `).join('') : '<tr><td colspan="4" style="text-align:center;color:var(--text-muted)">No allocations match your search.</td></tr>'}
+        </tbody>
+      </table>
+    </div>`;
 }
 
-// 3.2 MDC & Minor Courses Catalog (Selection Type: Student-Selected vs Department-Selected)
 async function renderCoursesTab(){
   const courses = await api('/api/courses?all=true');
-  return `<div class="note">
-    <h3 style="margin-top:0">Add New MDC or Minor Course</h3>
-    <div class="row" style="margin-bottom:12px">
-      <label>Course Code<br><input id="crs_code" placeholder="e.g. MDC-CS-01" style="width:130px"></label>
-      <label>Course Name<br><input id="crs_name" placeholder="Course Title" style="width:240px"></label>
-      <label>Course Type<br>
-        <select id="crs_type">
-          <option value="Regular">Regular</option>
-          <option value="MDC" selected>MDC</option>
-          <option value="Minor">Minor</option>
-        </select>
-      </label>
-      <label>Course Selection Type<br>
-        <select id="crs_sel">
-          <option value="STUDENT_SELECTED">Student-Selected (College-Wide)</option>
-          <option value="DEPARTMENT_SELECTED">Department-Selected (Department-Specific)</option>
-        </select>
-      </label>
-      <label><br><button class="btn p" data-a="addcourse">Create Course</button></label>
+  const q = S.searchQuery.toLowerCase();
+  const filtered = courses.filter(c => !q || c.course_code.toLowerCase().includes(q) || c.course_name.toLowerCase().includes(q) || (c.department_name||'').toLowerCase().includes(q));
+
+  return `
+    <div class="card" style="margin-bottom:20px">
+      <h3>Add New Course to Catalog</h3>
+      <p class="sub">Configure course classification and selection method.</p>
+      <div class="form-row" style="margin-top:14px">
+        <div>
+          <label>Course Code</label>
+          <input id="crs_code" placeholder="e.g. MDC-CS-01" style="text-transform:uppercase">
+        </div>
+        <div>
+          <label>Course Title</label>
+          <input id="crs_name" placeholder="Full course title">
+        </div>
+        <div>
+          <label>Course Type</label>
+          <select id="crs_type">
+            <option value="Regular">Regular Subject</option>
+            <option value="MDC" selected>MDC</option>
+            <option value="Minor">Minor</option>
+          </select>
+        </div>
+        <div>
+          <label>Selection Type</label>
+          <select id="crs_sel">
+            <option value="STUDENT_SELECTED">Student-Selected (College-Wide)</option>
+            <option value="DEPARTMENT_SELECTED">Department-Selected (Internal)</option>
+          </select>
+        </div>
+      </div>
+      <div style="margin-top:14px">
+        <button class="btn btn-primary btn-sm" onclick="submitAddCourse()">+ Create Course</button>
+      </div>
     </div>
-    <div class="sm" style="color:var(--mute)">
-      <b>Student-Selected:</b> Available to students across college; runs during fixed common slots.<br>
-      <b>Department-Selected:</b> Selected internally; scheduled in regular departmental timetable.
-    </div>
-  </div>`+
-  tab(['Code','Course Name','Department','Type','Selection Classification'], courses.map(c=>[
-    `<b>${esc(c.course_code)}</b>`,
-    esc(c.course_name),
-    `${esc(c.department_name)} <span class="tag sm ${c.category_name=='Aided'?'ok':'w'}">${esc(c.category_name||'')}</span>`,
-    c.course_type=='MDC'?'<span class="tag c">MDC</span>':c.course_type=='Minor'?'<span class="tag w">Minor</span>':'<span class="tag ok">Regular</span>',
-    c.selection_type=='STUDENT_SELECTED' ?
-      '<span class="tag c">Student-Selected (College-Wide)</span>' :
-      c.selection_type=='DEPARTMENT_SELECTED' ?
-      '<span class="tag i">Department-Selected (Internal)</span>' :
-      '<span class="tag ok">Regular Department</span>'
-  ]));
+
+    <div class="table-container">
+      <div class="table-toolbar">
+        <div class="search-input-wrapper">
+          <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          <input placeholder="Search courses..." value="${esc(S.searchQuery)}" oninput="S.searchQuery=this.value;render()">
+        </div>
+        <div class="sm">${filtered.length} course(s)</div>
+      </div>
+      <table class="data-table">
+        <thead><tr><th>Code</th><th>Course Name</th><th>Offering Department</th><th>Type</th><th>Selection Model</th></tr></thead>
+        <tbody>
+          ${filtered.length ? filtered.map(c=>`
+            <tr>
+              <td class="mono"><b>${esc(c.course_code)}</b></td>
+              <td><b>${esc(c.course_name)}</b></td>
+              <td>${esc(c.department_name)} <span class="badge ${c.category_name==='Aided'?'badge-brand':'badge-warning'}">${esc(c.category_name||'')}</span></td>
+              <td>${c.course_type==='MDC'?'<span class="badge badge-danger">MDC</span>':c.course_type==='Minor'?'<span class="badge badge-warning">Minor</span>':'<span class="badge badge-success">Regular</span>'}</td>
+              <td>${c.selection_type==='STUDENT_SELECTED'?'<span class="badge badge-brand">Student-Selected (College-Wide)</span>':'<span class="badge badge-neutral">Department-Selected</span>'}</td>
+            </tr>
+          `).join('') : '<tr><td colspan="5" style="text-align:center;color:var(--text-muted)">No courses match your filter.</td></tr>'}
+        </tbody>
+      </table>
+    </div>`;
 }
 
-// 3.3 Course Offerings & Multi-Sectioning
 async function renderOfferingsTab(){
-  const [courses, offs, fac, rms] = await Promise.all([
+  const [courses, offs, fac] = await Promise.all([
     api('/api/courses'),
     api('/api/offerings/all'),
-    api('/api/faculty'),
-    roomsOn() ? api('/api/rooms') : []
+    api('/api/faculty')
   ]);
 
-  return `<div class="note">
-    <h3 style="margin-top:0">Launch Course Offering</h3>
-    <div class="row">
-      <label>Course<br>
-        <select id="co_crs">
-          ${courses.map(c=>`<option value="${c.id}">${esc(c.course_code)} · ${esc(c.course_name)} (${c.course_type})</option>`).join('')}
-        </select>
-      </label>
-      <label>Offering Code<br><input id="co_code" placeholder="e.g. MDC-CS-S1" style="width:130px"></label>
-      <label>Weekly Sessions<br><select id="co_ses">${[1,2,3,4,5].map(n=>`<option ${n==2?'selected':''}>${n}</option>`).join('')}</select></label>
-      <label>Max Enrollment<br><input id="co_cap" type="number" min="5" max="300" value="60" style="width:80px"></label>
-      <label>Faculty<br><select id="co_fac">${fac.map(f=>`<option value="${f.id}">${esc(f.name)} (${esc(f.department||'')})</option>`).join('')}</select></label>
-      <label><br><button class="btn p" data-a="addoffering">Launch Offering</button></label>
+  return `
+    <div class="card" style="margin-bottom:20px">
+      <h3>Launch Active Course Offering</h3>
+      <p class="sub">Open an offering section for enrollment with capacity limit.</p>
+      <div class="form-row" style="margin-top:14px">
+        <div>
+          <label>Course</label>
+          <select id="off_crs">${courses.map(c=>`<option value="${c.id}">${esc(c.course_code)} · ${esc(c.course_name)}</option>`).join('')}</select>
+        </div>
+        <div>
+          <label>Offering Code</label>
+          <input id="off_code" placeholder="e.g. MDC-CS-S1" style="text-transform:uppercase">
+        </div>
+        <div>
+          <label>Weekly Sessions</label>
+          <select id="off_ses">${[1,2,3,4,5].map(n=>`<option ${n==2?'selected':''}>${n}</option>`).join('')}</select>
+        </div>
+        <div>
+          <label>Max Enrollment</label>
+          <input id="off_cap" type="number" min="5" max="300" value="60">
+        </div>
+        <div>
+          <label>Teacher</label>
+          <select id="off_fac">${fac.map(f=>`<option value="${f.id}">${esc(f.name)} (${esc(f.department||'')})</option>`).join('')}</select>
+        </div>
+      </div>
+      <div style="margin-top:14px">
+        <button class="btn btn-primary btn-sm" onclick="submitAddOffering()">+ Launch Offering</button>
+      </div>
     </div>
-  </div>`+
-  (offs.length ? tab(['Offering Code','Course Name','Department','Selection Type','Sessions','Teacher','Sections','Enrolled / Max','Actions'], offs.map(o=>[
-    `<b>${esc(o.offering_code)}</b>`,
-    esc(o.course_name),
-    esc(o.offering_department),
-    o.selection_type=='STUDENT_SELECTED' ? '<span class="tag c">Student-Selected</span>' : '<span class="tag i">Dept-Selected</span>',
-    o.required_sessions,
-    esc(o.teacher || 'Unassigned'),
-    (o.sections&&o.sections.length) ? o.sections.map(s=>`<span class="tag sm">${esc(s.section_name)} (${s.capacity})</span>`).join(' ') : '<span class="sm">Single Section</span>',
-    `<b>${o.enrolled_count||0}</b> / ${o.max_enrollment}`,
-    `<div class="row"><button class="btn sm" data-a="newsec" data-oid="${o.id}">+ Section</button>${o.offering_department_id==me.department.id?`<button class="btn sm crit" data-a="deloff" data-oid="${o.id}">Remove</button>`:''}</div>`
-  ])) : '<p class="sub">No offerings created yet.</p>');
+
+    <div class="table-container">
+      <table class="data-table">
+        <thead><tr><th>Code</th><th>Course</th><th>Department</th><th>Selection</th><th>Sessions</th><th>Faculty</th><th>Enrolled / Max</th><th>Actions</th></tr></thead>
+        <tbody>
+          ${offs.length ? offs.map(o=>`
+            <tr>
+              <td class="mono"><b>${esc(o.offering_code)}</b></td>
+              <td><b>${esc(o.course_name)}</b></td>
+              <td>${esc(o.offering_department)}</td>
+              <td>${o.selection_type==='STUDENT_SELECTED'?'<span class="badge badge-brand">Student-Selected</span>':'<span class="badge badge-neutral">Internal</span>'}</td>
+              <td>${o.required_sessions}</td>
+              <td>${esc(o.teacher || 'Unassigned')}</td>
+              <td><b>${o.enrolled_count||0}</b> / ${o.max_enrollment}</td>
+              <td>
+                <div style="display:flex;gap:6px">
+                  <button class="btn btn-sm" onclick="addSectionPrompt(${o.id})">+ Section</button>
+                  ${o.offering_department_id==me.department.id ? `<button class="btn btn-sm btn-danger" onclick="deleteOffering(${o.id})">Remove</button>` : ''}
+                </div>
+              </td>
+            </tr>
+          `).join('') : '<tr><td colspan="8" style="text-align:center;color:var(--text-muted)">No course offerings created yet.</td></tr>'}
+        </tbody>
+      </table>
+    </div>`;
 }
 
-// 3.4 Cross-Department Student Enrollment
 async function renderEnrollmentTab(){
-  const [students, offs, classes] = await Promise.all([
+  const [students, offs] = await Promise.all([
     api('/api/students'),
-    api('/api/offerings/all'),
-    api('/api/classes')
+    api('/api/offerings/all')
   ]);
   if(!S.stuOff && offs.length) S.stuOff = offs[0].id;
-  const curOff = offs.find(o=>o.id == S.stuOff);
-  let enrData = {enrolled:[], by_department:{}, total_enrolled:0};
+  const curOff = offs.find(o => o.id == S.stuOff);
+  let enr = {enrolled:[], by_department:{}, total_enrolled:0};
   if(curOff){
-    try { enrData = await api(`/api/offerings/${curOff.id}/enrollments`); } catch(e){}
+    try { enr = await api(`/api/offerings/${curOff.id}/enrollments`); } catch(e){}
   }
-  const deptCounts = Object.entries(enrData.by_department||{}).map(([d,n])=>`<b>${esc(d)}:</b> ${n}`).join(' &nbsp;·&nbsp; ');
 
-  return `<div class="note">
-    <h3 style="margin-top:0">Manage Course Offering Enrollment</h3>
-    <div class="row" style="margin-bottom:12px">
-      <label>Select Offering<br>
-        <select id="stu_off_sel" onchange="S.stuOff=+this.value;draw()">
-          ${offs.map(o=>`<option value="${o.id}" ${o.id==S.stuOff?'selected':''}>${esc(o.offering_code)} · ${esc(o.course_name)} (${esc(o.offering_department)} · ${o.selection_type==='DEPARTMENT_SELECTED'?'Internal':'College-Wide'})</option>`).join('')}
-        </select>
-      </label>
+  return `
+    <div class="card" style="margin-bottom:20px">
+      <h3>Cross-Department Student Enrollment</h3>
+      <p class="sub">Enroll students from different departments into college-wide offerings.</p>
+      <div class="form-row" style="margin-top:14px">
+        <div>
+          <label>Active Offering</label>
+          <select onchange="S.stuOff=+this.value;render()">
+            ${offs.map(o=>`<option value="${o.id}" ${o.id==S.stuOff?'selected':''}>${esc(o.offering_code)} · ${esc(o.course_name)} (${esc(o.offering_department)})</option>`).join('')}
+          </select>
+        </div>
+      </div>
+
+      ${curOff ? `
+        <div style="margin-top:14px;background:var(--bg-subtle);padding:14px;border-radius:var(--radius-md);border:1px solid var(--border-subtle)">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span style="font-weight:600">Capacity: ${enr.total_enrolled} / ${curOff.max_enrollment} students</span>
+            <span class="badge ${curOff.selection_type==='STUDENT_SELECTED'?'badge-brand':'badge-neutral'}">${curOff.selection_type==='STUDENT_SELECTED'?'College-Wide Enrollment':'Home Dept Restricted'}</span>
+          </div>
+          <div style="height:6px;background:var(--border-subtle);border-radius:3px;margin:8px 0;overflow:hidden">
+            <div style="height:100%;width:${Math.min(100, Math.round((enr.total_enrolled/curOff.max_enrollment)*100))}%;background:var(--brand)"></div>
+          </div>
+          <div class="form-row" style="margin-top:12px">
+            <div>
+              <label>Select Student to Enroll</label>
+              <select id="enr_stu_id">
+                ${students.map(s=>`<option value="${s.id}">${esc(s.register_number)} · ${esc(s.name)} (${esc(s.class_name||'Unassigned')})</option>`).join('')}
+              </select>
+            </div>
+            ${(curOff.sections&&curOff.sections.length)?`
+            <div>
+              <label>Section</label>
+              <select id="enr_sec_id">
+                <option value="">Default section</option>
+                ${curOff.sections.map(sec=>`<option value="${sec.id}">Section ${esc(sec.section_name)} (Cap ${sec.capacity})</option>`).join('')}
+              </select>
+            </div>`:''}
+            <div style="display:flex;align-items:flex-end">
+              <button class="btn btn-primary btn-sm" onclick="submitEnrollStudent()">Enroll Student</button>
+            </div>
+          </div>
+        </div>
+      ` : ''}
     </div>
-    ${curOff ? `
-    <div class="row sp">
-      <div><b>Enrolled Capacity:</b> ${enrData.total_enrolled} / ${curOff.max_enrollment} students</div>
-      <div class="sm">${curOff.selection_type==='DEPARTMENT_SELECTED'?'<span class="tag i">Department-Selected</span> Restricted to '+esc(curOff.offering_department)+' students':'<span class="tag c">Student-Selected</span> Open cross-enrollment'}</div>
-    </div>
-    <div class="bar ${enrData.total_enrolled>=curOff.max_enrollment?'ov':''}" style="margin:8px 0 14px"><i style="width:${Math.min(100,Math.round((enrData.total_enrolled/curOff.max_enrollment)*100))}%"></i></div>
-    ${deptCounts ? `<div class="sm" style="margin-bottom:12px"><b>Enrolled by Department:</b> ${deptCounts}</div>` : ''}
-    <div class="row">
-      <select id="stu_to_enr" style="min-width:240px">
-        ${students.map(s=>`<option value="${s.id}">${esc(s.register_number)} · ${esc(s.name)} (${esc(s.class_name||'Unassigned')})</option>`).join('')}
-      </select>
-      ${(curOff.sections&&curOff.sections.length)?`<select id="stu_enr_sec"><option value="">No specific section</option>${curOff.sections.map(s=>`<option value="${s.id}">Section ${esc(s.section_name)} (Cap ${s.capacity})</option>`).join('')}</select>`:''}
-      <button class="btn p" data-a="enrollstudent">Enroll Student</button>
-    </div>` : '<p class="sub">Select or launch an offering first.</p>'}
-  </div>`+
-  `<h3>Enrolled Students</h3>`+
-  (enrData.enrolled.length ? tab(['Register No','Name','Home Department','Class','Section','Actions'], enrData.enrolled.map(e=>[
-    `<b>${esc(e.register_number)}</b>`,
-    esc(e.name),
-    esc(e.home_department),
-    esc(e.class_name||'—'),
-    e.section_name ? `<span class="tag sm">${esc(e.section_name)}</span>` : '—',
-    `<button class="btn sm crit" data-a="unenroll" data-oid="${curOff.id}" data-sid="${e.student_id}">Remove</button>`
-  ])) : '<p class="sub">No students enrolled yet.</p>');
+
+    <div class="table-container">
+      <table class="data-table">
+        <thead><tr><th>Register Number</th><th>Student Name</th><th>Home Department</th><th>Cohort</th><th>Action</th></tr></thead>
+        <tbody>
+          ${enr.enrolled.length ? enr.enrolled.map(e=>`
+            <tr>
+              <td class="mono"><b>${esc(e.register_number)}</b></td>
+              <td><b>${esc(e.name)}</b></td>
+              <td>${esc(e.home_department)}</td>
+              <td>${esc(e.class_name || '—')}</td>
+              <td><button class="btn btn-sm btn-danger" onclick="unenrollStudent(${curOff.id}, ${e.student_id})">Unenroll</button></td>
+            </tr>
+          `).join('') : '<tr><td colspan="5" style="text-align:center;color:var(--text-muted)">No students enrolled yet.</td></tr>'}
+        </tbody>
+      </table>
+    </div>`;
 }
 
-// 3.5 Classes & Cohorts
 async function renderClassesTab(){
   const classes = await api('/api/classes');
-  return `<div class="note">
-    <h3 style="margin-top:0">Add Department Class / Section</h3>
-    <div class="row">
-      <label>Class Name<br><input id="cl_name" placeholder="e.g. BSc Chemistry · Sem 1 · A" style="width:240px"></label>
-      <label>Semester<br><select id="cl_sem">${[1,2,3,4,5,6,7,8].map(n=>`<option>${n}</option>`).join('')}</select></label>
-      <label>Section<br><input id="cl_sec" value="A" style="width:60px"></label>
-      <label>Students<br><input id="cl_stu" type="number" min="5" max="300" value="40" style="width:80px"></label>
-      <label><br><button class="btn p" data-a="addclass">Add Class</button></label>
+  return `
+    <div class="card" style="margin-bottom:20px">
+      <h3>Create Class / Section Cohort</h3>
+      <div class="form-row" style="margin-top:14px">
+        <div>
+          <label>Class Name</label>
+          <input id="cls_name" placeholder="e.g. BSc CS · Sem 1 · A">
+        </div>
+        <div>
+          <label>Semester</label>
+          <select id="cls_sem">${[1,2,3,4,5,6,7,8].map(n=>`<option>${n}</option>`).join('')}</select>
+        </div>
+        <div>
+          <label>Section</label>
+          <input id="cls_sec" value="A">
+        </div>
+        <div>
+          <label>Student Count</label>
+          <input id="cls_stu" type="number" min="5" max="300" value="40">
+        </div>
+      </div>
+      <div style="margin-top:14px">
+        <button class="btn btn-primary btn-sm" onclick="submitAddClass()">+ Add Class</button>
+      </div>
     </div>
-  </div>`+
-  tab(['ID','Class Name','Semester','Section','Students'], classes.map(c=>[
-    c.id, `<b>${esc(c.name)}</b>`, c.semester, c.section, c.students||'—'
-  ]));
+
+    <div class="table-container">
+      <table class="data-table">
+        <thead><tr><th>ID</th><th>Class Name</th><th>Semester</th><th>Section</th><th>Students</th></tr></thead>
+        <tbody>
+          ${classes.map(c=>`
+            <tr>
+              <td class="mono">${c.id}</td>
+              <td><b>${esc(c.name)}</b></td>
+              <td>${c.semester}</td>
+              <td><span class="badge badge-neutral">${esc(c.section)}</span></td>
+              <td>${c.students||'—'}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>`;
 }
 
 /* =========================================================================
-   4. RULES SECTION (Working days, Periods, Faculty Availability, Common Slots)
+   MODULE 4: RULES (Working days, Periods, Break timings, Common Slots)
    ========================================================================= */
 async function renderRules(){
   if(!S.rcfg){
@@ -1065,12 +1572,11 @@ async function renderRules(){
   const commonSlots = await api('/api/common-slots');
 
   const daysCheckboxes = `
-    <div class="row" style="margin:10px 0 20px">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 20px">
       ${[0,1,2,3,4,5,6].map(d=>`
-        <label class="btn ${c.days.includes(d)?'p':''}">
-          <input type="checkbox" data-rd="${d}" ${c.days.includes(d)?'checked':''} style="display:none">
+        <button type="button" class="btn btn-sm ${c.days.includes(d)?'btn-primary':''}" onclick="toggleDay(${d})">
           ${DAYS[d].slice(0,3)}
-        </label>
+        </button>
       `).join('')}
     </div>`;
 
@@ -1078,27 +1584,27 @@ async function renderRules(){
   c.periods.forEach((p, i) => {
     const prev = c.periods[i-1];
     if(prev && tomin(p.start) > tomin(prev.end)){
-      perRows += `<tr class="gapnote"><td></td><td colspan="3" class="sm" style="color:var(--warn)">Break · ${tomin(p.start)-tomin(prev.end)} min</td></tr>`;
+      perRows += `<tr class="gapnote"><td></td><td colspan="3" class="sm" style="color:var(--warning)">Break · ${tomin(p.start)-tomin(prev.end)} min</td></tr>`;
     }
     perRows += `<tr>
-      <td><b>Period ${i+1}</b></td>
+      <td><b>P${i+1}</b></td>
       <td><input type="time" data-pt="${i}:start" value="${p.start}"></td>
       <td><input type="time" data-pt="${i}:end" value="${p.end}"></td>
-      <td><button class="btn sm crit" data-a="rmper" data-i="${i}" ${c.periods.length<2?'disabled':''}>Remove</button></td>
+      <td><button class="btn btn-sm btn-danger" onclick="removePeriod(${i})" ${c.periods.length<2?'disabled':''}>Remove</button></td>
     </tr>`;
   });
 
   const freeGrid = `
-    <div class="gw"><table class="g" style="min-width:440px">
+    <div class="table-container"><table class="data-table" style="min-width:440px">
       <thead><tr><th></th>${c.days.map(d=>`<th>${DAYS[d].slice(0,3)}</th>`).join('')}</tr></thead>
       <tbody>
         ${c.periods.map((p, i)=>`
           <tr>
-            <td class="t">${p.start}</td>
+            <td class="mono sm"><b>${p.start}</b></td>
             ${c.days.map(d=>{
               const on = (c.free||[]).some(f=>f[0]==d && f[1]==i);
               return `<td style="height:44px;text-align:center;vertical-align:middle">
-                <button type="button" class="btn sm ${on?'crit':'p'}" data-free="${d},${i}" style="width:90%;min-height:32px">
+                <button type="button" class="btn btn-sm ${on?'btn-danger':'btn-ghost'}" onclick="toggleFreeSlot(${d}, ${i})" style="width:90%">
                   ${on?'Kept Free':'Open'}
                 </button>
               </td>`;
@@ -1108,290 +1614,366 @@ async function renderRules(){
       </tbody>
     </table></div>`;
 
-  return head('Timetable Configuration', 'Scheduling Rules &amp; Timing', 'Configure working days, period timings, breaks, free periods, and view college-wide common time slots.',
-    `<button class="btn p" data-a="saverules">Save All Rules</button>`)+
-  (S.rstale ? `<div class="note" style="border-left:4px solid var(--warn)"><b>Timing changed:</b> Your periods or days changed. Save, then generate the timetable again to apply them.</div>` : '')+
-  `<div class="dash-grid">
-    <div>
-      <h2>College Working Days</h2>
-      <p class="sub">Select active teaching days for your department.</p>
-      ${daysCheckboxes}
-
-      <h2>Periods &amp; Breaks</h2>
-      <p class="sub">Configure start and end timings. Any gap between consecutive periods is treated as a break.</p>
-      <div class="gw"><table class="l"><thead><tr><th>Period</th><th>Start Time</th><th>End Time</th><th></th></tr></thead><tbody>${perRows}</tbody></table></div>
-      <div class="row" style="margin-top:12px">
-        <button class="btn" data-a="addper">+ Add Period</button>
-        <button class="btn" data-a="preset">Reset to Standard 6 Periods</button>
+  return `
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:20px;flex-wrap:wrap;gap:12px">
+      <div>
+        <h1>Timetable Rules &amp; Schedule Policies</h1>
+        <p class="sub">Configure working days, period timings, breaks, kept-free periods, and college-wide common time slots.</p>
+      </div>
+      <div>
+        <button class="btn btn-primary" onclick="saveAllRules()">Save Rules</button>
       </div>
     </div>
 
-    <div>
-      <h2>Keep Periods Free</h2>
-      <p class="sub">Reserve periods that no class in your department should use (e.g. assembly or seminar hour).</p>
-      ${freeGrid}
+    ${S.rstale ? `<div class="card" style="border-left:4px solid var(--warning);margin-bottom:20px"><b>Notice:</b> Schedule settings changed. Regenerate timetable to apply.</div>` : ''}
 
-      <h2 style="margin-top:28px">College-Wide Common Time Slots</h2>
-      <p class="sub">Designated fixed periods for college-wide student-selected MDC and Minor offerings.</p>
-      ${commonSlots.length ? tab(['Day','Time','Course Type','Slot Name'], commonSlots.map(cs=>[
-        DAYS[cs.day],
-        `<b>${cs.start}–${cs.end}</b>`,
-        cs.applicable_course_type=='MDC'?'<span class="tag c">MDC</span>':cs.applicable_course_type=='Minor'?'<span class="tag w">Minor</span>':'<span class="tag ok">Both</span>',
-        esc(cs.name)
-      ])) : '<p class="sub">No common slots configured in Registry.</p>'}
-    </div>
-  </div>`;
-}
+    <div class="form-row" style="grid-template-columns:1.2fr 1fr">
+      <div>
+        <div class="card" style="margin-bottom:20px">
+          <h3>Active Teaching Days</h3>
+          <p class="sub">Select working days for your department.</p>
+          ${daysCheckboxes}
 
-/* =========================================================================
-   5. SETTINGS SECTION (Department Info, Password Change, Audit History)
-   ========================================================================= */
-async function renderSettings(){
-  const audit = await api('/api/audit');
-  const cat = me.department.category;
-
-  return head('Account &amp; Workspace', 'Settings', 'Department information, credentials, and activity audit history.')+
-  `<div class="dash-grid">
-    <div>
-      <div class="status-card">
-        <h2>Department Information</h2>
-        <p class="sub">Your registered college department identity.</p>
-        <div style="margin:14px 0">
-          <div style="padding:10px 0;border-bottom:1px solid var(--line)"><b>Department Name:</b> ${esc(me.department.name)}</div>
-          <div style="padding:10px 0;border-bottom:1px solid var(--line)"><b>Department Code:</b> ${esc(me.department.code)}</div>
-          <div style="padding:10px 0;border-bottom:1px solid var(--line)"><b>Username:</b> ${esc(me.username)}</div>
-          <div style="padding:10px 0;border-bottom:1px solid var(--line)">
-            <b>Institutional Category:</b> <span class="tag ${cat=='Aided'?'ok':'w'}">${esc(cat)}</span>
-            <div class="sm" style="margin-top:4px;color:var(--mute)">The category is an organizational classification. All departments have equal scheduling priority.</div>
+          <h3>Teaching Periods &amp; Breaks</h3>
+          <p class="sub">Configured daily period times. Gaps between periods become scheduled breaks.</p>
+          <div class="table-container" style="margin-top:12px">
+            <table class="data-table">
+              <thead><tr><th>Period</th><th>Start</th><th>End</th><th>Action</th></tr></thead>
+              <tbody>${perRows}</tbody>
+            </table>
           </div>
-          <div style="padding:10px 0"><b>Academic Year:</b> 2026–2027</div>
+          <div style="display:flex;gap:10px;margin-top:14px">
+            <button class="btn btn-sm" onclick="addPeriod()">+ Add Period</button>
+            <button class="btn btn-sm" onclick="presetPeriods()">Reset to Standard 6 Periods</button>
+          </div>
         </div>
       </div>
 
-      <div class="status-card" style="margin-top:20px">
-        <h2>Change Password</h2>
-        <p class="sub">Update your department account password.</p>
-        <form id="change-pw-form" onsubmit="submitChangePw(event)">
-          <label>Current Password<br><input id="cpw_cur" type="password" required style="width:100%"></label>
-          <label style="display:block;margin-top:12px">New Password (10+ characters, letters &amp; numbers)<br><input id="cpw_new" type="password" required style="width:100%"></label>
-          <label style="display:block;margin-top:12px">Confirm New Password<br><input id="cpw_conf" type="password" required style="width:100%"></label>
-          <div class="row" style="margin-top:16px">
-            <button class="btn p" type="submit">Update Password</button>
+      <div>
+        <div class="card" style="margin-bottom:20px">
+          <h3>Kept-Free Periods</h3>
+          <p class="sub">Mark periods that no class in this department should use.</p>
+          ${freeGrid}
+        </div>
+
+        <div class="card">
+          <h3>College-Wide Common Slots</h3>
+          <p class="sub">Fixed synchronized periods for student-selected MDC &amp; Minor courses.</p>
+          <div class="table-container" style="margin-top:12px">
+            <table class="data-table">
+              <thead><tr><th>Day</th><th>Time</th><th>Course Type</th><th>Slot Name</th></tr></thead>
+              <tbody>
+                ${commonSlots.length ? commonSlots.map(cs=>`
+                  <tr>
+                    <td><b>${DAYS[cs.day]}</b></td>
+                    <td class="mono">${cs.start}–${cs.end}</td>
+                    <td><span class="badge ${cs.applicable_course_type==='MDC'?'badge-danger':cs.applicable_course_type==='Minor'?'badge-warning':'badge-success'}">${cs.applicable_course_type}</span></td>
+                    <td>${esc(cs.name)}</td>
+                  </tr>
+                `).join('') : '<tr><td colspan="4" style="text-align:center;color:var(--text-muted)">No common slots configured.</td></tr>'}
+              </tbody>
+            </table>
           </div>
-        </form>
+        </div>
       </div>
-    </div>
-
-    <div>
-      <div class="status-card">
-        <h2>Activity Audit History</h2>
-        <p class="sub">Full audit trail of schedule modifications and actions.</p>
-        ${audit&&audit.length ? `
-        <div style="max-height:560px;overflow-y:auto">
-          <ul class="audit-list">
-            ${audit.map(a => {
-              const dt = a.at ? new Date(a.at).toLocaleString() : 'Recent';
-              const act = (a.action||'action').replace(/_/g,' ');
-              return `<li class="audit-item">
-                <div>
-                  <b style="text-transform:capitalize">${esc(act)}</b>
-                  <div class="sm">${a.reason ? esc(a.reason) : (a.new_value? JSON.stringify(a.new_value) : 'Updated')}</div>
-                </div>
-                <div class="sm" style="color:var(--mute);text-align:right">${dt}</div>
-              </li>`;
-            }).join('')}
-          </ul>
-        </div>` : '<p class="sub">No audit logs recorded yet.</p>'}
-      </div>
-    </div>
-  </div>`;
+    </div>`;
 }
 
-async function submitChangePw(ev){
-  ev.preventDefault();
-  const cur = $('#cpw_cur').value;
-  const nw = $('#cpw_new').value;
-  const conf = $('#cpw_conf').value;
-  if(nw !== conf) return toast('New passwords do not match', false);
+/* =========================================================================
+   MODULE 5: SETTINGS
+   ========================================================================= */
+async function renderSettings(){
+  const audit = await api('/api/audit');
+  return `
+    <div style="margin-bottom:24px">
+      <h1>Settings &amp; Preferences</h1>
+      <p class="sub">Department profile, credentials, and institutional synchronization details.</p>
+    </div>
+
+    <div class="form-row" style="grid-template-columns:1.2fr 1fr">
+      <div>
+        <div class="card" style="margin-bottom:20px">
+          <h3>Department Profile</h3>
+          <p class="sub">Institutional classification and credentials.</p>
+          <div style="margin-top:16px;display:flex;flex-direction:column;gap:12px">
+            <div style="display:flex;justify-content:space-between;padding-bottom:10px;border-bottom:1px solid var(--border-subtle)">
+              <span class="sm">Department Name</span>
+              <b>${esc(me.department.name)}</b>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding-bottom:10px;border-bottom:1px solid var(--border-subtle)">
+              <span class="sm">Department Code</span>
+              <span class="mono"><b>${esc(me.department.code)}</b></span>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding-bottom:10px;border-bottom:1px solid var(--border-subtle)">
+              <span class="sm">Username</span>
+              <span class="mono">${esc(me.username)}</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding-bottom:10px;border-bottom:1px solid var(--border-subtle)">
+              <span class="sm">Institutional Category</span>
+              <span class="badge ${me.department.category==='Aided'?'badge-brand':'badge-warning'}">${esc(me.department.category)}</span>
+            </div>
+            <div style="display:flex;justify-content:space-between">
+              <span class="sm">Scheduling Priority</span>
+              <b>Equal Priority (College-Wide Synchronization)</b>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Security &amp; Password</h3>
+          <p class="sub">Update your department password.</p>
+          <form onsubmit="onUpdatePassword(event)" style="margin-top:16px">
+            <div class="form-group">
+              <label>Current Password</label>
+              <input type="password" id="pw_cur" required>
+            </div>
+            <div class="form-group">
+              <label>New Password (10+ characters, letters &amp; numbers)</label>
+              <input type="password" id="pw_new" required>
+            </div>
+            <div class="form-group">
+              <label>Confirm New Password</label>
+              <input type="password" id="pw_cnf" required>
+            </div>
+            <button type="submit" class="btn btn-primary btn-sm">Update Password</button>
+          </form>
+        </div>
+      </div>
+
+      <div>
+        <div class="card">
+          <h3>Audit Log History</h3>
+          <p class="sub">Logged actions for this department.</p>
+          <div style="max-height:480px;overflow-y:auto;margin-top:14px">
+            <table class="data-table">
+              <thead><tr><th>Time</th><th>Action</th><th>Detail</th></tr></thead>
+              <tbody>
+                ${audit&&audit.length ? audit.map(a => {
+                  const dt = a.at ? new Date(a.at).toLocaleString(undefined, {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : 'Recent';
+                  return `<tr>
+                    <td class="sm mono">${dt}</td>
+                    <td><b>${esc((a.action||'').replace(/_/g,' '))}</b></td>
+                    <td class="sm">${a.reason ? esc(a.reason) : (a.new_value? JSON.stringify(a.new_value) : '—')}</td>
+                  </tr>`;
+                }).join('') : '<tr><td colspan="3" style="text-align:center;color:var(--text-muted)">No audit entries.</td></tr>'}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+
+// Action Handlers
+async function generateTimetable(){
   try{
-    await api('/api/auth/change-password', {
-      method: 'POST',
-      body: { current: cur, new: nw }
-    });
-    toast('Password changed successfully!', true);
-    $('#cpw_cur').value = '';
-    $('#cpw_new').value = '';
-    $('#cpw_conf').value = '';
+    const res = await api('/api/generate', { method:'POST', body:{} });
+    if(res.status==='ok') toast(`Timetable generated successfully! Quality: ${res.quality}%`, true);
+    else toast(res.message || 'Could not place all sessions', false);
+    S.pendingMoves = {};
+    S.undoStack = [];
+    S.conflicts = [];
+    render();
+  }catch(e){
+    toast(e.message, false);
+  }
+}
+
+async function submitAddAlloc(){
+  const body = {
+    class_id: +$('#alloc_cls').value,
+    subject: $('#alloc_sub').value.trim(),
+    sessions: +$('#alloc_ses').value,
+    faculty_id: +$('#alloc_fac').value
+  };
+  if(!body.subject) return toast('Please enter subject title', false);
+  try{
+    await api('/api/allocations', { method:'POST', body });
+    toast('Subject allocated successfully');
+    render();
   } catch(e){
     toast(e.message, false);
   }
 }
 
-// Global click & action routing
-document.addEventListener('click', async ev => {
-  const t = ev.target.closest('button, [data-a], [data-v]');
-  if(!t) return;
-  const D = t.dataset;
-
-  try {
-    if(D.v){
-      V = D.v;
-      draw();
-    }
-    else if(D.a == 'logout'){
-      if(!confirm('Sign out of your department workspace?')) return;
-      await api('/api/auth/logout', { method:'POST' });
-      location.replace('/login.html');
-    }
-    else if(D.a == 'gen'){
-      const res = await api('/api/generate', { method:'POST', body:{} });
-      if(res.status == 'ok') toast(`Timetable generated! Quality: ${res.quality}%`, true);
-      else toast(res.message || 'Could not generate full timetable', false);
-      S.pendingMoves = {};
-      S.undoStack = [];
-      S.conflicts = [];
-      draw();
-    }
-    else if(D.a == 'addalloc'){
-      const body = {
-        class_id: +$('#bc').value,
-        subject: $('#bs').value.trim(),
-        lab: $('#bl') ? ($('#bl').value || null) : null,
-        sessions: +$('#bn').value,
-        faculty_id: +$('#bt').value
-      };
-      if(!body.subject) return toast('Please enter subject name', false);
-      await api('/api/allocations', { method:'POST', body });
-      toast('Subject added');
-      draw();
-    }
-    else if(D.a == 'addcourse'){
-      const body = {
-        course_code: $('#crs_code').value.trim().toUpperCase(),
-        course_name: $('#crs_name').value.trim(),
-        course_type: $('#crs_type').value,
-        selection_type: $('#crs_sel').value
-      };
-      if(!body.course_code || !body.course_name) return toast('Enter code and name', false);
-      await api('/api/courses', { method:'POST', body });
-      toast('Course created successfully');
-      draw();
-    }
-    else if(D.a == 'addoffering'){
-      const body = {
-        course_id: +$('#co_crs').value,
-        offering_code: $('#co_code').value.trim().toUpperCase(),
-        required_sessions: +$('#co_ses').value,
-        max_enrollment: +$('#co_cap').value,
-        faculty_id: +$('#co_fac').value,
-        room_id: null
-      };
-      if(!body.offering_code) return toast('Enter offering code', false);
-      await api('/api/offerings', { method:'POST', body });
-      toast('Course offering launched');
-      draw();
-    }
-    else if(D.a == 'deloff'){
-      if(!confirm('Remove this course offering?')) return;
-      await api(`/api/offerings/${D.oid}`, { method:'DELETE' });
-      toast('Offering removed');
-      draw();
-    }
-    else if(D.a == 'newsec'){
-      const name = prompt('Enter section name (e.g. A, B, C):', 'B');
-      if(!name) return;
-      const cap = +prompt('Enter section capacity:', '30') || 30;
-      await api(`/api/offerings/${D.oid}/sections`, {
-        method:'POST',
-        body: { section_name: name.trim().toUpperCase(), capacity: cap }
-      });
-      toast(`Section ${name} created`);
-      draw();
-    }
-    else if(D.a == 'enrollstudent'){
-      const sid = +$('#stu_to_enr').value;
-      const secId = $('#stu_enr_sec') ? (+$('#stu_enr_sec').value || null) : null;
-      await api(`/api/offerings/${S.stuOff}/enrollments`, {
-        method:'POST',
-        body: { student_id: sid, section_id: secId }
-      });
-      toast('Student enrolled');
-      draw();
-    }
-    else if(D.a == 'unenroll'){
-      if(!confirm('Unenroll student from this offering?')) return;
-      await api(`/api/offerings/${D.oid}/enrollments/${D.sid}`, { method:'DELETE' });
-      toast('Student removed');
-      draw();
-    }
-    else if(D.a == 'addclass'){
-      const body = {
-        name: $('#cl_name').value.trim(),
-        semester: +$('#cl_sem').value,
-        section: $('#cl_sec').value.trim().toUpperCase() || 'A',
-        students: +$('#cl_stu').value || null
-      };
-      if(!body.name) return toast('Enter class name', false);
-      await api('/api/classes', { method:'POST', body });
-      toast('Class added');
-      draw();
-    }
-    else if(D.rd !== undefined){
-      const d = +D.rd;
-      if(S.rcfg.days.includes(d)) S.rcfg.days = S.rcfg.days.filter(x=>x!==d);
-      else S.rcfg.days = [...S.rcfg.days, d].sort();
-      draw();
-    }
-    else if(D.free !== undefined){
-      const [d, p] = D.free.split(',').map(Number);
-      if(!S.rcfg.free) S.rcfg.free = [];
-      const idx = S.rcfg.free.findIndex(f => f[0] == d && f[1] == p);
-      if(idx >= 0) S.rcfg.free.splice(idx, 1);
-      else S.rcfg.free.push([d, p]);
-      draw();
-    }
-    else if(D.a == 'addper'){
-      const last = S.rcfg.periods[S.rcfg.periods.length - 1];
-      const start = last ? last.end : '09:00';
-      const endM = tomin(start) + 60;
-      S.rcfg.periods.push({ start: start, end: hm(endM) });
-      draw();
-    }
-    else if(D.a == 'rmper'){
-      S.rcfg.periods.splice(+D.i, 1);
-      draw();
-    }
-    else if(D.a == 'preset'){
-      S.rcfg.periods = [
-        {start:'09:00', end:'10:00'},
-        {start:'10:00', end:'11:00'},
-        {start:'11:15', end:'12:15'},
-        {start:'12:15', end:'13:15'},
-        {start:'14:00', end:'15:00'},
-        {start:'15:00', end:'16:00'}
-      ];
-      draw();
-    }
-    else if(D.a == 'saverules'){
-      // Read period inputs
-      document.querySelectorAll('input[data-pt]').forEach(inp => {
-        const [idx, field] = inp.dataset.pt.split(':');
-        S.rcfg.periods[+idx][field] = inp.value;
-      });
-      await api('/api/settings', {
-        method: 'PUT',
-        body: S.rcfg
-      });
-      S.rstale = true;
-      toast('Rules and timings saved!', true);
-      draw();
-    }
-  } catch(e){
+async function submitAddCourse(){
+  const body = {
+    course_code: $('#crs_code').value.trim().toUpperCase(),
+    course_name: $('#crs_name').value.trim(),
+    course_type: $('#crs_type').value,
+    selection_type: $('#crs_sel').value
+  };
+  if(!body.course_code || !body.course_name) return toast('Fill course code and title', false);
+  try{
+    await api('/api/courses', { method:'POST', body });
+    toast('Course created in catalog');
+    render();
+  }catch(e){
     toast(e.message, false);
   }
-});
+}
 
-// Start application
-draw();
+async function submitAddOffering(){
+  const body = {
+    course_id: +$('#off_crs').value,
+    offering_code: $('#off_code').value.trim().toUpperCase(),
+    required_sessions: +$('#off_ses').value,
+    max_enrollment: +$('#off_cap').value,
+    faculty_id: +$('#off_fac').value,
+    room_id: null
+  };
+  if(!body.offering_code) return toast('Enter offering code', false);
+  try{
+    await api('/api/offerings', { method:'POST', body });
+    toast('Course offering launched');
+    render();
+  }catch(e){
+    toast(e.message, false);
+  }
+}
+
+async function addSectionPrompt(offId){
+  const name = prompt('Section Name (e.g. B, C):', 'B');
+  if(!name) return;
+  const cap = +prompt('Section Capacity:', '30') || 30;
+  try{
+    await api(`/api/offerings/${offId}/sections`, { method:'POST', body:{ section_name: name.toUpperCase(), capacity: cap }});
+    toast(`Section ${name} created`);
+    render();
+  }catch(e){
+    toast(e.message, false);
+  }
+}
+
+async function deleteOffering(offId){
+  if(!confirm('Permanently remove this course offering?')) return;
+  try{
+    await api(`/api/offerings/${offId}`, { method:'DELETE' });
+    toast('Offering removed');
+    render();
+  }catch(e){
+    toast(e.message, false);
+  }
+}
+
+async function submitEnrollStudent(){
+  const sid = +$('#enr_stu_id').value;
+  const secEl = $('#enr_sec_id');
+  const secId = secEl ? (+secEl.value || null) : null;
+  try{
+    await api(`/api/offerings/${S.stuOff}/enrollments`, { method:'POST', body:{ student_id: sid, section_id: secId }});
+    toast('Student enrolled');
+    render();
+  }catch(e){
+    toast(e.message, false);
+  }
+}
+
+async function unenrollStudent(offId, stuId){
+  if(!confirm('Unenroll student from offering?')) return;
+  try{
+    await api(`/api/offerings/${offId}/enrollments/${stuId}`, { method:'DELETE' });
+    toast('Student unenrolled');
+    render();
+  }catch(e){
+    toast(e.message, false);
+  }
+}
+
+async function submitAddClass(){
+  const body = {
+    name: $('#cls_name').value.trim(),
+    semester: +$('#cls_sem').value,
+    section: $('#cls_sec').value.trim().toUpperCase() || 'A',
+    students: +$('#cls_stu').value || null
+  };
+  if(!body.name) return toast('Please enter class name', false);
+  try{
+    await api('/api/classes', { method:'POST', body });
+    toast('Class added');
+    render();
+  }catch(e){
+    toast(e.message, false);
+  }
+}
+
+function toggleDay(d){
+  if(S.rcfg.days.includes(d)) S.rcfg.days = S.rcfg.days.filter(x => x !== d);
+  else S.rcfg.days = [...S.rcfg.days, d].sort();
+  render();
+}
+
+function toggleFreeSlot(d, p){
+  if(!S.rcfg.free) S.rcfg.free = [];
+  const idx = S.rcfg.free.findIndex(f => f[0] == d && f[1] == p);
+  if(idx >= 0) S.rcfg.free.splice(idx, 1);
+  else S.rcfg.free.push([d, p]);
+  render();
+}
+
+function addPeriod(){
+  const last = S.rcfg.periods[S.rcfg.periods.length - 1];
+  const start = last ? last.end : '09:00';
+  const endM = tomin(start) + 60;
+  S.rcfg.periods.push({ start: start, end: hm(endM) });
+  render();
+}
+
+function removePeriod(i){
+  S.rcfg.periods.splice(i, 1);
+  render();
+}
+
+function presetPeriods(){
+  S.rcfg.periods = [
+    {start:'09:00', end:'10:00'},
+    {start:'10:00', end:'11:00'},
+    {start:'11:15', end:'12:15'},
+    {start:'12:15', end:'13:15'},
+    {start:'14:00', end:'15:00'},
+    {start:'15:00', end:'16:00'}
+  ];
+  render();
+}
+
+async function saveAllRules(){
+  document.querySelectorAll('input[data-pt]').forEach(inp => {
+    const [idx, field] = inp.dataset.pt.split(':');
+    S.rcfg.periods[+idx][field] = inp.value;
+  });
+  try{
+    await api('/api/settings', { method:'PUT', body: S.rcfg });
+    S.rstale = true;
+    toast('Rules and period timings saved', true);
+    render();
+  }catch(e){
+    toast(e.message, false);
+  }
+}
+
+async function onUpdatePassword(ev){
+  ev.preventDefault();
+  const cur = $('#pw_cur').value;
+  const nw = $('#pw_new').value;
+  const cnf = $('#pw_cnf').value;
+  if(nw !== cnf) return toast('Passwords do not match', false);
+  try{
+    await api('/api/auth/change-password', { method:'POST', body:{ current: cur, new: nw }});
+    toast('Password updated successfully', true);
+    $('#pw_cur').value = ''; $('#pw_new').value = ''; $('#pw_cnf').value = '';
+  }catch(e){
+    toast(e.message, false);
+  }
+}
+
+async function logout(){
+  if(!confirm('Sign out of your department workspace?')) return;
+  await api('/api/auth/logout', { method:'POST' });
+  location.replace('/login.html');
+}
+
+// Start
+init();
 </script>
-</body></html>
+</body>
+</html>

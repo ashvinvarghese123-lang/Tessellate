@@ -11,7 +11,7 @@ import psycopg
 
 DSN = os.environ.get("DATABASE_URL") or sys.exit("Set DATABASE_URL first.")
 HERE = os.path.dirname(os.path.abspath(__file__))
-BASE = 9   # schema.sql already includes migrations 2, 3, 4, 5, 6, 7 and 8
+BASE = 10   # schema.sql already includes migrations 2, 3, 4, 5, 6, 7, 8, 9
 
 def files():
     out = []
