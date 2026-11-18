@@ -27,18 +27,6 @@ class LoginReq(BaseModel):
     password: str
 
 
-def _issue(conn, acct, cid=None):
-    code = f"{secrets.randbelow(10**6):06d}"
-    if cid is None:
-        cid = conn.execute("INSERT INTO registry_challenge (account_id, code_hash, expires_at) VALUES (%s,'',%s) RETURNING id",
-                           (acct["id"], now() + timedelta(minutes=OTP_MINUTES))).fetchone()["id"]
-    conn.execute("UPDATE registry_challenge SET code_hash=%s, expires_at=%s, attempts=0, last_sent_at=now() WHERE id=%s",
-                 (code_hash(cid, code), now() + timedelta(minutes=OTP_MINUTES), cid))
-    send_email(acct["email"], "Your Tessellate Registry verification code",
-               f"Your code is {code}. It expires in {OTP_MINUTES} minutes. If this wasn't you, ignore this email.")
-    return str(cid)
-
-
 @router.post("/auth/login")
 def login(req: LoginReq, response: Response, conn=Depends(db)):
     bad = HTTPException(401, "The username or password is incorrect.")
@@ -55,49 +43,22 @@ def login(req: LoginReq, response: Response, conn=Depends(db)):
         conn.commit()
         raise bad
     conn.execute("UPDATE registry_account SET failed_logins=0, locked_until=NULL WHERE id=%s", (a["id"],))
-    from .config import REQUIRE_OTP
-    if not REQUIRE_OTP:                       # TEMPORARY testing mode: the password alone signs in
-        tok = secrets.token_urlsafe(32)
-        conn.execute("INSERT INTO registry_session (token_hash, account_id, expires_at) VALUES (%s,%s,%s)",
-                     (hashlib.sha256(tok.encode()).hexdigest(), a["id"], now() + timedelta(hours=SESSION_HOURS)))
-        conn.commit()
-        response.set_cookie(COOKIE, tok, httponly=True, samesite="lax", max_age=SESSION_HOURS * 3600, secure=os.environ.get("COOKIE_SECURE", "0") == "1")
-        return dict(signed_in=True)
-    cid = _issue(conn, a)
+    tok = secrets.token_urlsafe(32)
+    conn.execute("INSERT INTO registry_session (token_hash, account_id, expires_at) VALUES (%s,%s,%s)",
+                 (hashlib.sha256(tok.encode()).hexdigest(), a["id"], now() + timedelta(hours=SESSION_HOURS)))
     conn.commit()
-    return dict(challenge_id=cid, email_hint=mask(a["email"]))
-
-
-def _chal(conn, cid):
-    try:
-        return conn.execute("SELECT c.*, a.email, a.username FROM registry_challenge c JOIN registry_account a ON a.id=c.account_id WHERE c.id=%s", (cid,)).fetchone()
-    except Exception:
-        conn.rollback()
-        return None
+    response.set_cookie(COOKIE, tok, httponly=True, samesite="lax", max_age=SESSION_HOURS * 3600, secure=os.environ.get("COOKIE_SECURE", "0") == "1")
+    return dict(signed_in=True)
 
 
 @router.post("/auth/verify")
 def verify(req: dict, response: Response, conn=Depends(db)):
-    c = _chal(conn, req.get("challenge_id"))
-    if not c or c["used"] or c["expires_at"] < now():
-        raise HTTPException(400, "This code has expired. Please request a new one.")
-    if c["attempts"] >= MAX_TRIES:
-        raise HTTPException(429, "Too many incorrect codes. Please sign in again.")
-    if not hmac.compare_digest(c["code_hash"], code_hash(c["id"], str(req.get("code", "")).strip())):
-        conn.execute("UPDATE registry_challenge SET attempts=attempts+1 WHERE id=%s", (c["id"],))
-        conn.commit()
-        raise HTTPException(400, "That code isn't correct. Please check it and try again.")
-    conn.execute("UPDATE registry_challenge SET used=TRUE WHERE id=%s", (c["id"],))
-    tok = secrets.token_urlsafe(32)
-    conn.execute("INSERT INTO registry_session (token_hash, account_id, expires_at) VALUES (%s,%s,%s)",
-                 (hashlib.sha256(tok.encode()).hexdigest(), c["account_id"], now() + timedelta(hours=SESSION_HOURS)))
-    conn.commit()
-    response.set_cookie(COOKIE, tok, httponly=True, samesite="lax", max_age=SESSION_HOURS * 3600, secure=os.environ.get("COOKIE_SECURE", "0") == "1")
-    return dict(ok=True)
+    return dict(ok=True, signed_in=True)
 
 
 @router.post("/auth/resend")
 def resend(req: dict, conn=Depends(db)):
+    return dict(ok=True)
     c = _chal(conn, req.get("challenge_id"))
     if not c or c["used"]:
         raise HTTPException(400, "Please sign in again.")

@@ -12,9 +12,7 @@ ok = lambda c, m: print(("PASS " if c else "FAIL ") + m) or (c or sys.exit(1))
 def sign_in(user):
     c = TestClient(app)
     r = c.post("/api/auth/login", json={"username": user, "password": PW}); assert r.status_code == 200, r.text
-    code = re.search(r"code is (\d{6})", mails[-1][1]).group(1)
-    r2 = c.post("/api/auth/verify", json={"challenge_id": r.json()["challenge_id"], "code": code}); assert r2.status_code == 200, r2.text
-    return c, r.json(), code
+    return c, r.json(), None
 
 c0 = TestClient(app)
 r = c0.post("/api/auth/login", json={"username": "cs", "password": "wrong"})
@@ -22,13 +20,7 @@ ok(r.status_code == 401 and "incorrect" in r.json()["detail"], "wrong password g
 r = c0.post("/api/auth/login", json={"username": "nobody", "password": "x"})
 ok(r.status_code == 401 and "incorrect" in r.json()["detail"], "unknown username gives the same message")
 r = c0.post("/api/auth/login", json={"username": "cs", "password": PW}); ch = r.json()
-ok(ch["email_hint"] == "c***@college.edu" and mails[-1][0] == "cs@college.edu", "code goes to the registered email; address is masked")
-ok(c0.post("/api/auth/verify", json={"challenge_id": ch["challenge_id"], "code": "000000"}).status_code == 400, "wrong code is refused")
-ok(c0.post("/api/auth/resend", json={"challenge_id": ch["challenge_id"]}).status_code == 429, "resend cooldown applies")
-ok(c0.get("/api/auth/me").status_code == 401, "no access before the code is entered")
-code = re.search(r"code is (\d{6})", mails[-1][1]).group(1)
-ok(c0.post("/api/auth/verify", json={"challenge_id": ch["challenge_id"], "code": code}).status_code == 200, "correct code signs in")
-ok(c0.post("/api/auth/verify", json={"challenge_id": ch["challenge_id"], "code": code}).status_code == 400, "a code works only once")
+ok(ch.get("signed_in") is True, "password alone signs department in (no OTP)")
 ok(c0.get("/api/auth/me").json()["department"]["name"] == "Computer Science", "department comes from the account")
 
 cs = c0

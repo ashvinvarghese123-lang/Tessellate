@@ -27,8 +27,6 @@ if os.environ.get("TESSELLATE_ENV") == "production":
         _bad.append("TESSELLATE_SECRET must be a random value of at least 32 characters")
     if os.environ.get("COOKIE_SECURE") != "1":
         _bad.append("COOKIE_SECURE must be 1 (HTTPS only)")
-    if os.environ.get("REQUIRE_OTP", "1") != "0" and not (os.environ.get("SMTP_HOST") or os.environ.get("BREVO_API_KEY")):
-        _bad.append("email must be configured so codes are emailed, not logged: set BREVO_API_KEY and SMTP_FROM (works on any host), or SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, SMTP_FROM")
     if not os.environ.get("DATABASE_URL"):
         _bad.append("DATABASE_URL must be set")
     if _bad:
@@ -432,11 +430,43 @@ def classes(conn=Depends(db), d=Depends(current_department)):
 @app.get("/api/timetable/{class_id}")
 def class_timetable(class_id: int, conn=Depends(db), d=Depends(current_department)):
     own_class(conn, d, class_id)
-    rows = conn.execute("""SELECT e.id, e.day, e.period, e.start_min, e.end_min, s.name subject, f.name teacher, r.name room, s.kind FROM timetable_entry e
+    rows = conn.execute("""SELECT e.id, e.day, e.period, e.start_min, e.end_min, s.name subject,
+        f.name teacher, f.id faculty_id, r.name room, r.id room_id, s.kind, 'regular' as entry_type,
+        e.class_id, e.course_offering_id FROM timetable_entry e
         JOIN teacher_allocation a ON a.id=e.allocation_id JOIN subject s ON s.id=a.subject_id
-        JOIN faculty f ON f.id=e.faculty_id LEFT JOIN room r ON r.id=e.room_id WHERE e.class_id=%s ORDER BY e.day, e.start_min""", (class_id,)).fetchall()
-    return [dict(id=r["id"], day=r["day"], period=r["period"], start=hm(r["start_min"]), end=hm(r["end_min"]), subject=r["subject"],
-                 teacher=r["teacher"], room=r["room"], lab=r["kind"] == "Lab") for r in rows]
+        LEFT JOIN faculty f ON f.id=e.faculty_id LEFT JOIN room r ON r.id=e.room_id
+        WHERE e.class_id=%s ORDER BY e.day, e.start_min""", (class_id,)).fetchall()
+
+    off_rows = conn.execute("""
+        SELECT DISTINCT e.id, e.day, e.period, e.start_min, e.end_min, crs.course_name subject,
+               f.name teacher, f.id faculty_id, r.name room, r.id room_id, 'Lecture' as kind,
+               crs.course_type as entry_type, e.class_id, e.course_offering_id
+        FROM timetable_entry e
+        JOIN course_offering co ON co.id=e.course_offering_id
+        JOIN course crs ON crs.id=co.course_id
+        JOIN course_enrollment ce ON ce.course_offering_id=co.id
+        JOIN student s ON s.id=ce.student_id
+        LEFT JOIN faculty f ON f.id=e.faculty_id
+        LEFT JOIN room r ON r.id=e.room_id
+        WHERE s.class_id=%s AND ce.enrollment_status='enrolled'
+        ORDER BY e.day, e.start_min
+    """, (class_id,)).fetchall()
+
+    seen = set()
+    out = []
+    for r in list(rows) + list(off_rows):
+        if r["id"] in seen:
+            continue
+        seen.add(r["id"])
+        out.append(dict(
+            id=r["id"], day=r["day"], period=r["period"],
+            start=hm(r["start_min"]), end=hm(r["end_min"]),
+            subject=r["subject"], teacher=r["teacher"] or "Unassigned", faculty_id=r["faculty_id"],
+            room=r["room"], room_id=r["room_id"],
+            lab=r["kind"] == "Lab", entry_type=r["entry_type"],
+            course_offering_id=r["course_offering_id"], class_id=r["class_id"]
+        ))
+    return out
 
 
 def view(conn, col, rid):
@@ -848,6 +878,330 @@ def request_change(entry_id: int, req: MoveReq, conn=Depends(db), d=Depends(curr
     conn.execute("INSERT INTO change_request (timetable_id, requested_by, reason, entry_id, new_day, new_period) SELECT t.id,%s,%s,%s,%s,%s FROM timetable t JOIN timetable_entry e ON e.class_id=t.class_id WHERE e.id=%s",
                  (d["account_id"], req.reason, entry_id, req.day, req.period, entry_id))
     return res
+
+
+# ---------- interactive timetable batch operations & quick edit ----------
+class BatchMoveItem(BaseModel):
+    id: int
+    day: int
+    period: int
+    faculty_id: int | None = None
+    room_id: int | None = None
+    deleted: bool = False
+
+
+class BatchValidateReq(BaseModel):
+    class_id: int | None = None
+    moves: list[BatchMoveItem] = []
+
+
+class QuickEditReq(BaseModel):
+    faculty_id: int | None = None
+    room_id: int | None = None
+    day: int | None = None
+    period: int | None = None
+
+
+def validate_batch_logic(conn, d, moves: list, class_id: int | None = None):
+    cfg = load_settings(conn, d["id"])
+    periods = cfg["periods"]
+    days = set(cfg["days"])
+    free_set = {(f[0], f[1]) for f in cfg.get("free", [])}
+
+    dept_entries = conn.execute("""
+        SELECT e.id, e.day, e.period, e.start_min, e.end_min, e.faculty_id, e.room_id, e.class_id, e.course_offering_id,
+               coalesce(s.name, crs.course_name) AS subject_name,
+               f.name AS teacher_name, r.name AS room_name, c.name AS class_name,
+               co.scheduling_scope, crs.course_type, crs.selection_type
+        FROM timetable_entry e
+        LEFT JOIN class c ON c.id=e.class_id
+        LEFT JOIN teacher_allocation a ON a.id=e.allocation_id
+        LEFT JOIN subject s ON s.id=a.subject_id
+        LEFT JOIN course_offering co ON co.id=e.course_offering_id
+        LEFT JOIN course crs ON crs.id=co.course_id
+        LEFT JOIN faculty f ON f.id=e.faculty_id
+        LEFT JOIN room r ON r.id=e.room_id
+        WHERE c.department_id=%s OR co.offering_department_id=%s
+    """, (d["id"], d["id"])).fetchall()
+
+    entry_map = {e["id"]: dict(e) for e in dept_entries}
+    move_map = {m.id if hasattr(m, 'id') else m['id']: (m.model_dump() if hasattr(m, 'model_dump') else m) for m in moves}
+
+    # Cross check if moved entry belongs to another department
+    for eid, m in move_map.items():
+        if eid not in entry_map:
+            other = conn.execute("SELECT id FROM timetable_entry WHERE id=%s", (eid,)).fetchone()
+            if not other:
+                return False, [{"issue": f"Session #{eid} not found.", "fix": "Refresh your timetable view.", "cells": [], "entry_ids": [eid]}]
+            return False, [{"issue": f"Session #{eid} belongs to another department's course offering.", "fix": "Only the offering department can reschedule shared course offerings.", "cells": [], "entry_ids": [eid]}]
+
+    simulated = []
+    for eid, e in entry_map.items():
+        if eid in move_map:
+            m = move_map[eid]
+            if m.get("deleted"):
+                continue
+            day = m["day"]
+            p_idx = m["period"]
+            if day not in days or not (0 <= p_idx < len(periods)):
+                return False, [{"issue": f"'{e['subject_name']}' is placed in an invalid day or period.", "fix": "Move the session to a valid period slot.", "cells": [{"day": day, "period": p_idx}], "entry_ids": [eid]}]
+            smin = tomin(periods[p_idx]["start"])
+            emin = tomin(periods[p_idx]["end"])
+            fac_id = m.get("faculty_id") if m.get("faculty_id") is not None else e["faculty_id"]
+            rm_id = m.get("room_id") if m.get("room_id") is not None else e["room_id"]
+            sim_e = dict(e)
+            sim_e.update(day=day, period=p_idx, start_min=smin, end_min=emin, faculty_id=fac_id, room_id=rm_id)
+            simulated.append(sim_e)
+        else:
+            simulated.append(dict(e))
+
+    other_busy = conn.execute("""
+        SELECT e.id, e.day, e.period, e.start_min, e.end_min, e.faculty_id, e.room_id, e.class_id, e.course_offering_id,
+               coalesce(s.name, crs.course_name) AS subject_name,
+               f.name AS teacher_name, r.name AS room_name,
+               coalesce(c.name, co.offering_code) AS class_name,
+               coalesce(dp.name, od.name) AS department_name
+        FROM timetable_entry e
+        LEFT JOIN class c ON c.id=e.class_id
+        LEFT JOIN department dp ON dp.id=c.department_id
+        LEFT JOIN teacher_allocation a ON a.id=e.allocation_id
+        LEFT JOIN subject s ON s.id=a.subject_id
+        LEFT JOIN course_offering co ON co.id=e.course_offering_id
+        LEFT JOIN course crs ON crs.id=co.course_id
+        LEFT JOIN department od ON od.id=co.offering_department_id
+        LEFT JOIN faculty f ON f.id=e.faculty_id
+        LEFT JOIN room r ON r.id=e.room_id
+        WHERE (c.department_id IS NULL OR c.department_id <> %s)
+          AND (co.offering_department_id IS NULL OR co.offering_department_id <> %s)
+    """, (d["id"], d["id"])).fetchall()
+
+    fac_meta = {}
+    for f in conn.execute("SELECT id, name, max_weekly_sessions FROM faculty WHERE active"):
+        unav = conn.execute("""
+            SELECT ts.day, ts.starts, ts.ends
+            FROM faculty_availability fa
+            JOIN time_slot ts ON ts.id=fa.time_slot_id
+            WHERE fa.faculty_id=%s AND fa.kind='unavailable'
+        """, (f["id"],)).fetchall()
+        fac_meta[f["id"]] = {
+            "name": f["name"],
+            "max": f["max_weekly_sessions"],
+            "unav": [(u["day"], tmin(u["starts"]), tmin(u["ends"])) for u in unav]
+        }
+
+    class_stu = defaultdict(set)
+    for st in conn.execute("SELECT id, class_id FROM student WHERE class_id IS NOT NULL AND status='active'"):
+        class_stu[st["class_id"]].add(st["id"])
+
+    off_stu = defaultdict(set)
+    for ce in conn.execute("SELECT student_id, course_offering_id FROM course_enrollment WHERE enrollment_status='enrolled'"):
+        off_stu[ce["course_offering_id"]].add(ce["student_id"])
+
+    cslots = conn.execute("SELECT * FROM common_time_slot WHERE status='active'").fetchall()
+    conflicts = []
+
+    for i, e1 in enumerate(simulated):
+        if (e1["day"], e1["period"]) in free_set:
+            conflicts.append({
+                "issue": f"'{e1['subject_name']}' is placed in a kept-free period ({DAYS[e1['day']]} Period {e1['period'] + 1}).",
+                "fix": "Move this session to an active teaching period or update Rules.",
+                "cells": [{"day": e1["day"], "period": e1["period"]}],
+                "entry_ids": [e1["id"]]
+            })
+
+        if e1["faculty_id"] and e1["faculty_id"] in fac_meta:
+            finfo = fac_meta[e1["faculty_id"]]
+            for uday, ustart, uend in finfo["unav"]:
+                if e1["day"] == uday and ov(e1["start_min"], e1["end_min"], ustart, uend):
+                    conflicts.append({
+                        "issue": f"{finfo['name']} is marked unavailable on {when(uday, ustart, uend)}.",
+                        "fix": "Move this session to an available period or assign a different faculty member.",
+                        "cells": [{"day": e1["day"], "period": e1["period"]}],
+                        "entry_ids": [e1["id"]]
+                    })
+
+        is_student_selected = (e1.get("selection_type") == "STUDENT_SELECTED" or e1.get("scheduling_scope") == "college_wide")
+        if is_student_selected:
+            ctype = e1.get("course_type", "MDC")
+            matches_slot = any(
+                cs["day"] == e1["day"] and cs["start_min"] == e1["start_min"] and cs["end_min"] == e1["end_min"]
+                and (cs["applicable_course_type"] in (ctype, "Both") or not cs["applicable_course_type"])
+                for cs in cslots
+            )
+            if not matches_slot:
+                conflicts.append({
+                    "issue": f"Student-selected course '{e1['subject_name']}' is not in a configured college-wide common time slot.",
+                    "fix": f"Move '{e1['subject_name']}' to one of the designated common MDC/Minor periods.",
+                    "cells": [{"day": e1["day"], "period": e1["period"]}],
+                    "entry_ids": [e1["id"]]
+                })
+
+        for j in range(i + 1, len(simulated)):
+            e2 = simulated[j]
+            if e1["day"] == e2["day"] and ov(e1["start_min"], e1["end_min"], e2["start_min"], e2["end_min"]):
+                if e1["faculty_id"] and e1["faculty_id"] == e2["faculty_id"]:
+                    fname = fac_meta.get(e1["faculty_id"], {}).get("name", "Faculty")
+                    conflicts.append({
+                        "issue": f"Teacher conflict: {fname} is scheduled for both '{e1['subject_name']}' and '{e2['subject_name']}' at {when(e1['day'], e1['start_min'], e1['end_min'])}.",
+                        "fix": "Move one of these sessions to another period or assign a different teacher.",
+                        "cells": [{"day": e1["day"], "period": e1["period"]}, {"day": e2["day"], "period": e2["period"]}],
+                        "entry_ids": [e1["id"], e2["id"]]
+                    })
+                if USE_ROOMS and e1["room_id"] and e1["room_id"] == e2["room_id"]:
+                    conflicts.append({
+                        "issue": f"Room conflict: Room is double-booked for '{e1['subject_name']}' and '{e2['subject_name']}' at {when(e1['day'], e1['start_min'], e1['end_min'])}.",
+                        "fix": "Reassign one of the sessions to another room or move time.",
+                        "cells": [{"day": e1["day"], "period": e1["period"]}, {"day": e2["day"], "period": e2["period"]}],
+                        "entry_ids": [e1["id"], e2["id"]]
+                    })
+                if e1["class_id"] and e1["class_id"] == e2["class_id"]:
+                    cname = e1.get("class_name") or "Class"
+                    conflicts.append({
+                        "issue": f"Class overlap: {cname} has overlapping sessions '{e1['subject_name']}' and '{e2['subject_name']}'.",
+                        "fix": "Move one of the sessions to a different period.",
+                        "cells": [{"day": e1["day"], "period": e1["period"]}, {"day": e2["day"], "period": e2["period"]}],
+                        "entry_ids": [e1["id"], e2["id"]]
+                    })
+                s1_stu = class_stu[e1["class_id"]] if e1["class_id"] else off_stu[e1["course_offering_id"]]
+                s2_stu = class_stu[e2["class_id"]] if e2["class_id"] else off_stu[e2["course_offering_id"]]
+                shared_st = s1_stu & s2_stu
+                if shared_st:
+                    conflicts.append({
+                        "issue": f"Student clash: {len(shared_st)} student(s) are enrolled in both '{e1['subject_name']}' and '{e2['subject_name']}' at {when(e1['day'], e1['start_min'], e1['end_min'])}.",
+                        "fix": "Move one session so enrolled students do not experience timetable clash.",
+                        "cells": [{"day": e1["day"], "period": e1["period"]}, {"day": e2["day"], "period": e2["period"]}],
+                        "entry_ids": [e1["id"], e2["id"]]
+                    })
+
+    for e in simulated:
+        for ob in other_busy:
+            if e["day"] == ob["day"] and ov(e["start_min"], e["end_min"], ob["start_min"], ob["end_min"]):
+                if e["faculty_id"] and e["faculty_id"] == ob["faculty_id"]:
+                    fname = fac_meta.get(e["faculty_id"], {}).get("name", "Faculty")
+                    conflicts.append({
+                        "issue": f"Teacher conflict: {fname} is already teaching '{ob['subject_name']}' ({ob['department_name']}) at {when(e['day'], e['start_min'], e['end_min'])}.",
+                        "fix": f"Move '{e['subject_name']}' to another period so {fname} is not double-booked.",
+                        "cells": [{"day": e["day"], "period": e["period"]}],
+                        "entry_ids": [e["id"]]
+                    })
+                if USE_ROOMS and e["room_id"] and e["room_id"] == ob["room_id"]:
+                    conflicts.append({
+                        "issue": f"Room conflict: Room is already booked by {ob['department_name']} for '{ob['subject_name']}' at {when(e['day'], e['start_min'], e['end_min'])}.",
+                        "fix": "Assign a different room or select another period.",
+                        "cells": [{"day": e["day"], "period": e["period"]}],
+                        "entry_ids": [e["id"]]
+                    })
+                e_stu = class_stu[e["class_id"]] if e["class_id"] else off_stu[e["course_offering_id"]]
+                ob_stu = class_stu[ob["class_id"]] if ob["class_id"] else off_stu[ob["course_offering_id"]]
+                clash_stu = e_stu & ob_stu
+                if clash_stu:
+                    conflicts.append({
+                        "issue": f"Student clash: {len(clash_stu)} student(s) enrolled in '{e['subject_name']}' are also attending '{ob['subject_name']}' ({ob['department_name']}) at this time.",
+                        "fix": "Move this session to another period or common slot.",
+                        "cells": [{"day": e["day"], "period": e["period"]}],
+                        "entry_ids": [e["id"]]
+                    })
+
+    fac_counts = defaultdict(int)
+    for ob in other_busy:
+        if ob["faculty_id"]:
+            fac_counts[ob["faculty_id"]] += 1
+    for e in simulated:
+        if e["faculty_id"]:
+            fac_counts[e["faculty_id"]] += 1
+    for fid, cnt in fac_counts.items():
+        if fid in fac_meta and cnt > fac_meta[fid]["max"]:
+            conflicts.append({
+                "issue": f"Workload limit exceeded: {fac_meta[fid]['name']} has {cnt} sessions assigned (maximum limit is {fac_meta[fid]['max']}).",
+                "fix": f"Reassign one or more sessions of {fac_meta[fid]['name']} to another teacher.",
+                "cells": [],
+                "entry_ids": []
+            })
+
+    valid = (len(conflicts) == 0)
+    return valid, conflicts
+
+
+@app.post("/api/timetables/validate-batch")
+def validate_batch(req: BatchValidateReq, conn=Depends(db), d=Depends(current_department)):
+    valid, items = validate_batch_logic(conn, d, req.moves, req.class_id)
+    return dict(valid=valid, status="ok" if valid else "conflicts", items=items)
+
+
+@app.post("/api/timetables/save-batch")
+def save_batch(req: BatchValidateReq, conn=Depends(db), d=Depends(current_department)):
+    with conn.transaction():
+        conn.execute("SELECT pg_advisory_xact_lock(1)")
+        valid, items = validate_batch_logic(conn, d, req.moves, req.class_id)
+        if not valid:
+            raise HTTPException(409, detail={"status": "conflicts", "message": "Cannot save changes because conflicts were detected.", "items": items})
+
+        cfg = load_settings(conn, d["id"])
+        periods = cfg["periods"]
+        saved_count = 0
+        for m in req.moves:
+            if m.deleted:
+                conn.execute("DELETE FROM timetable_entry WHERE id=%s", (m.id,))
+                saved_count += 1
+            else:
+                p_idx = m.period
+                smin = tomin(periods[p_idx]["start"])
+                emin = tomin(periods[p_idx]["end"])
+                conn.execute("""
+                    UPDATE timetable_entry
+                    SET day=%s, period=%s, start_min=%s, end_min=%s,
+                        faculty_id=coalesce(%s, faculty_id),
+                        room_id=coalesce(%s, room_id)
+                    WHERE id=%s
+                """, (m.day, m.period, smin, emin, m.faculty_id, m.room_id, m.id))
+                saved_count += 1
+        note(conn, d["id"], "save_batch", new={"saved_count": saved_count})
+    return dict(ok=True, saved_count=saved_count, message="All timetable changes saved successfully.")
+
+
+@app.delete("/api/entries/{entry_id}")
+def delete_entry(entry_id: int, conn=Depends(db), d=Depends(current_department)):
+    e = conn.execute("""
+        SELECT e.*, coalesce(c.department_id, co.offering_department_id) AS dept_id,
+               coalesce(s.name, crs.course_name) AS subject
+        FROM timetable_entry e
+        LEFT JOIN class c ON c.id=e.class_id
+        LEFT JOIN teacher_allocation a ON a.id=e.allocation_id
+        LEFT JOIN subject s ON s.id=a.subject_id
+        LEFT JOIN course_offering co ON co.id=e.course_offering_id
+        LEFT JOIN course crs ON crs.id=co.course_id
+        WHERE e.id=%s
+    """, (entry_id,)).fetchone()
+    if not e:
+        raise HTTPException(404, "Session not found.")
+    if e["dept_id"] != d["id"]:
+        raise HTTPException(403, "You cannot delete sessions belonging to another department.")
+    conn.execute("DELETE FROM timetable_entry WHERE id=%s", (entry_id,))
+    note(conn, d["id"], "delete_entry", entry_id=entry_id, old={"subject": e["subject"], "day": e["day"], "period": e["period"]})
+    conn.commit()
+    return dict(ok=True)
+
+
+@app.put("/api/entries/{entry_id}")
+def quick_edit_entry(entry_id: int, req: QuickEditReq, conn=Depends(db), d=Depends(current_department)):
+    e = conn.execute("""
+        SELECT e.*, coalesce(c.department_id, co.offering_department_id) AS dept_id
+        FROM timetable_entry e
+        LEFT JOIN class c ON c.id=e.class_id
+        LEFT JOIN course_offering co ON co.id=e.course_offering_id
+        WHERE e.id=%s
+    """, (entry_id,)).fetchone()
+    if not e:
+        raise HTTPException(404, "Session not found.")
+    if e["dept_id"] != d["id"]:
+        raise HTTPException(403, "You cannot modify sessions belonging to another department.")
+    if req.faculty_id is not None:
+        conn.execute("UPDATE timetable_entry SET faculty_id=%s WHERE id=%s", (req.faculty_id, entry_id))
+    if req.room_id is not None:
+        conn.execute("UPDATE timetable_entry SET room_id=%s WHERE id=%s", (req.room_id, entry_id))
+    note(conn, d["id"], "quick_edit_entry", entry_id=entry_id, new={"faculty_id": req.faculty_id, "room_id": req.room_id})
+    conn.commit()
+    return dict(ok=True)
 
 
 # ---------- common slots (read-only for departments) ----------

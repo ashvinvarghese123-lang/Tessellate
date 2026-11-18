@@ -139,8 +139,7 @@ def _start_session(conn, response, account_id, dept_id):
 
 @router.get("/config")
 def auth_config():
-    from .config import REQUIRE_OTP
-    return dict(otp=REQUIRE_OTP)
+    return dict(otp=False)
 
 
 @router.post("/login")
@@ -160,62 +159,18 @@ def login(req: LoginReq, response: Response, conn=Depends(db)):
         conn.commit()
         raise bad
     conn.execute("UPDATE department_account SET failed_logins=0, locked_until=NULL WHERE id=%s", (a["id"],))
-    from .config import REQUIRE_OTP
-    if not REQUIRE_OTP:                       # TEMPORARY testing mode: the password alone signs in
-        _start_session(conn, response, a["id"], a["department_id"])
-        conn.commit()
-        return dict(signed_in=True)
-    cid = _issue_code(conn, a)
+    _start_session(conn, response, a["id"], a["department_id"])
     conn.commit()
-    return dict(challenge_id=cid, email_hint=mask(a["email"]))
-
-
-def _challenge(conn, cid):
-    try:
-        return conn.execute("""SELECT c.*, a.email, a.department_id FROM login_challenge c
-                               JOIN department_account a ON a.id=c.account_id WHERE c.id=%s""", (cid,)).fetchone()
-    except Exception:
-        conn.rollback()
-        return None
+    return dict(signed_in=True)
 
 
 @router.post("/verify")
 def verify(req: VerifyReq, response: Response, request: Request, conn=Depends(db)):
-    c = _challenge(conn, req.challenge_id)
-    if not c or c["used"] or c["expires_at"] < now():
-        raise HTTPException(400, "This code has expired. Please request a new one.")
-    if c["attempts"] >= MAX_TRIES:
-        raise HTTPException(429, "Too many incorrect codes. Please sign in again.")
-    if not hmac.compare_digest(c["code_hash"], code_hash(c["id"], req.code.strip())):
-        conn.execute("UPDATE login_challenge SET attempts=attempts+1 WHERE id=%s", (c["id"],))
-        audit(conn, c["account_id"], c["department_id"], "bad_code")
-        conn.commit()
-        raise HTTPException(400, "That code isn't correct. Please check it and try again.")
-    conn.execute("UPDATE login_challenge SET used=TRUE WHERE id=%s", (c["id"],))
-    token = secrets.token_urlsafe(32)
-    conn.execute("INSERT INTO auth_session (token_hash, account_id, expires_at) VALUES (%s,%s,%s)",
-                 (hashlib.sha256(token.encode()).hexdigest(), c["account_id"], now() + timedelta(hours=SESSION_HOURS)))
-    audit(conn, c["account_id"], c["department_id"], "login_ok")
-    conn.commit()
-    response.set_cookie(COOKIE, token, httponly=True, samesite="lax", max_age=SESSION_HOURS * 3600,
-                        secure=os.environ.get("COOKIE_SECURE", "0") == "1")
-    d = conn.execute("SELECT code, name FROM department WHERE id=%s", (c["department_id"],)).fetchone()
-    return dict(department=d)
+    return dict(ok=True, signed_in=True)
 
 
 @router.post("/resend")
 def resend(req: dict, conn=Depends(db)):
-    c = _challenge(conn, req.get("challenge_id"))
-    if not c or c["used"]:
-        raise HTTPException(400, "Please sign in again.")
-    if (now() - c["last_sent_at"]).total_seconds() < RESEND_SECONDS:
-        raise HTTPException(429, f"Please wait {RESEND_SECONDS} seconds before asking for another code.")
-    if c["sends"] >= MAX_SENDS:
-        raise HTTPException(429, "Too many codes requested. Please sign in again later.")
-    acct = conn.execute("SELECT * FROM department_account WHERE id=%s", (c["account_id"],)).fetchone()
-    _issue_code(conn, acct, c["id"])
-    conn.execute("UPDATE login_challenge SET sends=sends+1 WHERE id=%s", (c["id"],))
-    conn.commit()
     return dict(ok=True)
 
 
@@ -358,33 +313,9 @@ def signup(req: SignupReq, request: Request, conn=Depends(db)):
         raise HTTPException(409, "That username is already taken. Please choose another.")
     if conn.execute("SELECT 1 FROM department_account WHERE lower(email)=%s", (email,)).fetchone():
         raise HTTPException(409, "That email address already belongs to a department account.")
-    from .config import REQUIRE_OTP
-    if not REQUIRE_OTP:                       # TEMPORARY testing mode: no emailed confirmation code
-        _create_account(conn, dict(department_name=name, username=user, email=email, password_hash=hash_password(req.password)))
-        conn.commit()
-        return dict(created=True, department=name, username=user)
-    conn.execute("DELETE FROM signup_request WHERE lower(email)=%s AND NOT used", (email,))
-    rid = conn.execute("""INSERT INTO signup_request (department_name, email, username, password_hash, expires_at)
-        VALUES (%s,%s,%s,%s,%s) RETURNING id""", (name, email, user, hash_password(req.password), now() + timedelta(minutes=SIGNUP_MINUTES))).fetchone()["id"]
-    _send_signup_code(conn, rid, email)
+    did, aid = _create_account(conn, dict(department_name=name, username=user, email=email, password_hash=hash_password(req.password)))
     conn.commit()
-    return dict(request_id=str(rid), email_hint=mask(email))
-
-
-def _send_signup_code(conn, rid, email):
-    code = f"{secrets.randbelow(10**6):06d}"
-    conn.execute("UPDATE signup_request SET code_hash=%s, attempts=0, last_sent_at=now(), expires_at=%s WHERE id=%s",
-                 (code_hash(rid, code), now() + timedelta(minutes=SIGNUP_MINUTES), rid))
-    send_email(email, "Confirm your Tessellate department account",
-               f"Your confirmation code is {code}. It expires in {SIGNUP_MINUTES} minutes. If you didn't ask for this, ignore this email.")
-
-
-def _req(conn, rid):
-    try:
-        return conn.execute("SELECT * FROM signup_request WHERE id=%s", (rid,)).fetchone()
-    except Exception:
-        conn.rollback()
-        return None
+    return dict(created=True, department=name, username=user)
 
 
 def _create_account(conn, r):
@@ -410,31 +341,9 @@ def _create_account(conn, r):
 
 @router.post("/signup/verify")
 def signup_verify(req: dict, conn=Depends(db)):
-    r = _req(conn, req.get("request_id"))
-    if not r or r["used"] or r["expires_at"] < now():
-        raise HTTPException(400, "This code has expired. Please start again.")
-    if r["attempts"] >= MAX_TRIES:
-        raise HTTPException(429, "Too many incorrect codes. Please start again.")
-    if not hmac.compare_digest(r["code_hash"], code_hash(r["id"], str(req.get("code", "")).strip())):
-        conn.execute("UPDATE signup_request SET attempts=attempts+1 WHERE id=%s", (r["id"],))
-        conn.commit()
-        raise HTTPException(400, "That code isn't correct. Please check it and try again.")
-    _create_account(conn, r)
-    conn.execute("UPDATE signup_request SET used=TRUE WHERE id=%s", (r["id"],))
-    conn.commit()
-    return dict(department=r["department_name"], username=r["username"])
+    return dict(ok=True)
 
 
 @router.post("/signup/resend")
 def signup_resend(req: dict, conn=Depends(db)):
-    r = _req(conn, req.get("request_id"))
-    if not r or r["used"]:
-        raise HTTPException(400, "Please start again.")
-    if (now() - r["last_sent_at"]).total_seconds() < RESEND_SECONDS:
-        raise HTTPException(429, f"Please wait {RESEND_SECONDS} seconds before asking for another code.")
-    if r["sends"] >= MAX_SENDS:
-        raise HTTPException(429, "Too many codes requested. Please start again later.")
-    _send_signup_code(conn, r["id"], r["email"])
-    conn.execute("UPDATE signup_request SET sends=sends+1 WHERE id=%s", (r["id"],))
-    conn.commit()
     return dict(ok=True)

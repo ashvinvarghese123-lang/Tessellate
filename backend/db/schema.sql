@@ -33,16 +33,6 @@ CREATE TABLE department_account (
   password_changed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   active BOOLEAN NOT NULL DEFAULT TRUE);
 
-CREATE TABLE login_challenge (                -- step 2 of login: the emailed one-time code
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  account_id INT NOT NULL REFERENCES department_account(id) ON DELETE CASCADE,
-  code_hash TEXT NOT NULL,                    -- HMAC of the code, never the code itself
-  expires_at TIMESTAMPTZ NOT NULL,
-  attempts SMALLINT NOT NULL DEFAULT 0,
-  sends SMALLINT NOT NULL DEFAULT 1,
-  last_sent_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  used BOOLEAN NOT NULL DEFAULT FALSE);
-
 CREATE TABLE auth_session (
   token_hash TEXT PRIMARY KEY,                -- SHA-256 of the cookie value
   account_id INT NOT NULL REFERENCES department_account(id) ON DELETE CASCADE,
@@ -182,31 +172,13 @@ JOIN class c ON c.id = e.class_id
 JOIN department d ON d.id = c.department_id
 JOIN teacher_allocation a ON a.id = e.allocation_id
 JOIN subject s ON s.id = a.subject_id;
--- Self-service department sign-up (run once on an existing database)
-CREATE TABLE IF NOT EXISTS signup_request (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  department_name TEXT NOT NULL,
-  email TEXT NOT NULL,
-  username TEXT NOT NULL,
-  password_hash TEXT NOT NULL,
-  code_hash TEXT NOT NULL DEFAULT '',          -- HMAC of the emailed code, never the code
-  expires_at TIMESTAMPTZ NOT NULL,
-  attempts SMALLINT NOT NULL DEFAULT 0,
-  sends SMALLINT NOT NULL DEFAULT 1,
-  last_sent_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  used BOOLEAN NOT NULL DEFAULT FALSE,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now());
+-- Self-service department sign-up
 CREATE UNIQUE INDEX IF NOT EXISTS department_account_email_key ON department_account (lower(email));
 -- College Registry: a separate, data-only account type (no timetable powers, no department priority)
 CREATE TABLE IF NOT EXISTS registry_account (
   id SERIAL PRIMARY KEY, username TEXT UNIQUE NOT NULL, email TEXT NOT NULL, password_hash TEXT NOT NULL,
   failed_logins SMALLINT NOT NULL DEFAULT 0, locked_until TIMESTAMPTZ,
   password_changed_at TIMESTAMPTZ NOT NULL DEFAULT now(), active BOOLEAN NOT NULL DEFAULT TRUE);
-CREATE TABLE IF NOT EXISTS registry_challenge (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  account_id INT NOT NULL REFERENCES registry_account(id) ON DELETE CASCADE,
-  code_hash TEXT NOT NULL, expires_at TIMESTAMPTZ NOT NULL, attempts SMALLINT NOT NULL DEFAULT 0,
-  sends SMALLINT NOT NULL DEFAULT 1, last_sent_at TIMESTAMPTZ NOT NULL DEFAULT now(), used BOOLEAN NOT NULL DEFAULT FALSE);
 CREATE TABLE IF NOT EXISTS registry_session (
   token_hash TEXT PRIMARY KEY, account_id INT NOT NULL REFERENCES registry_account(id) ON DELETE CASCADE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(), last_seen TIMESTAMPTZ NOT NULL DEFAULT now(),

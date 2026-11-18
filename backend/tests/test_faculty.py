@@ -8,8 +8,7 @@ PW, mails = "TestPass-1234", []
 auth.send_email = lambda to, s, b: mails.append((to, b))
 ok = lambda c, m: print(("PASS " if c else "FAIL ") + m) or (c or sys.exit(1))
 def sign_in(u):
-    c = TestClient(app); r = c.post("/api/auth/login", json={"username": u, "password": PW})
-    c.post("/api/auth/verify", json={"challenge_id": r.json()["challenge_id"], "code": re.search(r"code is (\d{6})", mails[-1][1]).group(1)}); return c
+    c = TestClient(app); c.post("/api/auth/login", json={"username": u, "password": PW}); return c
 cs, maths = sign_in("cs"), sign_in("maths")
 cs.post("/api/generate", json={})
 lst = cs.get("/api/faculty").json(); by = {f["name"]: f for f in lst}

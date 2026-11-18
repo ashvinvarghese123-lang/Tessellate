@@ -11,7 +11,7 @@ import psycopg
 
 DSN = os.environ.get("DATABASE_URL") or sys.exit("Set DATABASE_URL first.")
 HERE = os.path.dirname(os.path.abspath(__file__))
-BASE = 7   # schema.sql already includes migrations 2, 3, 4, 5, 6 and 7
+BASE = 9   # schema.sql already includes migrations 2, 3, 4, 5, 6, 7 and 8
 
 def files():
     out = []
@@ -28,8 +28,8 @@ with psycopg.connect(DSN, autocommit=True) as c:
     if 1 not in done:
         if not exists:
             c.execute(open(os.path.join(HERE, "schema.sql"), encoding="utf-8").read())
-            done |= {1, 2, 3, 4, 5, 6, 7}
-            for v, n in ((1, "schema"), (2, "signup"), (3, "registry"), (4, "department_timing"), (5, "rooms_optional"), (6, "cross_dept_mdc_minor"), (7, "course_selection_type")):
+            done |= {1, 2, 3, 4, 5, 6, 7, 8}
+            for v, n in ((1, "schema"), (2, "signup"), (3, "registry"), (4, "department_timing"), (5, "rooms_optional"), (6, "cross_dept_mdc_minor"), (7, "course_selection_type"), (8, "remove_otp")):
                 c.execute("INSERT INTO schema_migrations (version, name) VALUES (%s,%s)", (v, n))
             print("Created a new database from schema.sql.")
         else:
