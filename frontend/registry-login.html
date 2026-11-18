@@ -51,7 +51,7 @@ input:focus-visible,.btn:focus-visible,.lk:focus-visible{outline:2px solid var(-
 <script>
 const $=s=>document.querySelector(s),box=$('#box');
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-let step='login',ch=null,hint='',cool=0,timer=null,busy=false;
+let otp=true,step='login',ch=null,hint='',cool=0,timer=null,busy=false;
 async function api(p,body){const r=await fetch(p,{method:body?'POST':'GET',credentials:'same-origin',headers:{'content-type':'application/json'},body:body?JSON.stringify(body):undefined});
  let j={};try{j=await r.json()}catch(e){}
  if(!r.ok)throw new Error(typeof j.detail=='string'?j.detail:'Something went wrong. Please try again.');return j}
@@ -61,7 +61,7 @@ function view(){
   <label for="u">Department username</label><input id="u" autocomplete="username" autocapitalize="none" spellcheck="false">
   <label for="p">Password</label><div class="pw"><input id="p" type="password" autocomplete="current-password"><button type="button" id="sh" aria-label="Show password">Show</button></div>
   <button class="btn" id="go">Continue</button><div class="err" id="e" role="alert"></div><button type="button" class="lk" data-s="forgot">Forgot password?</button>
-  <div class="foot">This account can edit shared records only. It cannot view or change any timetable. A code is sent to the registered email.<br><a class="lk" href="/login.html" style="margin-top:12px">Department sign in</a></div></form>`;
+  <div class="foot">This account can edit shared records only. It cannot view or change any timetable. ${otp?'A code is sent to the registered email.':'<b>Testing mode:</b> email codes are switched off.'}<br><a class="lk" href="/login.html" style="margin-top:12px">Department sign in</a></div></form>`;
  else if(step=='code')box.innerHTML=`<form id="f" novalidate>${bar(2)}<div class="lab">Verification required</div><h1>Check your email</h1>
   <p class="sub">A verification code has been sent to your registered department email, <b>${esc(hint)}</b>.</p>
   <label for="c">Verification code</label><input id="c" class="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="······">
@@ -77,7 +77,7 @@ function tick(){cool=30;clearInterval(timer);timer=setInterval(()=>{cool--;const
 function lock(on){busy=on;const g=$('#go');if(g)g.disabled=on}
 box.addEventListener('submit',async ev=>{ev.preventDefault();if(busy)return;msg('');
  try{if(step=='login'){const u=$('#u').value.trim(),p=$('#p').value;if(!u||!p)return msg('Please enter your username and password.');lock(true);
-   const r=await api('/api/registry/auth/login',{username:u,password:p});ch=r.challenge_id;hint=r.email_hint;step='code';tick();view()}
+   const r=await api('/api/registry/auth/login',{username:u,password:p});if(r.signed_in)return location.replace('/registry.html');ch=r.challenge_id;hint=r.email_hint;step='code';tick();view()}
   else if(step=='code'){const c=$('#c').value.trim();if(!/^\d{6}$/.test(c))return msg('Enter the 6-digit code from your email.');lock(true);
    await api('/api/registry/auth/verify',{challenge_id:ch,code:c});location.replace('/registry.html')}
   else{const t=$('#t').value.trim(),n=$('#n').value;if(!t||!n)return msg('Enter the reset code and a new password.');lock(true);
@@ -88,5 +88,6 @@ box.addEventListener('click',async ev=>{const t=ev.target.closest('button');if(!
  else if(t.dataset.s){step=t.dataset.s;view()}
  else if(t.dataset.a=='resend'){if(cool>0)return;try{await api('/api/registry/auth/resend',{challenge_id:ch});tick();msg('A new code has been sent.',1)}catch(e){msg(e.message)}}
  else if(t.dataset.a=='sendreset'){try{const r=await api('/api/registry/auth/forgot',{username:$('#u').value});msg(r.message,1)}catch(e){msg(e.message)}}});
+fetch('/api/auth/config').then(r=>r.json()).then(c=>{otp=c.otp;if(step==='login'||step==='form')view()}).catch(()=>{});
 api('/api/registry/auth/me').then(()=>location.replace('/registry.html')).catch(()=>view());
 </script></body></html>

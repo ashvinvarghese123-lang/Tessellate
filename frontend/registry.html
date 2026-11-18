@@ -78,18 +78,22 @@ async function api(p,o={}){const r=await fetch(p,{credentials:'same-origin',head
 function toast(t,ok){const e=$('#toast');e.textContent=(ok?'✓ ':'⚠ ')+t;e.style.display='block';clearTimeout(toast.h);toast.h=setTimeout(()=>e.style.display='none',5000)}
 const API='/api/registry/';let me=null,V='ov',ed=null,L={};
 const roomsOn=()=>!!(me&&me.features&&me.features.rooms);
-const NAV=[['ov','Overview'],['departments','Departments'],['faculty','Faculty'],['classes','Classes'],['rooms','Rooms'],['se','Account']];
+const NAV=[['ov','Overview'],['departments','Departments'],['faculty','Faculty'],['classes','Classes'],['common-slots','Common slots'],['rooms','Rooms'],['se','Account']];
 const TYPES='Classroom|Computer lab|Laboratory';
+const DAYS=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 const ENT={
  departments:{title:'Departments',sub:'Departments exist here first. A department then signs up and claims its name.',one:'department',
-  cols:[['code','ID'],['name','Name'],['classes','Classes'],['faculty','Faculty'],['has_account','Login account',v=>v?'Yes':'Not yet']],
-  fields:[['name','Department name','text']]},
+  cols:[['code','ID'],['name','Name'],['category_name','Category'],['classes','Classes'],['faculty','Faculty'],['has_account','Login account',v=>v?'Yes':'Not yet']],
+  fields:[['name','Department name','text'],['category_id','Category','sel:categories']]},
  faculty:{title:'Faculty',sub:'One record per person. Every department can pick these teachers.',one:'teacher',
   cols:[['faculty_code','ID'],['name','Name'],['department','Home department'],['designation','Designation'],['email','Email'],['sessions','Sessions',(v,r)=>v+' / '+r.max_weekly_sessions]],
   fields:[['name','Name','text'],['home_department_id','Home department','sel:departments'],['designation','Designation','text'],['email','Official email','text'],['max_weekly_sessions','Max sessions per week','number',18]]},
  classes:{title:'Classes',sub:'Classes and sections for every department.',one:'class',
   cols:[['name','Class'],['department','Department'],['semester','Semester'],['section','Section'],['students','Students'],['home_room','Home room'],['subjects','Subjects']],
   fields:[['name','Class name','text'],['department_id','Department','sel:departments','','lock'],['semester','Semester','number',1],['section','Section','text','A'],['students','Students','number'],['home_room_id','Home room (optional)','sel:rooms']]},
+ 'common-slots':{title:'Common time slots',sub:'Fixed college-wide scheduling periods for MDC and Minor offerings.',one:'common slot',
+  cols:[['name','Slot label'],['day','Day',v=>DAYS[v]||v],['start_time','Start'],['end_time','End'],['applicable_course_type','Course type'],['semester','Semester']],
+  fields:[['name','Slot name','text','Common Slot'],['day','Day (0=Mon .. 6=Sun)','number',0],['start_time','Start time (HH:MM)','text','10:00'],['end_time','End time (HH:MM)','text','11:00'],['applicable_course_type','Course type','sel:MDC|Minor|Both','MDC'],['semester','Semester','number',1]]},
  rooms:{title:'Rooms &amp; laboratories',sub:'One shared list. Departments book from it when they generate timetables.',one:'room',
   cols:[['name','Name'],['room_type','Type'],['capacity','Capacity'],['sessions','Scheduled sessions']],
   fields:[['name','Room name','text'],['room_type','Type','sel:'+TYPES,'Classroom'],['capacity','Capacity','number']]}};
@@ -104,13 +108,14 @@ async function page(){
   <section><h2>What it cannot do</h2><p>It cannot see, create, edit or publish any timetable, and it gives no department priority. Subjects and weekly sessions stay with each department.</p></section></div>`}
  if(V=='se')return head('Account','Registry account','Signed in as '+esc(me.username)+' · '+esc(me.email_hint))+`<div class="row noprint"><button class="btn" data-a="pw">Change password</button><button class="btn" data-a="out">Sign out</button></div>`;
  const E=ENT[V],rows=await api(API+V);
- for(const f of E.fields){if(f[2]=='sel:departments')L.departments=await api(API+'departments');if(f[2]=='sel:rooms')L.rooms=await api(API+'rooms')}
+ for(const f of E.fields){if(f[2]=='sel:departments')L.departments=await api(API+'departments');if(f[2]=='sel:rooms')L.rooms=await api(API+'rooms');if(f[2]=='sel:categories')L.categories=await api(API+'categories')}
  L.rows=rows;const cur=ed&&ed!='new'?rows.find(r=>r.id==ed):null;
  return head('Registry',E.title,E.sub,`<button class="btn p noprint" data-a="new">Add ${E.one}</button>`)+(ed?form(E,cur):'')+
   `<div class="row noprint" style="margin-bottom:10px"><input id="q" placeholder="Search…" aria-label="Search" style="width:min(320px,100%)"><span class="sm">${rows.length} total</span></div>`+
   (rows.length?tab(E.cols.map(c=>c[1]).concat(['']),rows.map(r=>E.cols.map(c=>esc(c[2]?c[2](r[c[0]],r):r[c[0]])).concat([`<button class="btn" data-e="${r.id}">Edit</button>`]))):`<div class="empty"><h2>Nothing here yet</h2><p>Add the first ${E.one} above.</p></div>`)}
 function opts(src,val,blank){if(src=='sel:departments')return L.departments.map(d=>`<option value="${d.id}" ${d.id==val?'selected':''}>${esc(d.name)}</option>`).join('');
  if(src=='sel:rooms')return '<option value="">None</option>'+L.rooms.map(d=>`<option value="${d.id}" ${d.id==val?'selected':''}>${esc(d.name)}</option>`).join('');
+ if(src=='sel:categories')return (L.categories||[]).map(c=>`<option value="${c.id}" ${c.id==val?'selected':''}>${esc(c.name)}</option>`).join('');
  return src.slice(4).split('|').map(t=>`<option ${t==val?'selected':''}>${t}</option>`).join('')}
 function form(E,cur){return `<div class="note"><h2 style="margin-top:0">${cur?'Edit '+E.one:'Add '+E.one}</h2><div class="row">${E.fields.map(([k,l,t,d,lock])=>{const v=cur?cur[k]:(d??'');
   const dis=cur&&lock?' disabled':'';return `<label>${l}<br>${t.startsWith('sel:')?`<select id="f_${k}"${dis}>${opts(t,v)}</select>`:`<input id="f_${k}" type="${t}" value="${esc(v)}"${t=='number'?' style="width:120px"':''}>`}</label>`}).join('')}</div>

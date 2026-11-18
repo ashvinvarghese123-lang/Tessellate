@@ -24,9 +24,9 @@ ok(D.get("/api/registry/overview").status_code == 401, "a department login canno
 ok(R.get("/api/dashboard").status_code == 401 and R.post("/api/generate", json={}).status_code == 401, "the registry cannot open department workspaces or generate timetables")
 
 # departments
-r = R.post("/api/registry/departments", json={"name": "Chemistry"}); ok(r.status_code == 200, "registry creates a department")
-did = r.json()["id"]; ok(R.post("/api/registry/departments", json={"name": "chemistry"}).status_code == 409, "duplicate department refused")
-ok(R.put(f"/api/registry/departments/{did}", json={"name": "Chemistry Sciences"}).status_code == 200, "rename department")
+r = R.post("/api/registry/departments", json={"name": "Biotechnology"}); ok(r.status_code == 200, "registry creates a department")
+did = r.json()["id"]; ok(R.post("/api/registry/departments", json={"name": "biotechnology"}).status_code == 409, "duplicate department refused")
+ok(R.put(f"/api/registry/departments/{did}", json={"name": "Biotech Sciences"}).status_code == 200, "rename department")
 cs_id = next(x["id"] for x in R.get("/api/registry/departments").json() if x["name"] == "Computer Science")
 ok(R.delete(f"/api/registry/departments/{cs_id}").status_code == 409, "department with an account cannot be deleted")
 # faculty
@@ -36,10 +36,10 @@ ok(any(f["id"] == fid and not f["editable"] for f in D.get("/api/faculty").json(
 ok(R.put(f"/api/registry/faculty/{fid}", json={"name": "Dr. Reg Teacher", "home_department_id": cs_id, "max_weekly_sessions": 10}).status_code == 200, "registry moves a teacher to another department")
 ok(next(f for f in D.get("/api/faculty").json() if f["id"] == fid)["editable"], "after the move CS can edit that teacher")
 # classes
-r = R.post("/api/registry/classes", json={"name": "BSc Chem · Sem 1 · A", "department_id": did, "semester": 1, "section": "A", "students": 45}); ok(r.status_code == 200, "registry adds a class for a department")
+r = R.post("/api/registry/classes", json={"name": "BSc Biotech · Sem 1 · A", "department_id": did, "semester": 1, "section": "A", "students": 45}); ok(r.status_code == 200, "registry adds a class for a department")
 cid = r.json()["id"]; ok(R.post("/api/registry/classes", json={"name": "Dup", "department_id": did, "semester": 1, "section": "A"}).status_code == 409, "duplicate semester+section refused")
-ok(R.put(f"/api/registry/classes/{cid}", json={"name": "BSc Chem · Sem 1 · A", "department_id": cs_id}).status_code == 400, "class cannot be moved between departments")
-ok(R.put(f"/api/registry/classes/{cid}", json={"name": "BSc Chemistry · Sem 1 · A", "department_id": did, "students": 50}).status_code == 200, "edit class")
+ok(R.put(f"/api/registry/classes/{cid}", json={"name": "BSc Biotech · Sem 1 · A", "department_id": cs_id}).status_code == 400, "class cannot be moved between departments")
+ok(R.put(f"/api/registry/classes/{cid}", json={"name": "BSc Biotechnology · Sem 1 · A", "department_id": did, "students": 50}).status_code == 200, "edit class")
 # rooms
 r = R.post("/api/registry/rooms", json={"name": "Chem Lab", "room_type": "Laboratory", "capacity": 30}); ok(r.status_code == 200, "registry adds a laboratory"); rid = r.json()["id"]
 ok(any(x["name"] == "Chem Lab" for x in D.get("/api/rooms").json()), "departments immediately see the new laboratory")

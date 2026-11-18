@@ -51,7 +51,7 @@ input:focus-visible,.btn:focus-visible,.lk:focus-visible{outline:2px solid var(-
 <script>
 const $=s=>document.querySelector(s),box=$('#box');
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-let step='form',rid=null,hint='',cool=0,timer=null,busy=false,done={};
+let otp=true,step='form',rid=null,hint='',cool=0,timer=null,busy=false,done={};
 async function api(p,body){const r=await fetch(p,{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
  let j={};try{j=await r.json()}catch(e){}
  if(!r.ok)throw new Error(typeof j.detail=='string'?j.detail:'Something went wrong. Please try again.');return j}
@@ -68,7 +68,7 @@ function view(){
   <label for="c">Confirmation code</label><input id="c" class="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="······">
   <button class="btn" id="go">Create account</button><div class="err" id="e" role="alert"></div>
   <button type="button" class="lk" id="rs" data-a="resend">${cool>0?'Resend code in '+cool+'s':'Resend code'}</button> <button type="button" class="lk" data-s="form" style="margin-left:14px">Back</button></form>`;
- else box.innerHTML=`<div><div class="lab">All set</div><h1>Account created</h1><p class="sub"><b>${esc(done.department)}</b> is ready. Sign in with the username <b>${esc(done.username)}</b>. You will be asked for a code from your email each time.</p><a class="btn" href="/login.html" style="display:block;text-align:center;line-height:44px;text-decoration:none;margin-top:28px">Go to sign in</a></div>`;
+ else box.innerHTML=`<div><div class="lab">All set</div><h1>Account created</h1><p class="sub"><b>${esc(done.department)}</b> is ready. Sign in with the username <b>${esc(done.username)}</b>. ${otp?'You will be asked for a code from your email each time.':'Email codes are switched off for now (testing mode).'}</p><a class="btn" href="/login.html" style="display:block;text-align:center;line-height:44px;text-decoration:none;margin-top:28px">Go to sign in</a></div>`;
  const f=$('#dn')||$('#c');if(f)f.focus()}
 const msg=(m,good)=>{const e=$('#e');if(e){e.textContent=m;e.className='err'+(good?' ok':'')}};
 function tick(){cool=30;clearInterval(timer);timer=setInterval(()=>{cool--;const b=$('#rs');if(b)b.textContent=cool>0?'Resend code in '+cool+'s':'Resend code';if(cool<=0)clearInterval(timer)},1000)}
@@ -77,7 +77,7 @@ box.addEventListener('submit',async ev=>{ev.preventDefault();if(busy)return;msg(
  try{if(step=='form'){const v=id=>$('#'+id).value;
    if(!v('dn').trim()||!v('em').trim()||!v('un').trim()||!v('pw'))return msg('Please fill in every field.');
    if(v('pw')!==v('p2'))return msg('The two passwords don’t match.');
-   lock(true);const r=await api('/api/auth/signup',{department_name:v('dn'),email:v('em'),username:v('un'),password:v('pw')});rid=r.request_id;hint=r.email_hint;step='code';tick();view()}
+   lock(true);const r=await api('/api/auth/signup',{department_name:v('dn'),email:v('em'),username:v('un'),password:v('pw')});if(r.created){done=r;step='done';return view()}rid=r.request_id;hint=r.email_hint;step='code';tick();view()}
   else{const c=$('#c').value.trim();if(!/^\d{6}$/.test(c))return msg('Enter the 6-digit code from your email.');lock(true);
    done=await api('/api/auth/signup/verify',{request_id:rid,code:c});step='done';view()}}
  catch(e){msg(e.message)}finally{lock(false)}});
@@ -85,5 +85,6 @@ box.addEventListener('click',async ev=>{const t=ev.target.closest('button');if(!
  if(t.id=='sh'){const p=$('#pw'),q=$('#p2'),show=p.type=='password';p.type=q.type=show?'text':'password';t.textContent=show?'Hide':'Show';t.setAttribute('aria-label',show?'Hide password':'Show password')}
  else if(t.dataset.s){step=t.dataset.s;view()}
  else if(t.dataset.a=='resend'){if(cool>0)return;try{await api('/api/auth/signup/resend',{request_id:rid});tick();msg('A new code has been sent.',1)}catch(e){msg(e.message)}}});
+fetch('/api/auth/config').then(r=>r.json()).then(c=>{otp=c.otp;if(step==='login'||step==='form')view()}).catch(()=>{});
 view();
 </script></body></html>

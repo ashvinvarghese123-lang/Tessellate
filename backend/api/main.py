@@ -5,6 +5,7 @@ department priority: all departments use the same rules and the same shared reso
 """
 import logging
 import re
+from collections import defaultdict
 import psycopg
 from psycopg.types.json import Jsonb
 from fastapi import Depends, FastAPI, HTTPException
@@ -26,7 +27,7 @@ if os.environ.get("TESSELLATE_ENV") == "production":
         _bad.append("TESSELLATE_SECRET must be a random value of at least 32 characters")
     if os.environ.get("COOKIE_SECURE") != "1":
         _bad.append("COOKIE_SECURE must be 1 (HTTPS only)")
-    if not (os.environ.get("SMTP_HOST") or os.environ.get("BREVO_API_KEY")):
+    if os.environ.get("REQUIRE_OTP", "1") != "0" and not (os.environ.get("SMTP_HOST") or os.environ.get("BREVO_API_KEY")):
         _bad.append("email must be configured so codes are emailed, not logged: set BREVO_API_KEY and SMTP_FROM (works on any host), or SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, SMTP_FROM")
     if not os.environ.get("DATABASE_URL"):
         _bad.append("DATABASE_URL must be set")
@@ -110,14 +111,46 @@ def shared(conn):
     return teachers, [dict(id=r["id"], type=r["room_type"]) for r in conn.execute("SELECT * FROM room")]
 
 
-def placed(conn, exclude_entry=None, exclude_class=None):
-    """Sessions already saved, as 'busy' records (real day and time range) with a plain-language reason."""
-    q = """SELECT x.*, d.name department, s.name subject, c.name class_name FROM timetable_entry x
+def placed(conn, exclude_entry=None, exclude_class=None, exclude_offering=None):
+    """Sessions already saved, as 'busy' records (real day and time range) with student_ids and reason."""
+    class_stu = defaultdict(set)
+    for r in conn.execute("SELECT id, class_id FROM student WHERE class_id IS NOT NULL AND status='active'"):
+        class_stu[r["class_id"]].add(r["id"])
+
+    offering_stu = defaultdict(set)
+    for r in conn.execute("SELECT student_id, course_offering_id FROM course_enrollment WHERE enrollment_status='enrolled'"):
+        offering_stu[r["course_offering_id"]].add(r["student_id"])
+
+    out = []
+    # Regular class sessions
+    q1 = """SELECT x.*, d.name department, s.name subject, c.name class_name FROM timetable_entry x
            JOIN class c ON c.id=x.class_id JOIN department d ON d.id=c.department_id
            JOIN teacher_allocation a ON a.id=x.allocation_id JOIN subject s ON s.id=a.subject_id"""
-    return [dict(teacher=o["faculty_id"], room=o["room_id"], day=o["day"], period=o["period"], start=o["start_min"], end=o["end_min"],
-                 subject=o["subject"], department=o["department"], class_name=o["class_name"], **{"class": o["class_id"]})
-            for o in conn.execute(q) if o["id"] != exclude_entry and o["class_id"] != exclude_class]
+    for o in conn.execute(q1):
+        if o["id"] == exclude_entry or (exclude_class and o["class_id"] == exclude_class):
+            continue
+        out.append(dict(teacher=o["faculty_id"], room=o["room_id"], day=o["day"], period=o["period"],
+                        start=o["start_min"], end=o["end_min"], subject=o["subject"], department=o["department"],
+                        class_name=o["class_name"], student_ids=class_stu.get(o["class_id"], set()),
+                        **{"class": o["class_id"]}))
+
+    # Course offering sessions
+    q2 = """SELECT x.*, d.name department, crs.course_name subject, co.offering_code class_name,
+                   co.scheduling_scope, crs.course_type
+            FROM timetable_entry x
+            JOIN course_offering co ON co.id=x.course_offering_id
+            JOIN course crs ON crs.id=co.course_id
+            JOIN department d ON d.id=co.offering_department_id"""
+    for o in conn.execute(q2):
+        if o["id"] == exclude_entry or (exclude_offering and o["course_offering_id"] == exclude_offering):
+            continue
+        out.append(dict(teacher=o["faculty_id"], room=o["room_id"], day=o["day"], period=o["period"],
+                        start=o["start_min"], end=o["end_min"], subject=o["subject"], department=o["department"],
+                        class_name=o["class_name"], scope=o["scheduling_scope"], course_type=o["course_type"],
+                        offering_id=o["course_offering_id"], section_id=o["section_id"],
+                        student_ids=offering_stu.get(o["course_offering_id"], set()),
+                        **{"class": None}))
+    return out
 
 
 def build_input(conn, d, class_id=None, joint=False):
@@ -126,20 +159,106 @@ def build_input(conn, d, class_id=None, joint=False):
     classes = {c["id"]: dict(name=c["name"], department=c["code"]) for c in conn.execute(
         "SELECT c.id, c.name, dp.code FROM class c JOIN department dp ON dp.id=c.department_id " + where, args)}
     allocs = [dict(**{"class": a["class_id"]}, subject=a["subject"], teacher=a["faculty_id"], sessions=a["sessions_per_week"],
-                   room_type=a["required_room_type"], id=a["id"], department=a["code"])
+                   room_type=a["required_room_type"], id=a["id"], department=a["code"], kind="regular")
               for a in conn.execute("""SELECT a.*, s.name subject, s.required_room_type, dp.code FROM teacher_allocation a
                   JOIN subject s ON s.id=a.subject_id JOIN class c ON c.id=a.class_id JOIN department dp ON dp.id=c.department_id """ + where, args)]
+
+    offering_ids = set()
+    if not class_id:
+        off_where, off_args = ("", ()) if joint else ("WHERE co.offering_department_id=%s AND co.status='active'", (d["id"],))
+        off_rows = conn.execute(f"""SELECT co.*, crs.course_name, crs.course_code, crs.course_type, crs.selection_type course_sel_type, dp.code dept_code
+            FROM course_offering co JOIN course crs ON crs.id=co.course_id
+            JOIN department dp ON dp.id=co.offering_department_id {off_where}""", off_args).fetchall()
+        for co in off_rows:
+            offering_ids.add(co["id"])
+            sel_type = co.get("selection_type") or co.get("course_sel_type")
+            if not sel_type:
+                sel_type = "STUDENT_SELECTED" if co.get("scheduling_scope") == "college_wide" else "DEPARTMENT_SELECTED"
+            scope = "college_wide" if sel_type == "STUDENT_SELECTED" else "department_specific"
+
+            enrolled = [r["student_id"] for r in conn.execute(
+                "SELECT student_id FROM course_enrollment WHERE course_offering_id=%s AND enrollment_status='enrolled'", (co["id"],))]
+            sections = conn.execute("SELECT * FROM course_section WHERE course_offering_id=%s ORDER BY section_name", (co["id"],)).fetchall()
+            if sections:
+                for sec in sections:
+                    sec_enrolled = [r["student_id"] for r in conn.execute(
+                        "SELECT student_id FROM course_enrollment WHERE course_offering_id=%s AND section_id=%s AND enrollment_status='enrolled'", (co["id"], sec["id"]))]
+                    allocs.append(dict(
+                        offering_id=co["id"],
+                        section_id=sec["id"],
+                        code=f"{co['offering_code']} ({sec['section_name']})",
+                        subject=co["course_name"],
+                        course_type=co["course_type"],
+                        selection_type=sel_type,
+                        scope=scope,
+                        teacher=sec["faculty_id"] or co["faculty_id"],
+                        sessions=co["required_sessions"],
+                        room_type=co["required_room_type"],
+                        room=sec["room_id"] or co["room_id"],
+                        department=co["dept_code"],
+                        enrolled_students=sec_enrolled or enrolled,
+                        kind="offering",
+                        capacity=sec["capacity"],
+                        id=f"off-{co['id']}-{sec['id']}",
+                        **{"class": None}
+                    ))
+            else:
+                allocs.append(dict(
+                    offering_id=co["id"],
+                    section_id=None,
+                    code=co["offering_code"],
+                    subject=co["course_name"],
+                    course_type=co["course_type"],
+                    selection_type=sel_type,
+                    scope=scope,
+                    teacher=co["faculty_id"],
+                    sessions=co["required_sessions"],
+                    room_type=co["required_room_type"],
+                    room=co["room_id"],
+                    department=co["dept_code"],
+                    enrolled_students=enrolled,
+                    kind="offering",
+                    capacity=co["max_enrollment"],
+                    id=f"off-{co['id']}",
+                    **{"class": None}
+                ))
+
+    common_slots = [dict(id=r["id"], day=r["day"], start=r["start_min"], end=r["end_min"],
+                         course_type=r["applicable_course_type"], name=r["name"])
+                    for r in conn.execute("SELECT * FROM common_time_slot WHERE status='active'")]
+
+    students = {r["id"]: dict(name=r["name"], reg=r["register_number"], home_dept=r["home_department_id"], class_id=r["class_id"])
+                for r in conn.execute("SELECT * FROM student WHERE status='active'")}
+    class_students = defaultdict(set)
+    for sid, s in students.items():
+        if s["class_id"]:
+            class_students[s["class_id"]].add(sid)
+
+    cw_rows = conn.execute("""
+        SELECT ce.student_id, crs.course_type
+        FROM course_enrollment ce
+        JOIN course_offering co ON co.id=ce.course_offering_id
+        JOIN course crs ON crs.id=co.course_id
+        WHERE (co.scheduling_scope='college_wide' OR co.selection_type='STUDENT_SELECTED') AND ce.enrollment_status='enrolled'
+    """).fetchall()
+    cw_students_by_type = defaultdict(set)
+    for r in cw_rows:
+        cw_students_by_type[r["course_type"]].add(r["student_id"])
+
     settings = {dp["code"]: solver_cfg(load_settings(conn, dp["id"]))
                 for dp in conn.execute("SELECT id, code FROM department") if joint or dp["id"] == d["id"]}
     ids = set(classes)
-    busy = [] if joint else [b for b in placed(conn) if b["class"] not in ids]
-    for t, T in teachers.items():            # workload already used by sessions that stay as they are
-        T["existing_load"] = sum(1 for b in busy if b["teacher"] == t)
-    data = dict(settings=settings, teachers=teachers, classes=classes, rooms=rooms, allocations=allocs, busy=busy, use_rooms=USE_ROOMS)
+    busy = [] if joint else [b for b in placed(conn) if (b.get("class") not in ids and b.get("offering_id") not in offering_ids)]
+    for t, T in teachers.items():
+        T["existing_load"] = sum(1 for b in busy if b.get("teacher") == t)
+
+    data = dict(settings=settings, teachers=teachers, classes=classes, rooms=rooms, allocations=allocs, busy=busy,
+                use_rooms=USE_ROOMS, common_slots=common_slots, students=students, class_students=dict(class_students),
+                cw_students_by_type=dict(cw_students_by_type), offering_ids=offering_ids)
     if joint:
         idx = {a["id"]: i for i, a in enumerate(allocs)}
         data["current"] = [dict(allocation=idx[o["allocation_id"]], day=o["day"], start=o["start_min"], room=o["room_id"])
-                           for o in conn.execute("SELECT * FROM timetable_entry") if o["allocation_id"] in idx]
+                           for o in conn.execute("SELECT * FROM timetable_entry WHERE allocation_id IS NOT NULL") if o["allocation_id"] in idx]
     return data
 
 
@@ -161,7 +280,7 @@ def generate_timetable(req: GenReq, conn=Depends(db), d=Depends(current_departme
         conn.execute("SELECT pg_advisory_xact_lock(1)")      # one change to shared resources at a time
         data = build_input(conn, d, req.class_id)
         if not data["allocations"]:
-            raise HTTPException(400, "Add classes and subjects first, then generate.")
+            raise HTTPException(400, "Add classes/subjects or course offerings first, then generate.")
         res = generate(data, 20)
         conn.execute("""INSERT INTO generation_run (department_id, scope, status, quality, problems, started_by)
                         VALUES (%s,%s,%s,%s,%s,%s)""", (d["id"], "class" if req.class_id else "department", res["status"], res.get("score"),
@@ -171,11 +290,18 @@ def generate_timetable(req: GenReq, conn=Depends(db), d=Depends(current_departme
                         issues=res["issues"], problems=res["problems"], suggestions=res["suggestions"],
                         can_look_for_alternative=any(i.get("alt") for i in res["issues"]))
         conn.execute("DELETE FROM timetable_entry WHERE class_id = ANY(%s)", (list(data["classes"]),))
+        if data.get("offering_ids"):
+            conn.execute("DELETE FROM timetable_entry WHERE course_offering_id = ANY(%s)", (list(data["offering_ids"]),))
         try:
             for e in res["entries"]:
-                conn.execute("""INSERT INTO timetable_entry (timetable_id, allocation_id, class_id, faculty_id, room_id, day, period, start_min, end_min)
-                    SELECT t.id, %s, %s, %s, %s, %s, %s, %s, %s FROM timetable t WHERE t.class_id=%s""",
-                             (data["allocations"][e["allocation"]]["id"], e["class"], e["teacher"], e["room"], e["day"], e["period"], e["start"], e["end"], e["class"]))
+                if e.get("kind") == "offering":
+                    conn.execute("""INSERT INTO timetable_entry (course_offering_id, section_id, faculty_id, room_id, day, period, start_min, end_min)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
+                        (e["offering_id"], e["section_id"], e["teacher"], e["room"], e["day"], e["period"], e["start"], e["end"]))
+                else:
+                    conn.execute("""INSERT INTO timetable_entry (timetable_id, allocation_id, class_id, faculty_id, room_id, day, period, start_min, end_min)
+                        SELECT t.id, %s, %s, %s, %s, %s, %s, %s, %s FROM timetable t WHERE t.class_id=%s""",
+                        (data["allocations"][e["allocation"]]["id"], e["class"], e["teacher"], e["room"], e["day"], e["period"], e["start"], e["end"], e["class"]))
         except psycopg.errors.ExclusionViolation:
             raise HTTPException(409, "Another department just booked one of these teachers or rooms. Please generate again.")
         note(conn, d["id"], "generate", new={"quality": res["score"], "sessions": len(res["entries"])})
@@ -199,16 +325,61 @@ def look_for_alternative(conn=Depends(db), d=Depends(current_department)):
 # ---------- read: workspace + shared resources ----------
 @app.get("/api/conflicts")
 def conflicts(conn=Depends(db), d=Depends(current_department)):
-    """What is actually wrong, not a list of every unplaced session. Each item: one issue and one short fix."""
+    """What is actually wrong, including student-level conflicts. Each item: one issue and one short fix."""
     data = build_input(conn, d)
     items = issues(data) if data["allocations"] else []
-    generated = conn.execute("SELECT count(*) n FROM timetable_entry e JOIN class c ON c.id=e.class_id WHERE c.department_id=%s", (d["id"],)).fetchone()["n"] > 0
+    generated = (conn.execute("SELECT count(*) n FROM timetable_entry e JOIN class c ON c.id=e.class_id WHERE c.department_id=%s", (d["id"],)).fetchone()["n"] > 0 or
+                 conn.execute("SELECT count(*) n FROM timetable_entry e JOIN course_offering co ON co.id=e.course_offering_id WHERE co.offering_department_id=%s", (d["id"],)).fetchone()["n"] > 0)
     if not items and generated:
         miss = conn.execute("""SELECT count(*) n FROM teacher_allocation a JOIN class c ON c.id=a.class_id WHERE c.department_id=%s
             AND a.sessions_per_week > (SELECT count(*) FROM timetable_entry e WHERE e.allocation_id=a.id)""", (d["id"],)).fetchone()["n"]
         if miss:
-            items = [dict(issue=f"{miss} subject(s) don't have all their weekly sessions yet.",
-                          fix="Click Generate timetable again. If it still fails, change a Required rule to Prefer in Rules.")]
+            items.append(dict(issue=f"{miss} subject(s) don't have all their weekly sessions yet.",
+                              fix="Click Generate timetable again. If it still fails, change a Required rule to Prefer in Rules."))
+
+    # Student-level timetable conflict detection
+    stu_conflicts = conn.execute("""
+        SELECT s.name student_name, s.register_number,
+               e1.day, e1.start_min, e1.end_min,
+               coalesce(s1.name, crs1.course_name) sub1, coalesce(d1.name, od1.name) dept1,
+               coalesce(s2.name, crs2.course_name) sub2, coalesce(d2.name, od2.name) dept2
+        FROM student s
+        JOIN (
+            SELECT e.id entry_id, s_sub.id student_id, e.day, e.start_min, e.end_min, e.allocation_id, e.course_offering_id, e.class_id
+            FROM timetable_entry e
+            JOIN student s_sub ON s_sub.class_id=e.class_id
+            UNION ALL
+            SELECT e.id entry_id, ce.student_id, e.day, e.start_min, e.end_min, e.allocation_id, e.course_offering_id, e.class_id
+            FROM timetable_entry e
+            JOIN course_enrollment ce ON ce.course_offering_id=e.course_offering_id AND ce.enrollment_status='enrolled'
+        ) sess1 ON sess1.student_id=s.id
+        JOIN (
+            SELECT e.id entry_id, s_sub.id student_id, e.day, e.start_min, e.end_min, e.allocation_id, e.course_offering_id, e.class_id
+            FROM timetable_entry e
+            JOIN student s_sub ON s_sub.class_id=e.class_id
+            UNION ALL
+            SELECT e.id entry_id, ce.student_id, e.day, e.start_min, e.end_min, e.allocation_id, e.course_offering_id, e.class_id
+            FROM timetable_entry e
+            JOIN course_enrollment ce ON ce.course_offering_id=e.course_offering_id AND ce.enrollment_status='enrolled'
+        ) sess2 ON sess2.student_id=s.id AND sess2.entry_id < sess1.entry_id
+        JOIN timetable_entry e1 ON e1.id=sess1.entry_id
+        JOIN timetable_entry e2 ON e2.id=sess2.entry_id
+        LEFT JOIN teacher_allocation a1 ON a1.id=e1.allocation_id LEFT JOIN subject s1 ON s1.id=a1.subject_id
+        LEFT JOIN class c1 ON c1.id=e1.class_id LEFT JOIN department d1 ON d1.id=c1.department_id
+        LEFT JOIN course_offering co1 ON co1.id=e1.course_offering_id LEFT JOIN course crs1 ON crs1.id=co1.course_id LEFT JOIN department od1 ON od1.id=co1.offering_department_id
+        LEFT JOIN teacher_allocation a2 ON a2.id=e2.allocation_id LEFT JOIN subject s2 ON s2.id=a2.subject_id
+        LEFT JOIN class c2 ON c2.id=e2.class_id LEFT JOIN department d2 ON d2.id=c2.department_id
+        LEFT JOIN course_offering co2 ON co2.id=e2.course_offering_id LEFT JOIN course crs2 ON crs2.id=co2.course_id LEFT JOIN department od2 ON od2.id=co2.offering_department_id
+        WHERE e1.day = e2.day AND e1.start_min < e2.end_min AND e2.start_min < e1.end_min
+          AND (s.home_department_id=%s OR d1.id=%s OR od1.id=%s OR d2.id=%s OR od2.id=%s)
+    """, (d["id"], d["id"], d["id"], d["id"], d["id"])).fetchall()
+
+    for sc in stu_conflicts:
+        items.append(dict(
+            issue=f"Student {sc['student_name']} ({sc['register_number']}) has a conflict between {sc['sub1']} ({sc['dept1']}) and {sc['sub2']} ({sc['dept2']}) on {DAYS[sc['day']]} {hm(sc['start_min'])}\u2013{hm(sc['end_min'])}.",
+            fix="Move one of these sessions to another period or common slot."
+        ))
+
     return dict(items=items, generated=generated)
 
 
@@ -216,8 +387,11 @@ def conflicts(conn=Depends(db), d=Depends(current_department)):
 def dashboard(conn=Depends(db), d=Depends(current_department)):
     n = lambda q, *a: conn.execute(q, a).fetchone()["n"]
     st = conn.execute("SELECT status FROM timetable WHERE department_id=%s GROUP BY status", (d["id"],)).fetchall()
-    return dict(department=dict(code=d["code"], name=d["name"]),
+    return dict(department=dict(code=d["code"], name=d["name"], category=d.get("category", "Aided")),
                 classes=n("SELECT count(*) n FROM class WHERE department_id=%s", d["id"]),
+                students=n("SELECT count(*) n FROM student WHERE home_department_id=%s", d["id"]),
+                courses=n("SELECT count(*) n FROM course WHERE department_id=%s", d["id"]),
+                offerings=n("SELECT count(*) n FROM course_offering WHERE offering_department_id=%s", d["id"]),
                 subjects=n("SELECT count(*) n FROM teacher_allocation a JOIN class c ON c.id=a.class_id WHERE c.department_id=%s", d["id"]),
                 faculty=n("SELECT count(DISTINCT a.faculty_id) n FROM teacher_allocation a JOIN class c ON c.id=a.class_id WHERE c.department_id=%s", d["id"]),
                 sessions=n("SELECT count(*) n FROM timetable_entry e JOIN class c ON c.id=e.class_id WHERE c.department_id=%s", d["id"]),
@@ -266,10 +440,23 @@ def class_timetable(class_id: int, conn=Depends(db), d=Depends(current_departmen
 
 
 def view(conn, col, rid):
-    rows = conn.execute(f"""SELECT e.day, e.period, e.start_min, e.end_min, s.name subject, f.name teacher, r.name room, c.name class_name, dp.name department
-        FROM timetable_entry e JOIN teacher_allocation a ON a.id=e.allocation_id JOIN subject s ON s.id=a.subject_id
-        JOIN faculty f ON f.id=e.faculty_id LEFT JOIN room r ON r.id=e.room_id JOIN class c ON c.id=e.class_id
-        JOIN department dp ON dp.id=c.department_id WHERE e.{col}=%s ORDER BY e.day, e.start_min""", (rid,)).fetchall()
+    q = f"""SELECT e.day, e.period, e.start_min, e.end_min,
+        coalesce(s.name, crs.course_name) subject,
+        f.name teacher, r.name room,
+        coalesce(c.name, co.offering_code) class_name,
+        coalesce(dp.name, od.name) department
+        FROM timetable_entry e
+        LEFT JOIN teacher_allocation a ON a.id=e.allocation_id
+        LEFT JOIN subject s ON s.id=a.subject_id
+        LEFT JOIN course_offering co ON co.id=e.course_offering_id
+        LEFT JOIN course crs ON crs.id=co.course_id
+        LEFT JOIN department od ON od.id=co.offering_department_id
+        LEFT JOIN faculty f ON f.id=e.faculty_id
+        LEFT JOIN room r ON r.id=e.room_id
+        LEFT JOIN class c ON c.id=e.class_id
+        LEFT JOIN department dp ON dp.id=c.department_id
+        WHERE e.{col}=%s ORDER BY e.day, e.start_min"""
+    rows = conn.execute(q, (rid,)).fetchall()
     return [dict(day=r["day"], period=r["period"], start=hm(r["start_min"]), end=hm(r["end_min"]), smin=r["start_min"], emin=r["end_min"],
                  **{k: r[k] for k in ("subject", "teacher", "room", "class_name", "department")}) for r in rows]
 
@@ -572,8 +759,20 @@ class MoveReq(BaseModel):
 
 
 def check(conn, d, entry_id, day, period):
-    e = conn.execute("""SELECT e.*, c.department_id, t.status, s.name AS subject FROM timetable_entry e JOIN class c ON c.id=e.class_id
-        JOIN timetable t ON t.class_id=c.id JOIN teacher_allocation a ON a.id=e.allocation_id JOIN subject s ON s.id=a.subject_id WHERE e.id=%s""", (entry_id,)).fetchone()
+    q = """SELECT e.*,
+        coalesce(c.department_id, co.offering_department_id) AS department_id,
+        coalesce(t.status, co.status) AS status,
+        coalesce(s.name, crs.course_name) AS subject,
+        co.scheduling_scope, crs.course_type
+        FROM timetable_entry e
+        LEFT JOIN class c ON c.id=e.class_id
+        LEFT JOIN timetable t ON t.class_id=c.id
+        LEFT JOIN teacher_allocation a ON a.id=e.allocation_id
+        LEFT JOIN subject s ON s.id=a.subject_id
+        LEFT JOIN course_offering co ON co.id=e.course_offering_id
+        LEFT JOIN course crs ON crs.id=co.course_id
+        WHERE e.id=%s"""
+    e = conn.execute(q, (entry_id,)).fetchone()
     if not e:
         raise HTTPException(404, "We couldn't find that session.")
     if e["department_id"] != d["id"]:
@@ -583,8 +782,25 @@ def check(conn, d, entry_id, day, period):
         return e, None, False, "That isn't one of your teaching periods."
     s_, e_ = tomin(cfg["periods"][period]["start"]), tomin(cfg["periods"][period]["end"])
     teachers, rooms_ = shared(conn)
-    data = dict(teachers=teachers, rooms=rooms_, busy=placed(conn, exclude_entry=entry_id), settings={d["code"]: solver_cfg(cfg)}, use_rooms=USE_ROOMS)
-    entry = {"class": e["class_id"], "teacher": e["faculty_id"], "room": e["room_id"], "subject": e["subject"], "department": d["code"]}
+    common_slots = [dict(id=r["id"], day=r["day"], start=r["start_min"], end=r["end_min"],
+                         course_type=r["applicable_course_type"], name=r["name"])
+                    for r in conn.execute("SELECT * FROM common_time_slot WHERE status='active'")]
+    students = {r["id"]: dict(name=r["name"], reg=r["register_number"], home_dept=r["home_department_id"], class_id=r["class_id"])
+                for r in conn.execute("SELECT * FROM student WHERE status='active'")}
+    class_students = defaultdict(set)
+    for sid, st in students.items():
+        if st["class_id"]:
+            class_students[st["class_id"]].add(sid)
+    enrolled = []
+    if e["course_offering_id"]:
+        enrolled = [r["student_id"] for r in conn.execute(
+            "SELECT student_id FROM course_enrollment WHERE course_offering_id=%s AND enrollment_status='enrolled'", (e["course_offering_id"],))]
+    data = dict(teachers=teachers, rooms=rooms_, busy=placed(conn, exclude_entry=entry_id),
+                settings={d["code"]: solver_cfg(cfg)}, use_rooms=USE_ROOMS, common_slots=common_slots,
+                students=students, class_students=dict(class_students))
+    entry = {"class": e["class_id"], "teacher": e["faculty_id"], "room": e["room_id"], "subject": e["subject"],
+             "department": d["code"], "scope": e.get("scheduling_scope"), "course_type": e.get("course_type"),
+             "enrolled_students": enrolled}
     ok, why = validate_move(data, entry, day, period, s_, e_)
     room = e["room_id"]
     if ok:
@@ -632,6 +848,670 @@ def request_change(entry_id: int, req: MoveReq, conn=Depends(db), d=Depends(curr
     conn.execute("INSERT INTO change_request (timetable_id, requested_by, reason, entry_id, new_day, new_period) SELECT t.id,%s,%s,%s,%s,%s FROM timetable t JOIN timetable_entry e ON e.class_id=t.class_id WHERE e.id=%s",
                  (d["account_id"], req.reason, entry_id, req.day, req.period, entry_id))
     return res
+
+
+# ---------- common slots (read-only for departments) ----------
+@app.get("/api/common-slots")
+def list_common_slots(conn=Depends(db), d=Depends(current_department)):
+    rows = conn.execute("""SELECT id, day, start_min, end_min, applicable_course_type, name, semester
+                           FROM common_time_slot WHERE status='active' ORDER BY day, start_min""").fetchall()
+    return [dict(id=r["id"], day=r["day"], day_name=DAYS[r["day"]], start=hm(r["start_min"]), end=hm(r["end_min"]),
+                 applicable_course_type=r["applicable_course_type"], name=r["name"], semester=r["semester"])
+            for r in rows]
+
+
+# ---------- courses (Regular, MDC, Minor) ----------
+class CourseReq(BaseModel):
+    course_code: str
+    course_name: str
+    course_type: str = "Regular"   # 'Regular', 'MDC', 'Minor'
+    selection_type: str | None = None  # 'STUDENT_SELECTED', 'DEPARTMENT_SELECTED'
+    description: str | None = None
+
+
+@app.get("/api/courses")
+def get_courses(all: bool = False, conn=Depends(db), d=Depends(current_department)):
+    where = "" if all else "WHERE c.department_id=%s"
+    args = () if all else (d["id"],)
+    rows = conn.execute(f"""SELECT c.*, dp.name department_name, dp.code department_code,
+                                   coalesce(ic.name, 'Aided') category_name
+                            FROM course c
+                            JOIN department dp ON dp.id=c.department_id
+                            LEFT JOIN institutional_category ic ON ic.id=dp.category_id
+                            {where} ORDER BY c.course_type, c.course_code""", args).fetchall()
+    return rows
+
+
+@app.post("/api/courses")
+def create_course(req: CourseReq, conn=Depends(db), d=Depends(current_department)):
+    code, name = req.course_code.strip().upper(), " ".join(req.course_name.split())
+    if not (2 <= len(code) <= 30 and 2 <= len(name) <= 120):
+        raise HTTPException(400, "Please enter valid course code and name.")
+    ctype = req.course_type.strip().capitalize()
+    if ctype not in ("Regular", "MDC", "Minor"):
+        up = req.course_type.strip().upper()
+        if up == "REGULAR": ctype = "Regular"
+        elif up == "MDC": ctype = "MDC"
+        elif up == "MINOR": ctype = "Minor"
+        else:
+            raise HTTPException(400, "Course type must be Regular, MDC, or Minor.")
+
+    sel_type = req.selection_type
+    if ctype == "Regular":
+        sel_type = None
+    else:
+        if sel_type:
+            up_sel = sel_type.strip().upper()
+            if up_sel in ("STUDENT_SELECTED", "COLLEGE_WIDE", "STUDENT"):
+                sel_type = "STUDENT_SELECTED"
+            elif up_sel in ("DEPARTMENT_SELECTED", "DEPARTMENT_SPECIFIC", "DEPARTMENT"):
+                sel_type = "DEPARTMENT_SELECTED"
+            else:
+                raise HTTPException(400, "Selection type must be STUDENT_SELECTED or DEPARTMENT_SELECTED for MDC and Minor courses.")
+        else:
+            sel_type = "STUDENT_SELECTED"
+
+    if conn.execute("SELECT 1 FROM course WHERE lower(course_code)=lower(%s)", (code,)).fetchone():
+        raise HTTPException(409, "A course with this code already exists.")
+    cid = conn.execute("""INSERT INTO course (course_code, course_name, course_type, selection_type, department_id, description)
+                          VALUES (%s,%s,%s,%s,%s,%s) RETURNING id""",
+                       (code, name, ctype, sel_type, d["id"], req.description)).fetchone()["id"]
+    note(conn, d["id"], "course_add", new={"code": code, "name": name, "type": ctype, "selection_type": sel_type})
+    return dict(id=cid, course_code=code, course_type=ctype, selection_type=sel_type)
+
+
+@app.put("/api/courses/{cid}")
+def update_course(cid: int, req: CourseReq, conn=Depends(db), d=Depends(current_department)):
+    c = conn.execute("SELECT * FROM course WHERE id=%s", (cid,)).fetchone()
+    if not c or c["department_id"] != d["id"]:
+        raise HTTPException(404, "Course not found or belongs to another department.")
+    code, name = req.course_code.strip().upper(), " ".join(req.course_name.split())
+    ctype = req.course_type.strip().capitalize()
+    if ctype not in ("Regular", "MDC", "Minor"):
+        up = req.course_type.strip().upper()
+        if up == "REGULAR": ctype = "Regular"
+        elif up == "MDC": ctype = "MDC"
+        elif up == "MINOR": ctype = "Minor"
+        else:
+            raise HTTPException(400, "Course type must be Regular, MDC, or Minor.")
+
+    sel_type = req.selection_type
+    if ctype == "Regular":
+        sel_type = None
+    else:
+        if sel_type:
+            up_sel = sel_type.strip().upper()
+            if up_sel in ("STUDENT_SELECTED", "COLLEGE_WIDE", "STUDENT"):
+                sel_type = "STUDENT_SELECTED"
+            elif up_sel in ("DEPARTMENT_SELECTED", "DEPARTMENT_SPECIFIC", "DEPARTMENT"):
+                sel_type = "DEPARTMENT_SELECTED"
+            else:
+                raise HTTPException(400, "Selection type must be STUDENT_SELECTED or DEPARTMENT_SELECTED for MDC and Minor courses.")
+        else:
+            sel_type = c["selection_type"] or "STUDENT_SELECTED"
+
+    if conn.execute("SELECT 1 FROM course WHERE lower(course_code)=lower(%s) AND id<>%s", (code, cid)).fetchone():
+        raise HTTPException(409, "A course with this code already exists.")
+    conn.execute("""UPDATE course SET course_code=%s, course_name=%s, course_type=%s, selection_type=%s, description=%s WHERE id=%s""",
+                 (code, name, ctype, sel_type, req.description, cid))
+    note(conn, d["id"], "course_edit", old={"code": c["course_code"]}, new={"code": code, "type": ctype, "selection_type": sel_type})
+    return dict(ok=True)
+
+
+@app.delete("/api/courses/{cid}")
+def delete_course(cid: int, conn=Depends(db), d=Depends(current_department)):
+    c = conn.execute("SELECT * FROM course WHERE id=%s", (cid,)).fetchone()
+    if not c or c["department_id"] != d["id"]:
+        raise HTTPException(404, "Course not found or belongs to another department.")
+    if conn.execute("SELECT 1 FROM course_offering WHERE course_id=%s", (cid,)).fetchone():
+        raise HTTPException(409, "This course has active offerings. Remove offerings first.")
+    conn.execute("DELETE FROM course WHERE id=%s", (cid,))
+    note(conn, d["id"], "course_delete", old={"code": c["course_code"]})
+    return dict(ok=True)
+
+
+# ---------- course offerings ----------
+class OfferingReq(BaseModel):
+    course_id: int
+    offering_code: str
+    scheduling_scope: str | None = None      # 'college_wide', 'department_specific'
+    selection_type: str | None = None        # 'STUDENT_SELECTED', 'DEPARTMENT_SELECTED'
+    semester: int = 1
+    required_sessions: int = 3
+    session_duration: int = 60
+    max_enrollment: int = 60
+    faculty_id: int | None = None
+    room_id: int | None = None
+    required_room_type: str = "Classroom"
+
+
+class SectionReq(BaseModel):
+    section_name: str
+    capacity: int = 60
+    faculty_id: int | None = None
+    room_id: int | None = None
+
+
+@app.get("/api/offerings")
+def get_offerings(conn=Depends(db), d=Depends(current_department)):
+    rows = conn.execute("""
+        SELECT co.*, crs.course_code, crs.course_name, crs.course_type,
+               coalesce(co.selection_type, crs.selection_type,
+                        case when co.scheduling_scope='college_wide' then 'STUDENT_SELECTED' else 'DEPARTMENT_SELECTED' end) selection_type,
+               f.name teacher_name, r.name room_name,
+               (SELECT count(*) FROM course_enrollment ce WHERE ce.course_offering_id=co.id AND ce.enrollment_status='enrolled') enrolled_count,
+               (SELECT count(*) FROM course_section cs WHERE cs.course_offering_id=co.id) section_count,
+               EXISTS(SELECT 1 FROM timetable_entry te WHERE te.course_offering_id=co.id) is_scheduled
+        FROM course_offering co
+        JOIN course crs ON crs.id=co.course_id
+        LEFT JOIN faculty f ON f.id=co.faculty_id
+        LEFT JOIN room r ON r.id=co.room_id
+        WHERE co.offering_department_id=%s
+        ORDER BY co.id DESC
+    """, (d["id"],)).fetchall()
+    return rows
+
+
+@app.get("/api/offerings/all")
+def get_all_offerings(conn=Depends(db), d=Depends(current_department)):
+    """Offerings visible for enrollment: student-selected (college-wide) from all depts + department's own offerings."""
+    rows = conn.execute("""
+        SELECT co.id, co.offering_code, co.semester, co.scheduling_scope,
+               coalesce(co.selection_type, crs.selection_type,
+                        case when co.scheduling_scope='college_wide' then 'STUDENT_SELECTED' else 'DEPARTMENT_SELECTED' end) selection_type,
+               co.required_sessions, co.max_enrollment, co.status, co.offering_department_id,
+               crs.course_code, crs.course_name, crs.course_type,
+               dp.name offering_department, dp.code department_code,
+               coalesce(ic.name, 'Aided') category_name,
+               f.name teacher_name, r.name room_name,
+               (SELECT count(*) FROM course_enrollment ce WHERE ce.course_offering_id=co.id AND ce.enrollment_status='enrolled') enrolled_count,
+               (SELECT count(*) FROM course_section cs WHERE cs.course_offering_id=co.id) section_count
+        FROM course_offering co
+        JOIN course crs ON crs.id=co.course_id
+        JOIN department dp ON dp.id=co.offering_department_id
+        LEFT JOIN institutional_category ic ON ic.id=dp.category_id
+        LEFT JOIN faculty f ON f.id=co.faculty_id
+        LEFT JOIN room r ON r.id=co.room_id
+        WHERE co.status='active'
+          AND (co.selection_type='STUDENT_SELECTED' OR co.scheduling_scope='college_wide' OR co.offering_department_id=%s)
+        ORDER BY co.selection_type, crs.course_type, co.offering_code
+    """, (d["id"],)).fetchall()
+    return rows
+
+
+@app.get("/api/offerings/{oid}")
+def get_offering_detail(oid: int, conn=Depends(db), d=Depends(current_department)):
+    co = conn.execute("""
+        SELECT co.*, crs.course_code, crs.course_name, crs.course_type,
+               coalesce(co.selection_type, crs.selection_type,
+                        case when co.scheduling_scope='college_wide' then 'STUDENT_SELECTED' else 'DEPARTMENT_SELECTED' end) selection_type,
+               dp.name offering_department, dp.code department_code,
+               f.name teacher_name, r.name room_name
+        FROM course_offering co
+        JOIN course crs ON crs.id=co.course_id
+        JOIN department dp ON dp.id=co.offering_department_id
+        LEFT JOIN faculty f ON f.id=co.faculty_id
+        LEFT JOIN room r ON r.id=co.room_id
+        WHERE co.id=%s
+    """, (oid,)).fetchone()
+    if not co:
+        raise HTTPException(404, "Course offering not found.")
+    sections = conn.execute("""
+        SELECT cs.*, f.name teacher_name, r.name room_name,
+               (SELECT count(*) FROM course_enrollment ce WHERE ce.section_id=cs.id AND ce.enrollment_status='enrolled') enrolled_count
+        FROM course_section cs
+        LEFT JOIN faculty f ON f.id=cs.faculty_id
+        LEFT JOIN room r ON r.id=cs.room_id
+        WHERE cs.course_offering_id=%s ORDER BY cs.section_name
+    """, (oid,)).fetchall()
+    enrollment_summary = conn.execute("""
+        SELECT dp.name home_department, count(*) student_count
+        FROM course_enrollment ce
+        JOIN student s ON s.id=ce.student_id
+        JOIN department dp ON dp.id=s.home_department_id
+        WHERE ce.course_offering_id=%s AND ce.enrollment_status='enrolled'
+        GROUP BY dp.name ORDER BY student_count DESC
+    """, (oid,)).fetchall()
+    return dict(offering=co, sections=sections, enrollment_summary=enrollment_summary)
+
+
+@app.post("/api/offerings")
+def create_offering(req: OfferingReq, conn=Depends(db), d=Depends(current_department)):
+    code = req.offering_code.strip().upper()
+    if not (2 <= len(code) <= 40):
+        raise HTTPException(400, "Please provide a valid offering code (e.g. MDC1-2026-SEM1).")
+    crs = conn.execute("SELECT * FROM course WHERE id=%s", (req.course_id,)).fetchone()
+    if not crs:
+        raise HTTPException(404, "Course not found.")
+
+    sel_type = req.selection_type or crs["selection_type"]
+    if not sel_type:
+        if req.scheduling_scope == "department_specific":
+            sel_type = "DEPARTMENT_SELECTED"
+        else:
+            sel_type = "STUDENT_SELECTED"
+    else:
+        up_sel = sel_type.strip().upper()
+        if up_sel in ("STUDENT_SELECTED", "COLLEGE_WIDE", "STUDENT"):
+            sel_type = "STUDENT_SELECTED"
+        elif up_sel in ("DEPARTMENT_SELECTED", "DEPARTMENT_SPECIFIC", "DEPARTMENT"):
+            sel_type = "DEPARTMENT_SELECTED"
+
+    scope = "college_wide" if sel_type == "STUDENT_SELECTED" else "department_specific"
+
+    if conn.execute("SELECT 1 FROM course_offering WHERE lower(offering_code)=lower(%s)", (code,)).fetchone():
+        raise HTTPException(409, "A course offering with this code already exists.")
+
+    oid = conn.execute("""
+        INSERT INTO course_offering (offering_code, course_id, offering_department_id, semester,
+                                     scheduling_scope, selection_type, required_sessions, session_duration, max_enrollment,
+                                     faculty_id, room_id, required_room_type)
+        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id
+    """, (code, req.course_id, d["id"], req.semester, scope, sel_type, req.required_sessions,
+          req.session_duration, req.max_enrollment, req.faculty_id, req.room_id, req.required_room_type)).fetchone()["id"]
+    note(conn, d["id"], "offering_add", new={"code": code, "scope": scope, "selection_type": sel_type})
+    return dict(id=oid, offering_code=code, selection_type=sel_type, scheduling_scope=scope)
+
+
+@app.put("/api/offerings/{oid}")
+def update_offering(oid: int, req: OfferingReq, conn=Depends(db), d=Depends(current_department)):
+    co = conn.execute("SELECT * FROM course_offering WHERE id=%s", (oid,)).fetchone()
+    if not co or co["offering_department_id"] != d["id"]:
+        raise HTTPException(404, "Course offering not found or belongs to another department.")
+    code = req.offering_code.strip().upper()
+    if conn.execute("SELECT 1 FROM course_offering WHERE lower(offering_code)=lower(%s) AND id<>%s", (code, oid)).fetchone():
+        raise HTTPException(409, "A course offering with this code already exists.")
+
+    sel_type = req.selection_type or co["selection_type"]
+    if req.scheduling_scope:
+        if req.scheduling_scope == "college_wide": sel_type = "STUDENT_SELECTED"
+        elif req.scheduling_scope == "department_specific": sel_type = "DEPARTMENT_SELECTED"
+    if sel_type:
+        up_sel = sel_type.strip().upper()
+        if up_sel in ("STUDENT_SELECTED", "COLLEGE_WIDE", "STUDENT"): sel_type = "STUDENT_SELECTED"
+        elif up_sel in ("DEPARTMENT_SELECTED", "DEPARTMENT_SPECIFIC", "DEPARTMENT"): sel_type = "DEPARTMENT_SELECTED"
+    else:
+        sel_type = "STUDENT_SELECTED"
+    scope = "college_wide" if sel_type == "STUDENT_SELECTED" else "department_specific"
+
+    conn.execute("""
+        UPDATE course_offering SET offering_code=%s, course_id=%s, semester=%s,
+                                   scheduling_scope=%s, selection_type=%s,
+                                   required_sessions=%s, session_duration=%s, max_enrollment=%s,
+                                   faculty_id=%s, room_id=%s, required_room_type=%s
+        WHERE id=%s
+    """, (code, req.course_id, req.semester, scope, sel_type, req.required_sessions,
+          req.session_duration, req.max_enrollment, req.faculty_id, req.room_id, req.required_room_type, oid))
+    note(conn, d["id"], "offering_edit", old={"code": co["offering_code"]}, new={"code": code, "selection_type": sel_type})
+    return dict(ok=True)
+
+
+@app.delete("/api/offerings/{oid}")
+def delete_offering(oid: int, conn=Depends(db), d=Depends(current_department)):
+    co = conn.execute("SELECT * FROM course_offering WHERE id=%s", (oid,)).fetchone()
+    if not co or co["offering_department_id"] != d["id"]:
+        raise HTTPException(404, "Course offering not found or belongs to another department.")
+    with conn.transaction():
+        conn.execute("DELETE FROM timetable_entry WHERE course_offering_id=%s", (oid,))
+        conn.execute("DELETE FROM course_enrollment WHERE course_offering_id=%s", (oid,))
+        conn.execute("DELETE FROM course_section WHERE course_offering_id=%s", (oid,))
+        conn.execute("DELETE FROM course_offering WHERE id=%s", (oid,))
+    note(conn, d["id"], "offering_delete", old={"code": co["offering_code"]})
+    return dict(ok=True)
+
+
+@app.post("/api/offerings/{oid}/sections")
+def add_section(oid: int, req: SectionReq, conn=Depends(db), d=Depends(current_department)):
+    co = conn.execute("SELECT * FROM course_offering WHERE id=%s", (oid,)).fetchone()
+    if not co or co["offering_department_id"] != d["id"]:
+        raise HTTPException(404, "Course offering not found.")
+    sname = req.section_name.strip().upper()[:10]
+    if not sname:
+        raise HTTPException(400, "Section name is required (e.g. A, B).")
+    try:
+        sid = conn.execute("""INSERT INTO course_section (course_offering_id, section_name, capacity, faculty_id, room_id)
+                              VALUES (%s,%s,%s,%s,%s) RETURNING id""",
+                           (oid, sname, req.capacity, req.faculty_id or co["faculty_id"], req.room_id or co["room_id"])).fetchone()["id"]
+    except psycopg.errors.UniqueViolation:
+        raise HTTPException(409, f"Section {sname} already exists for this offering.")
+    return dict(id=sid, section_name=sname)
+
+
+@app.delete("/api/offerings/{oid}/sections/{sid}")
+def delete_section(oid: int, sid: int, conn=Depends(db), d=Depends(current_department)):
+    co = conn.execute("SELECT * FROM course_offering WHERE id=%s", (oid,)).fetchone()
+    if not co or co["offering_department_id"] != d["id"]:
+        raise HTTPException(404, "Course offering not found.")
+    conn.execute("DELETE FROM course_section WHERE id=%s AND course_offering_id=%s", (sid, oid))
+    return dict(ok=True)
+
+
+@app.get("/api/offerings/{oid}/timetable")
+def offering_timetable(oid: int, conn=Depends(db), d=Depends(current_department)):
+    rows = conn.execute("""
+        SELECT te.id, te.day, te.period, te.start_min, te.end_min,
+               crs.course_name subject, crs.course_type, co.offering_code,
+               sec.section_name, f.name teacher, r.name room
+        FROM timetable_entry te
+        JOIN course_offering co ON co.id=te.course_offering_id
+        JOIN course crs ON crs.id=co.course_id
+        LEFT JOIN course_section sec ON sec.id=te.section_id
+        LEFT JOIN faculty f ON f.id=te.faculty_id
+        LEFT JOIN room r ON r.id=te.room_id
+        WHERE te.course_offering_id=%s ORDER BY te.day, te.start_min
+    """, (oid,)).fetchall()
+    return [dict(id=r["id"], day=r["day"], period=r["period"], start=hm(r["start_min"]), end=hm(r["end_min"]),
+                 subject=r["subject"], course_type=r["course_type"], offering_code=r["offering_code"],
+                 section=r["section_name"], teacher=r["teacher"], room=r["room"])
+            for r in rows]
+
+
+# ---------- students ----------
+class StudentReq(BaseModel):
+    register_number: str
+    name: str
+    semester: int = 1
+    class_id: int | None = None
+
+
+class BulkStudentReq(BaseModel):
+    students: list[dict] | None = None
+    csv: str | None = None
+
+
+@app.get("/api/students")
+def get_students(class_id: int | None = None, conn=Depends(db), d=Depends(current_department)):
+    where = "WHERE s.home_department_id=%s" + (" AND s.class_id=%s" if class_id else "")
+    args = (d["id"],) + ((class_id,) if class_id else ())
+    rows = conn.execute(f"""
+        SELECT s.*, c.name class_name, dp.name home_department,
+               coalesce(ic.name, 'Aided') category_name,
+               (SELECT count(*) FROM course_enrollment ce WHERE ce.student_id=s.id AND ce.enrollment_status='enrolled') enrolled_offerings_count
+        FROM student s
+        JOIN department dp ON dp.id=s.home_department_id
+        LEFT JOIN institutional_category ic ON ic.id=dp.category_id
+        LEFT JOIN class c ON c.id=s.class_id
+        {where} ORDER BY s.register_number
+    """, args).fetchall()
+    return rows
+
+
+@app.post("/api/students")
+def create_student(req: StudentReq, conn=Depends(db), d=Depends(current_department)):
+    reg = req.register_number.strip().upper()
+    name = " ".join(req.name.split())
+    if not (2 <= len(reg) <= 30 and 2 <= len(name) <= 80):
+        raise HTTPException(400, "Please provide valid student register number and name.")
+    if conn.execute("SELECT 1 FROM student WHERE lower(register_number)=lower(%s)", (reg,)).fetchone():
+        raise HTTPException(409, "A student with this register number already exists.")
+    if req.class_id:
+        own_class(conn, d, req.class_id)
+    sid = conn.execute("""
+        INSERT INTO student (register_number, name, home_department_id, semester, class_id)
+        VALUES (%s,%s,%s,%s,%s) RETURNING id
+    """, (reg, name, d["id"], req.semester, req.class_id)).fetchone()["id"]
+    note(conn, d["id"], "student_add", new={"reg": reg, "name": name})
+    return dict(id=sid, register_number=reg)
+
+
+@app.post("/api/students/bulk")
+def bulk_create_students(req: BulkStudentReq, conn=Depends(db), d=Depends(current_department)):
+    items = []
+    if req.students:
+        items = req.students
+    elif req.csv:
+        lines = [l.strip() for l in req.csv.splitlines() if l.strip()]
+        for line in lines:
+            parts = [p.strip() for p in line.split(",")]
+            if len(parts) >= 2:
+                items.append(dict(register_number=parts[0], name=parts[1],
+                                  semester=int(parts[2]) if len(parts) > 2 and parts[2].isdigit() else 1))
+    if not items:
+        raise HTTPException(400, "No students provided. Upload CSV or send a student list.")
+    created, skipped = 0, 0
+    with conn.transaction():
+        for st in items:
+            reg = str(st.get("register_number", "")).strip().upper()
+            name = " ".join(str(st.get("name", "")).split())
+            sem = int(st.get("semester", 1))
+            cid = st.get("class_id")
+            if not (reg and name):
+                continue
+            if conn.execute("SELECT 1 FROM student WHERE lower(register_number)=lower(%s)", (reg,)).fetchone():
+                skipped += 1
+                continue
+            conn.execute("INSERT INTO student (register_number, name, home_department_id, semester, class_id) VALUES (%s,%s,%s,%s,%s)",
+                         (reg, name, d["id"], sem, cid))
+            created += 1
+    return dict(created=created, skipped=skipped)
+
+
+@app.put("/api/students/{sid}")
+def update_student(sid: int, req: StudentReq, conn=Depends(db), d=Depends(current_department)):
+    s = conn.execute("SELECT * FROM student WHERE id=%s", (sid,)).fetchone()
+    if not s or s["home_department_id"] != d["id"]:
+        raise HTTPException(404, "Student not found or belongs to another department.")
+    reg = req.register_number.strip().upper()
+    name = " ".join(req.name.split())
+    if conn.execute("SELECT 1 FROM student WHERE lower(register_number)=lower(%s) AND id<>%s", (reg, sid)).fetchone():
+        raise HTTPException(409, "A student with this register number already exists.")
+    if req.class_id:
+        own_class(conn, d, req.class_id)
+    conn.execute("UPDATE student SET register_number=%s, name=%s, semester=%s, class_id=%s WHERE id=%s",
+                 (reg, name, req.semester, req.class_id, sid))
+    return dict(ok=True)
+
+
+@app.delete("/api/students/{sid}")
+def delete_student(sid: int, conn=Depends(db), d=Depends(current_department)):
+    s = conn.execute("SELECT * FROM student WHERE id=%s", (sid,)).fetchone()
+    if not s or s["home_department_id"] != d["id"]:
+        raise HTTPException(404, "Student not found.")
+    conn.execute("DELETE FROM student WHERE id=%s", (sid,))
+    return dict(ok=True)
+
+
+@app.get("/api/students/{sid}/timetable")
+def student_timetable(sid: int, conn=Depends(db), d=Depends(current_department)):
+    """Unified Student Timetable: combines regular home-department subjects + enrolled MDC & Minor offerings."""
+    st = conn.execute("""
+        SELECT s.*, dp.name home_department, coalesce(ic.name, 'Aided') category_name, c.name class_name
+        FROM student s
+        JOIN department dp ON dp.id=s.home_department_id
+        LEFT JOIN institutional_category ic ON ic.id=dp.category_id
+        LEFT JOIN class c ON c.id=s.class_id
+        WHERE s.id=%s
+    """, (sid,)).fetchone()
+    if not st:
+        raise HTTPException(404, "Student not found.")
+
+    entries = []
+    # 1. Regular class timetable
+    if st["class_id"]:
+        rows = conn.execute("""
+            SELECT te.id, te.day, te.period, te.start_min, te.end_min,
+                   s.name subject, 'Regular' course_type, c.name class_or_offering,
+                   f.name teacher, r.name room, dp.name department
+            FROM timetable_entry te
+            JOIN teacher_allocation a ON a.id=te.allocation_id
+            JOIN subject s ON s.id=a.subject_id
+            JOIN class c ON c.id=te.class_id
+            JOIN department dp ON dp.id=c.department_id
+            LEFT JOIN faculty f ON f.id=te.faculty_id
+            LEFT JOIN room r ON r.id=te.room_id
+            WHERE te.class_id=%s ORDER BY te.day, te.start_min
+        """, (st["class_id"],)).fetchall()
+        for r in rows:
+            entries.append(dict(id=r["id"], day=r["day"], period=r["period"], start=hm(r["start_min"]), end=hm(r["end_min"]),
+                                smin=r["start_min"], emin=r["end_min"], subject=r["subject"], course_type=r["course_type"],
+                                class_or_offering=r["class_or_offering"], teacher=r["teacher"], room=r["room"],
+                                department=r["department"]))
+
+    # 2. Enrolled course offerings (cross-department MDC / Minor)
+    off_rows = conn.execute("""
+        SELECT te.id, te.day, te.period, te.start_min, te.end_min,
+               crs.course_name subject, crs.course_type, co.offering_code class_or_offering,
+               f.name teacher, r.name room, dp.name department
+        FROM timetable_entry te
+        JOIN course_offering co ON co.id=te.course_offering_id
+        JOIN course crs ON crs.id=co.course_id
+        JOIN department dp ON dp.id=co.offering_department_id
+        LEFT JOIN faculty f ON f.id=te.faculty_id
+        LEFT JOIN room r ON r.id=te.room_id
+        JOIN course_enrollment ce ON ce.course_offering_id=co.id AND (ce.section_id IS NULL OR te.section_id IS NULL OR ce.section_id=te.section_id)
+        WHERE ce.student_id=%s AND ce.enrollment_status='enrolled'
+        ORDER BY te.day, te.start_min
+    """, (sid,)).fetchall()
+    for r in off_rows:
+        entries.append(dict(id=r["id"], day=r["day"], period=r["period"], start=hm(r["start_min"]), end=hm(r["end_min"]),
+                            smin=r["start_min"], emin=r["end_min"], subject=r["subject"], course_type=r["course_type"],
+                            class_or_offering=r["class_or_offering"], teacher=r["teacher"], room=r["room"],
+                            department=r["department"]))
+
+    entries.sort(key=lambda x: (x["day"], x["smin"]))
+    return dict(student=st, entries=entries)
+
+
+# ---------- cross-department enrollment management ----------
+class EnrollReq(BaseModel):
+    student_ids: list[int]
+    section_id: int | None = None
+
+
+class BulkEnrollReq(BaseModel):
+    register_numbers: list[str] | str
+    section_id: int | None = None
+
+
+@app.get("/api/offerings/{oid}/enrollments")
+def get_offering_enrollments(oid: int, conn=Depends(db), d=Depends(current_department)):
+    co = conn.execute("SELECT * FROM course_offering WHERE id=%s", (oid,)).fetchone()
+    if not co:
+        raise HTTPException(404, "Course offering not found.")
+    students = conn.execute("""
+        SELECT s.id, s.register_number, s.name, dp.name home_department, dp.code department_code,
+               coalesce(ic.name, 'Aided') category_name, ce.section_id, cs.section_name, ce.enrollment_date
+        FROM course_enrollment ce
+        JOIN student s ON s.id=ce.student_id
+        JOIN department dp ON dp.id=s.home_department_id
+        LEFT JOIN institutional_category ic ON ic.id=dp.category_id
+        LEFT JOIN course_section cs ON cs.id=ce.section_id
+        WHERE ce.course_offering_id=%s AND ce.enrollment_status='enrolled'
+        ORDER BY dp.name, s.register_number
+    """, (oid,)).fetchall()
+    by_dept = defaultdict(int)
+    for st in students:
+        by_dept[st["home_department"]] += 1
+    return dict(total_enrolled=len(students), by_department=dict(by_dept), students=students)
+
+
+@app.post("/api/offerings/{oid}/enroll")
+def enroll_students(oid: int, req: EnrollReq, conn=Depends(db), d=Depends(current_department)):
+    co = conn.execute("""
+        SELECT co.*, crs.course_type, crs.selection_type course_sel_type
+        FROM course_offering co
+        JOIN course crs ON crs.id=co.course_id
+        WHERE co.id=%s
+    """, (oid,)).fetchone()
+    if not co:
+        raise HTTPException(404, "Course offering not found.")
+
+    sel_type = co.get("selection_type") or co.get("course_sel_type")
+    if not sel_type:
+        sel_type = "STUDENT_SELECTED" if co.get("scheduling_scope") == "college_wide" else "DEPARTMENT_SELECTED"
+
+    # Restriction for Department-Selected courses:
+    # Only students belonging to the offering department may enroll. Cross-department enrollment is prohibited.
+    if sel_type == "DEPARTMENT_SELECTED":
+        cross = conn.execute("""
+            SELECT s.register_number, s.name, dp.name dept_name
+            FROM student s
+            JOIN department dp ON dp.id=s.home_department_id
+            WHERE s.id = ANY(%s) AND s.home_department_id <> %s
+        """, (req.student_ids, co["offering_department_id"])).fetchall()
+        if cross:
+            s_list = ", ".join(f"{s['register_number']} ({s['dept_name']})" for s in cross[:3])
+            raise HTTPException(400, f"Cross-department enrollment is prohibited for department-selected courses. {s_list} does not belong to the offering department.")
+
+    enrolled_count = conn.execute("SELECT count(*) n FROM course_enrollment WHERE course_offering_id=%s AND enrollment_status='enrolled'", (oid,)).fetchone()["n"]
+    cap = co["max_enrollment"]
+    if req.section_id:
+        sec = conn.execute("SELECT * FROM course_section WHERE id=%s AND course_offering_id=%s", (req.section_id, oid)).fetchone()
+        if not sec:
+            raise HTTPException(400, "Section not found for this offering.")
+        cap = sec["capacity"]
+        enrolled_count = conn.execute("SELECT count(*) n FROM course_enrollment WHERE section_id=%s AND enrollment_status='enrolled'", (req.section_id,)).fetchone()["n"]
+
+    added = 0
+    with conn.transaction():
+        for sid in req.student_ids:
+            if conn.execute("SELECT 1 FROM course_enrollment WHERE student_id=%s AND course_offering_id=%s", (sid, oid)).fetchone():
+                continue
+            if enrolled_count + added >= cap:
+                raise HTTPException(409, f"Enrollment capacity ({cap}) exceeded. Add an additional section or increase capacity.")
+            conn.execute("""
+                INSERT INTO course_enrollment (student_id, course_offering_id, section_id)
+                VALUES (%s,%s,%s)
+                ON CONFLICT (student_id, course_offering_id) DO UPDATE SET enrollment_status='enrolled', section_id=EXCLUDED.section_id
+            """, (sid, oid, req.section_id))
+            added += 1
+    return dict(enrolled=added, total=enrolled_count + added)
+
+
+@app.post("/api/offerings/{oid}/bulk-enroll")
+def bulk_enroll_students(oid: int, req: BulkEnrollReq, conn=Depends(db), d=Depends(current_department)):
+    co = conn.execute("SELECT * FROM course_offering WHERE id=%s", (oid,)).fetchone()
+    if not co:
+        raise HTTPException(404, "Course offering not found.")
+    regs = []
+    if isinstance(req.register_numbers, list):
+        regs = [r.strip().upper() for r in req.register_numbers if r.strip()]
+    elif isinstance(req.register_numbers, str):
+        import re as re_mod
+        regs = [r.strip().upper() for r in re_mod.split(r"[\n,\s]+", req.register_numbers) if r.strip()]
+
+    students = conn.execute("SELECT id, register_number FROM student WHERE upper(register_number) = ANY(%s)", (regs,)).fetchall()
+    found_ids = [s["id"] for s in students]
+    if not found_ids:
+        raise HTTPException(400, "No matching students found with those register numbers.")
+    return enroll_students(oid, EnrollReq(student_ids=found_ids, section_id=req.section_id), conn, d)
+
+
+@app.delete("/api/offerings/{oid}/enroll/{student_id}")
+def unenroll_student(oid: int, student_id: int, conn=Depends(db), d=Depends(current_department)):
+    conn.execute("DELETE FROM course_enrollment WHERE course_offering_id=%s AND student_id=%s", (oid, student_id))
+    return dict(ok=True)
+
+
+# ---------- college-wide common course timetable ----------
+@app.get("/api/timetables/common-courses")
+def college_wide_common_timetable(conn=Depends(db), d=Depends(current_department)):
+    """All scheduled college-wide MDC and Minor offerings across departments."""
+    rows = conn.execute("""
+        SELECT te.id, te.day, te.period, te.start_min, te.end_min,
+               crs.course_name subject, crs.course_code, crs.course_type,
+               co.offering_code, co.scheduling_scope,
+               dp.name department, dp.code department_code,
+               coalesce(ic.name, 'Aided') category_name,
+               sec.section_name, f.name teacher, r.name room,
+               (SELECT count(*) FROM course_enrollment ce WHERE ce.course_offering_id=co.id AND ce.enrollment_status='enrolled') enrolled_count
+        FROM timetable_entry te
+        JOIN course_offering co ON co.id=te.course_offering_id
+        JOIN course crs ON crs.id=co.course_id
+        JOIN department dp ON dp.id=co.offering_department_id
+        LEFT JOIN institutional_category ic ON ic.id=dp.category_id
+        LEFT JOIN course_section sec ON sec.id=te.section_id
+        LEFT JOIN faculty f ON f.id=te.faculty_id
+        LEFT JOIN room r ON r.id=te.room_id
+        WHERE co.scheduling_scope='college_wide'
+        ORDER BY te.day, te.start_min, co.offering_code
+    """).fetchall()
+    return [dict(id=r["id"], day=r["day"], period=r["period"], start=hm(r["start_min"]), end=hm(r["end_min"]),
+                 subject=r["subject"], course_code=r["course_code"], course_type=r["course_type"],
+                 offering_code=r["offering_code"], department=r["department"], department_code=r["department_code"],
+                 category=r["category_name"], section=r["section_name"], teacher=r["teacher"], room=r["room"],
+                 enrolled_count=r["enrolled_count"])
+            for r in rows]
 
 
 @app.get("/api/audit")

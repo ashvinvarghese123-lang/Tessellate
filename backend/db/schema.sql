@@ -257,3 +257,123 @@ FROM timetable_entry e JOIN class c ON c.id = e.class_id JOIN department d ON d.
 JOIN teacher_allocation a ON a.id = e.allocation_id JOIN subject s ON s.id = a.subject_id;
 -- Rooms are optional for now: a timetable session may have no room. Room data is kept for later.
 ALTER TABLE timetable_entry ALTER COLUMN room_id DROP NOT NULL;
+
+-- 006: Cross-Department MDC, Minor & Student Enrollment Integration
+CREATE TABLE IF NOT EXISTS institutional_category (
+  id SERIAL PRIMARY KEY,
+  name TEXT UNIQUE NOT NULL CHECK (name IN ('Aided', 'Self-Financing'))
+);
+INSERT INTO institutional_category (name) VALUES ('Aided'), ('Self-Financing')
+ON CONFLICT (name) DO NOTHING;
+
+ALTER TABLE department ADD COLUMN IF NOT EXISTS category_id INT REFERENCES institutional_category(id);
+
+CREATE TABLE IF NOT EXISTS student (
+  id SERIAL PRIMARY KEY,
+  register_number TEXT UNIQUE NOT NULL,
+  name TEXT NOT NULL,
+  home_department_id INT NOT NULL REFERENCES department(id) ON DELETE RESTRICT,
+  academic_year_id INT REFERENCES academic_year(id),
+  semester SMALLINT NOT NULL DEFAULT 1,
+  class_id INT REFERENCES class(id) ON DELETE SET NULL,
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'graduated')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_student_home_dept ON student(home_department_id);
+CREATE INDEX IF NOT EXISTS idx_student_class ON student(class_id);
+
+CREATE TABLE IF NOT EXISTS course (
+  id SERIAL PRIMARY KEY,
+  course_code TEXT UNIQUE NOT NULL,
+  course_name TEXT NOT NULL,
+  course_type TEXT NOT NULL CHECK (course_type IN ('Regular', 'MDC', 'Minor', 'REGULAR', 'MINOR')),
+  selection_type TEXT CHECK (selection_type IN ('STUDENT_SELECTED', 'DEPARTMENT_SELECTED')),
+  department_id INT NOT NULL REFERENCES department(id) ON DELETE CASCADE,
+  description TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_course_dept ON course(department_id);
+
+CREATE TABLE IF NOT EXISTS course_offering (
+  id SERIAL PRIMARY KEY,
+  offering_code TEXT UNIQUE NOT NULL,
+  course_id INT NOT NULL REFERENCES course(id) ON DELETE CASCADE,
+  offering_department_id INT NOT NULL REFERENCES department(id) ON DELETE CASCADE,
+  academic_year_id INT REFERENCES academic_year(id),
+  semester SMALLINT NOT NULL DEFAULT 1,
+  scheduling_scope TEXT NOT NULL CHECK (scheduling_scope IN ('college_wide', 'department_specific')),
+  selection_type TEXT CHECK (selection_type IN ('STUDENT_SELECTED', 'DEPARTMENT_SELECTED')),
+  required_sessions SMALLINT NOT NULL DEFAULT 3 CHECK (required_sessions BETWEEN 1 AND 20),
+  session_duration SMALLINT NOT NULL DEFAULT 60,
+  max_enrollment SMALLINT NOT NULL DEFAULT 60 CHECK (max_enrollment >= 1),
+  faculty_id INT REFERENCES faculty(id) ON DELETE SET NULL,
+  room_id INT REFERENCES room(id) ON DELETE SET NULL,
+  required_room_type TEXT NOT NULL DEFAULT 'Classroom',
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'completed', 'draft')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_course_offering_dept ON course_offering(offering_department_id);
+
+CREATE TABLE IF NOT EXISTS course_section (
+  id SERIAL PRIMARY KEY,
+  course_offering_id INT NOT NULL REFERENCES course_offering(id) ON DELETE CASCADE,
+  section_name TEXT NOT NULL,
+  capacity SMALLINT NOT NULL DEFAULT 60 CHECK (capacity >= 1),
+  faculty_id INT REFERENCES faculty(id) ON DELETE SET NULL,
+  room_id INT REFERENCES room(id) ON DELETE SET NULL,
+  UNIQUE (course_offering_id, section_name)
+);
+
+CREATE TABLE IF NOT EXISTS course_enrollment (
+  id SERIAL PRIMARY KEY,
+  student_id INT NOT NULL REFERENCES student(id) ON DELETE CASCADE,
+  course_offering_id INT NOT NULL REFERENCES course_offering(id) ON DELETE CASCADE,
+  section_id INT REFERENCES course_section(id) ON DELETE SET NULL,
+  enrollment_status TEXT NOT NULL DEFAULT 'enrolled' CHECK (enrollment_status IN ('enrolled', 'dropped')),
+  enrollment_date TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (student_id, course_offering_id)
+);
+CREATE INDEX IF NOT EXISTS idx_enrollment_offering ON course_enrollment(course_offering_id);
+CREATE INDEX IF NOT EXISTS idx_enrollment_student ON course_enrollment(student_id);
+
+CREATE TABLE IF NOT EXISTS common_time_slot (
+  id SERIAL PRIMARY KEY,
+  academic_year_id INT REFERENCES academic_year(id),
+  semester SMALLINT NOT NULL DEFAULT 1,
+  day SMALLINT NOT NULL CHECK (day BETWEEN 0 AND 6),
+  start_min SMALLINT NOT NULL,
+  end_min SMALLINT NOT NULL,
+  applicable_course_type TEXT NOT NULL CHECK (applicable_course_type IN ('MDC', 'Minor', 'Both')),
+  name TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
+  CHECK (end_min > start_min)
+);
+
+CREATE OR REPLACE VIEW common_scheduling_period AS
+SELECT
+  id,
+  academic_year_id AS academic_year,
+  semester,
+  applicable_course_type AS applicable_course_types,
+  day,
+  start_min,
+  end_min,
+  (status = 'active') AS active
+FROM common_time_slot;
+
+ALTER TABLE timetable_entry ADD COLUMN IF NOT EXISTS course_offering_id INT REFERENCES course_offering(id) ON DELETE CASCADE;
+ALTER TABLE timetable_entry ADD COLUMN IF NOT EXISTS section_id INT REFERENCES course_section(id) ON DELETE SET NULL;
+ALTER TABLE timetable_entry ALTER COLUMN allocation_id DROP NOT NULL;
+ALTER TABLE timetable_entry ALTER COLUMN class_id DROP NOT NULL;
+ALTER TABLE timetable_entry ALTER COLUMN timetable_id DROP NOT NULL;
+ALTER TABLE timetable_entry ALTER COLUMN faculty_id DROP NOT NULL;
+
+ALTER TABLE timetable_entry DROP CONSTRAINT IF EXISTS te_no_teacher_overlap;
+ALTER TABLE timetable_entry ADD CONSTRAINT te_no_teacher_overlap EXCLUDE USING gist (faculty_id WITH =, day WITH =, span WITH &&) WHERE (faculty_id IS NOT NULL);
+
+ALTER TABLE timetable_entry DROP CONSTRAINT IF EXISTS te_no_class_overlap;
+ALTER TABLE timetable_entry ADD CONSTRAINT te_no_class_overlap EXCLUDE USING gist (class_id WITH =, day WITH =, span WITH &&) WHERE (class_id IS NOT NULL);
+
+ALTER TABLE timetable_entry DROP CONSTRAINT IF EXISTS te_no_section_overlap;
+ALTER TABLE timetable_entry ADD CONSTRAINT te_no_section_overlap EXCLUDE USING gist (section_id WITH =, day WITH =, span WITH &&) WHERE (section_id IS NOT NULL);
+

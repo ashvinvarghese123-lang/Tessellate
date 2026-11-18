@@ -128,8 +128,23 @@ def _issue_code(conn, acct, challenge_id=None):
     return str(challenge_id)
 
 
+def _start_session(conn, response, account_id, dept_id):
+    token = secrets.token_urlsafe(32)
+    conn.execute("INSERT INTO auth_session (token_hash, account_id, expires_at) VALUES (%s,%s,%s)",
+                 (hashlib.sha256(token.encode()).hexdigest(), account_id, now() + timedelta(hours=SESSION_HOURS)))
+    audit(conn, account_id, dept_id, "login_ok")
+    response.set_cookie(COOKIE, token, httponly=True, samesite="lax", max_age=SESSION_HOURS * 3600,
+                        secure=os.environ.get("COOKIE_SECURE", "0") == "1")
+
+
+@router.get("/config")
+def auth_config():
+    from .config import REQUIRE_OTP
+    return dict(otp=REQUIRE_OTP)
+
+
 @router.post("/login")
-def login(req: LoginReq, conn=Depends(db)):
+def login(req: LoginReq, response: Response, conn=Depends(db)):
     bad = HTTPException(401, "The username or password is incorrect.")
     a = conn.execute("SELECT * FROM department_account WHERE username=%s AND active", (req.username.strip().lower(),)).fetchone()
     if not a:
@@ -145,6 +160,11 @@ def login(req: LoginReq, conn=Depends(db)):
         conn.commit()
         raise bad
     conn.execute("UPDATE department_account SET failed_logins=0, locked_until=NULL WHERE id=%s", (a["id"],))
+    from .config import REQUIRE_OTP
+    if not REQUIRE_OTP:                       # TEMPORARY testing mode: the password alone signs in
+        _start_session(conn, response, a["id"], a["department_id"])
+        conn.commit()
+        return dict(signed_in=True)
     cid = _issue_code(conn, a)
     conn.commit()
     return dict(challenge_id=cid, email_hint=mask(a["email"]))
@@ -205,20 +225,22 @@ def current_department(request: Request, conn=Depends(db)):
     if not tok:
         raise HTTPException(401, "Please sign in.")
     h = hashlib.sha256(tok.encode()).hexdigest()
-    s = conn.execute("""SELECT s.*, a.department_id, a.username, a.email, d.code, d.name
+    s = conn.execute("""SELECT s.*, a.department_id, a.username, a.email, d.code, d.name, d.category_id, coalesce(ic.name, 'Aided') AS category_name
         FROM auth_session s JOIN department_account a ON a.id=s.account_id JOIN department d ON d.id=a.department_id
+        LEFT JOIN institutional_category ic ON ic.id=d.category_id
         WHERE s.token_hash=%s AND NOT s.revoked AND a.active""", (h,)).fetchone()
     if not s or s["expires_at"] < now() or (now() - s["last_seen"]) > timedelta(minutes=IDLE_MINUTES):
         raise HTTPException(401, "Your session has ended. Please sign in again.")
     conn.execute("UPDATE auth_session SET last_seen=now() WHERE token_hash=%s", (h,))
     return dict(account_id=s["account_id"], id=s["department_id"], code=s["code"], name=s["name"],
+                category=s["category_name"], category_id=s["category_id"],
                 username=s["username"], email_hint=mask(s["email"]), token_hash=h)
 
 
 @router.get("/me")
 def me(d=Depends(current_department)):
     from .config import USE_ROOMS
-    return dict(department=dict(code=d["code"], name=d["name"]), username=d["username"], email_hint=d["email_hint"], features=dict(rooms=USE_ROOMS))
+    return dict(department=dict(code=d["code"], name=d["name"], category=d["category"]), username=d["username"], email_hint=d["email_hint"], features=dict(rooms=USE_ROOMS))
 
 
 @router.post("/logout")
@@ -336,6 +358,11 @@ def signup(req: SignupReq, request: Request, conn=Depends(db)):
         raise HTTPException(409, "That username is already taken. Please choose another.")
     if conn.execute("SELECT 1 FROM department_account WHERE lower(email)=%s", (email,)).fetchone():
         raise HTTPException(409, "That email address already belongs to a department account.")
+    from .config import REQUIRE_OTP
+    if not REQUIRE_OTP:                       # TEMPORARY testing mode: no emailed confirmation code
+        _create_account(conn, dict(department_name=name, username=user, email=email, password_hash=hash_password(req.password)))
+        conn.commit()
+        return dict(created=True, department=name, username=user)
     conn.execute("DELETE FROM signup_request WHERE lower(email)=%s AND NOT used", (email,))
     rid = conn.execute("""INSERT INTO signup_request (department_name, email, username, password_hash, expires_at)
         VALUES (%s,%s,%s,%s,%s) RETURNING id""", (name, email, user, hash_password(req.password), now() + timedelta(minutes=SIGNUP_MINUTES))).fetchone()["id"]
@@ -360,18 +387,8 @@ def _req(conn, rid):
         return None
 
 
-@router.post("/signup/verify")
-def signup_verify(req: dict, conn=Depends(db)):
-    r = _req(conn, req.get("request_id"))
-    if not r or r["used"] or r["expires_at"] < now():
-        raise HTTPException(400, "This code has expired. Please start again.")
-    if r["attempts"] >= MAX_TRIES:
-        raise HTTPException(429, "Too many incorrect codes. Please start again.")
-    if not hmac.compare_digest(r["code_hash"], code_hash(r["id"], str(req.get("code", "")).strip())):
-        conn.execute("UPDATE signup_request SET attempts=attempts+1 WHERE id=%s", (r["id"],))
-        conn.commit()
-        raise HTTPException(400, "That code isn't correct. Please check it and try again.")
-    # re-check at the last moment: someone may have registered meanwhile
+def _create_account(conn, r):
+    """Creates the department (or claims one the Registry made) and its login. Re-checks at the last moment."""
     d = conn.execute("SELECT id FROM department WHERE lower(name)=lower(%s)", (r["department_name"],)).fetchone()
     if (d and conn.execute("SELECT 1 FROM department_account WHERE department_id=%s", (d["id"],)).fetchone()) or \
        conn.execute("SELECT 1 FROM department_account WHERE username=%s OR lower(email)=%s", (r["username"], r["email"])).fetchone():
@@ -387,8 +404,23 @@ def signup_verify(req: dict, conn=Depends(db)):
         did = conn.execute("INSERT INTO department (code, name) VALUES (%s,%s) RETURNING id", (code, r["department_name"])).fetchone()["id"]
     aid = conn.execute("INSERT INTO department_account (department_id, username, email, password_hash) VALUES (%s,%s,%s,%s) RETURNING id",
                        (did, r["username"], r["email"], r["password_hash"])).fetchone()["id"]
-    conn.execute("UPDATE signup_request SET used=TRUE WHERE id=%s", (r["id"],))
     audit(conn, aid, did, "account_created")
+    return did, aid
+
+
+@router.post("/signup/verify")
+def signup_verify(req: dict, conn=Depends(db)):
+    r = _req(conn, req.get("request_id"))
+    if not r or r["used"] or r["expires_at"] < now():
+        raise HTTPException(400, "This code has expired. Please start again.")
+    if r["attempts"] >= MAX_TRIES:
+        raise HTTPException(429, "Too many incorrect codes. Please start again.")
+    if not hmac.compare_digest(r["code_hash"], code_hash(r["id"], str(req.get("code", "")).strip())):
+        conn.execute("UPDATE signup_request SET attempts=attempts+1 WHERE id=%s", (r["id"],))
+        conn.commit()
+        raise HTTPException(400, "That code isn't correct. Please check it and try again.")
+    _create_account(conn, r)
+    conn.execute("UPDATE signup_request SET used=TRUE WHERE id=%s", (r["id"],))
     conn.commit()
     return dict(department=r["department_name"], username=r["username"])
 

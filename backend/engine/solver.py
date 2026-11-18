@@ -67,33 +67,75 @@ def grid(data, dept):
 
 def _indexes(data):
     """Busy / unavailable time ranges per (resource, day)."""
-    bt, br, bc, off = defaultdict(list), defaultdict(list), defaultdict(list), defaultdict(list)
+    bt, br, bc, off, bs_stu = defaultdict(list), defaultdict(list), defaultdict(list), defaultdict(list), defaultdict(list)
     for b in data.get("busy", []):
-        bt[(b["teacher"], b["day"])].append((b["start"], b["end"]))
-        br[(b["room"], b["day"])].append((b["start"], b["end"]))
-        bc[(b["class"], b["day"])].append((b["start"], b["end"]))
+        if b.get("teacher") is not None:
+            bt[(b["teacher"], b["day"])].append((b["start"], b["end"]))
+        if b.get("room") is not None:
+            br[(b["room"], b["day"])].append((b["start"], b["end"]))
+        if b.get("class") is not None:
+            bc[(b["class"], b["day"])].append((b["start"], b["end"]))
+        for sid in b.get("student_ids", []):
+            bs_stu[(sid, b["day"])].append((b["start"], b["end"], b.get("subject", "another course")))
     for t, T in data["teachers"].items():
         for d, s, e in T.get("unavailable", []):
             off[(t, d)].append((s, e))
-    return bt, br, bc, off
+    return bt, br, bc, off, bs_stu
 
 
 hit = lambda lst, s, e: any(ov(s, e, a, b) for a, b in lst)  # noqa: E731
 
 
+def slot_matches_common(d, s, e, common_slots, ctype):
+    for cs in common_slots:
+        if cs["day"] == d and cs["start"] == s and cs["end"] == e:
+            if cs.get("course_type") in (ctype, "Both", None):
+                return True
+    return False
+
+
 def issues(data):
     """Root causes only, each with ONE short fix. Only reports what is certainly impossible."""
     out = []
-    bt, br, bc, off = _indexes(data)
+    bt, br, bc, off, bs_stu = _indexes(data)
     allocs = data["allocations"]
     use_rooms = data.get("use_rooms", True)
+    common_slots = data.get("common_slots", [])
     t_need, c_need, r_need = defaultdict(int), defaultdict(int), defaultdict(int)
     t_depts = defaultdict(set)
     for a in allocs:
-        t_need[a["teacher"]] += a["sessions"]
-        c_need[a["class"]] += a["sessions"]
-        r_need[a["room_type"]] += a["sessions"]
-        t_depts[a["teacher"]].add(a["department"])
+        if a.get("teacher") is not None:
+            t_need[a["teacher"]] += a["sessions"]
+            t_depts[a["teacher"]].add(a["department"])
+        if a.get("class") is not None:
+            c_need[a["class"]] += a["sessions"]
+        if a.get("room_type") is not None:
+            r_need[a["room_type"]] += a["sessions"]
+
+        # College-wide common slot check (for Student-Selected MDC/Minor offerings)
+        if a.get("scope") == "college_wide" or a.get("selection_type") == "STUDENT_SELECTED":
+            ctype = a.get("course_type", "MDC")
+            matching = [cs for cs in common_slots if cs.get("course_type") in (ctype, "Both", None)]
+            if not matching:
+                out.append(dict(
+                    issue=f"No college-wide common time slot configured for {ctype} ({a.get('code', a['subject'])}).",
+                    fix=f"Ask the College Registry to configure common time slots for {ctype}."
+                ))
+            elif len(matching) < a["sessions"]:
+                out.append(dict(
+                    issue=f"Only {len(matching)} common slot(s) exist for {ctype}, but {a.get('code', a['subject'])} requires {a['sessions']} sessions.",
+                    fix=f"Add more common {ctype} time slots or reduce required weekly sessions."
+                ))
+
+        # Capacity check for course offerings
+        if a.get("kind") == "offering":
+            cap = a.get("capacity") or a.get("max_enrollment", 60)
+            enrolled_count = len(a.get("enrolled_students", []))
+            if enrolled_count > cap:
+                out.append(dict(
+                    issue=f"{a.get('code', a['subject'])} enrollment ({enrolled_count}) exceeds section capacity ({cap}).",
+                    fix="Add another course section in Offerings or raise section capacity."
+                ))
 
     def usable(dept, res_ranges):
         free = {tuple(f) for f in data["settings"][dept].get("free", [])}
@@ -159,17 +201,60 @@ def generate(data, time_limit=30, workers=None):
     use_rooms = data.get("use_rooms", True)
     allocs = data["allocations"]
     rooms = data["rooms"] if use_rooms else [dict(id=None, type=None)]       # no rooms: one imaginary "no room" choice
-    bt, br, bc, off = _indexes(data)
+    bt, br, bc, off, bs_stu = _indexes(data)
+    class_students = data.get("class_students", {})
+    common_slots = data.get("common_slots", [])
     m = cp_model.CpModel()
     x, info = {}, {}
     for i, a in enumerate(allocs):
         dept = a["department"]
         free = {tuple(f) for f in data["settings"][dept].get("free", [])}
-        for d, p, s, e in grid(data, dept):
-            if (d, p) in free or hit(off[(a["teacher"], d)], s, e) or hit(bt[(a["teacher"], d)], s, e) or hit(bc[(a["class"], d)], s, e):
+        scope = a.get("scope")
+        ctype = a.get("course_type", "MDC")
+        enrolled_stu = set(a.get("enrolled_students", []))
+        cls_stu = set(class_students.get(a.get("class"), [])) if a.get("class") is not None else set()
+        affected_students = enrolled_stu | cls_stu
+
+        is_common = a.get("scope") == "college_wide" or a.get("selection_type") == "STUDENT_SELECTED"
+        if is_common:
+            candidates = []
+            for cs in common_slots:
+                if cs.get("course_type") in (ctype, "Both", None):
+                    matched_p = next((p for p, per in enumerate(data["settings"][dept]["periods"])
+                                      if ov(cs["start"], cs["end"], per["start"], per["end"])), 0)
+                    candidates.append((cs["day"], matched_p, cs["start"], cs["end"]))
+        else:
+            candidates = [(d, p, s, e) for d, p, s, e in grid(data, dept) if (d, p) not in free]
+            # Avoid placing department-selected offerings inside common periods if normal periods suffice
+            if common_slots and (a.get("selection_type") == "DEPARTMENT_SELECTED" or a.get("scope") == "department_specific"):
+                non_common = [(d, p, s, e) for (d, p, s, e) in candidates
+                              if not any(cs["day"] == d and ov(s, e, cs["start"], cs["end"]) for cs in common_slots)]
+                if len(non_common) >= a.get("sessions", 1):
+                    candidates = non_common
+            cw_students = data.get("cw_students_by_type", {})
+            if common_slots and cw_students and affected_students:
+                filtered = []
+                for (d, p, s, e) in candidates:
+                    clash = any(cs["day"] == d and ov(s, e, cs["start"], cs["end"])
+                                for cs in common_slots
+                                if any(sid in cw_students.get(cs.get("course_type", "MDC"), set())
+                                       for sid in affected_students))
+                    if not clash:
+                        filtered.append((d, p, s, e))
+                candidates = filtered
+
+        for d, p, s, e in candidates:
+            if a.get("teacher") is not None and (hit(off[(a["teacher"], d)], s, e) or hit(bt[(a["teacher"], d)], s, e)):
                 continue
+            if a.get("class") is not None and hit(bc[(a["class"], d)], s, e):
+                continue
+            if any(any(ov(s, e, bs, be) for bs, be, _ in bs_stu[(sid, d)]) for sid in affected_students):
+                continue
+
             for r in rooms:
-                if use_rooms and (r["type"] != a["room_type"] or hit(br[(r["id"], d)], s, e)):
+                if a.get("room") is not None and r["id"] != a.get("room"):
+                    continue
+                if use_rooms and r["id"] is not None and (r["type"] != a["room_type"] or hit(br[(r["id"], d)], s, e)):
                     continue
                 x[i, d, p, r["id"]] = m.NewBoolVar(f"x{i}_{d}_{p}_{r['id']}")
                 info[i, d, p, r["id"]] = (s, e)
@@ -179,16 +264,27 @@ def generate(data, time_limit=30, workers=None):
         a, (s, e) = allocs[i], info[i, d, p, r]
         A[i].append(v)
         AD[i, d].append(v)
-        TS[a["teacher"], a["department"], d, p].append(v)
-        CS[a["class"], d, p].append(v)
-        ov_groups["t", a["teacher"], d].append((s, e, v))
+        if a.get("teacher") is not None:
+            TS[a["teacher"], a["department"], d, p].append(v)
+            ov_groups["t", a["teacher"], d].append((s, e, v))
+        if a.get("class") is not None:
+            CS[a["class"], d, p].append(v)
+            ov_groups["c", a["class"], d].append((s, e, v))
         if r is not None:
             ov_groups["r", r, d].append((s, e, v))
-        ov_groups["c", a["class"], d].append((s, e, v))
+        if a.get("section_id") is not None:
+            ov_groups["sec", a["section_id"], d].append((s, e, v))
+        enrolled_stu = set(a.get("enrolled_students", []))
+        cls_stu = set(class_students.get(a.get("class"), [])) if a.get("class") is not None else set()
+        for sid in (enrolled_stu | cls_stu):
+            ov_groups["student", sid, d].append((s, e, v))
+
     for i, a in enumerate(allocs):
         if not A[i]:
-            return _impossible([dict(issue=f"{a['subject']} ({data['classes'][a['class']]['name']}) has no period where the teacher and the class are both free.",
-                                     fix="Choose another teacher for this subject, or add periods or days in Rules.")])
+            cname = data.get("classes", {}).get(a.get("class"), {}).get("name", "")
+            target_desc = f"{a['subject']} ({cname})" if cname else a.get("code", a["subject"])
+            return _impossible([dict(issue=f"{target_desc} has no period where the teacher and students/class are all free.",
+                                     fix="Check common time slots, assign another teacher, or adjust student enrollments.")])
 
     # ---- Always-on rules ----
     for i, a in enumerate(allocs):
@@ -197,7 +293,8 @@ def generate(data, time_limit=30, workers=None):
         _atoms(m, items)
     load = defaultdict(list)
     for (i, d, p, r), v in x.items():
-        load[allocs[i]["teacher"]].append(v)
+        if allocs[i].get("teacher") is not None:
+            load[allocs[i]["teacher"]].append(v)
     for t, vs in load.items():
         T = data["teachers"][t]
         m.Add(sum(vs) + T.get("existing_load", 0) <= T["max_load"])
@@ -226,12 +323,14 @@ def generate(data, time_limit=30, workers=None):
             limit(vs, mx, mode, W["spread"], dept)
     class_days = defaultdict(list)
     for (c, d, p), vs in CS.items():
-        class_days[c, d] += vs
+        if c is not None:
+            class_days[c, d] += vs
     for (c, d), vs in class_days.items():
-        dept = data["classes"][c]["department"]
-        mode, mx = rule(data, dept, "class_day_max")
-        if mode != "off":
-            limit(vs, mx, mode, W["class_day"], dept)
+        if c in data.get("classes", {}):
+            dept = data["classes"][c]["department"]
+            mode, mx = rule(data, dept, "class_day_max")
+            if mode != "off":
+                limit(vs, mx, mode, W["class_day"], dept)
 
     for (t, dept, d) in {(k[0], k[1], k[2]) for k in TS}:
         n = len(data["settings"][dept]["periods"])
@@ -257,11 +356,12 @@ def generate(data, time_limit=30, workers=None):
             else:
                 add(weight * hole, dept)
 
-    for c, d in {(k[0], k[1]) for k in CS}:
-        dept = data["classes"][c]["department"]
-        mode, _ = rule(data, dept, "class_gaps")
-        if mode != "off":
-            gaps(lambda p: CS.get((c, d, p), []), len(data["settings"][dept]["periods"]), mode, W["class_gap"], dept)
+    for c, d in {(k[0], k[1]) for k in CS if k[0] is not None}:
+        if c in data.get("classes", {}):
+            dept = data["classes"][c]["department"]
+            mode, _ = rule(data, dept, "class_gaps")
+            if mode != "off":
+                gaps(lambda p: CS.get((c, d, p), []), len(data["settings"][dept]["periods"]), mode, W["class_gap"], dept)
     for (t, dept, d) in {(k[0], k[1], k[2]) for k in TS}:
         mode, _ = rule(data, dept, "teacher_gaps")
         if mode != "off":
@@ -321,7 +421,10 @@ def generate(data, time_limit=30, workers=None):
         if sv.Value(v):
             a, (s, e) = allocs[i], info[i, d, p, r]
             entries.append(dict(allocation=i, department=a["department"], day=d, period=p, start=s, end=e, room=r,
-                                **{"class": a["class"], "subject": a["subject"], "teacher": a["teacher"]}))
+                                kind=a.get("kind", "regular"), offering_id=a.get("offering_id"),
+                                section_id=a.get("section_id"), code=a.get("code"),
+                                subject=a["subject"], teacher=a.get("teacher"),
+                                **{"class": a.get("class")}))
     return dict(status="ok", entries=entries, score=quality(entries, data), problems=[], suggestions=[],
                 rules_used=sum(1 for dp in {a["department"] for a in allocs} for n in RULE_DEFS if rule(data, dp, n)[0] != "off"),
                 optimal=st == cp_model.OPTIMAL)
@@ -334,8 +437,10 @@ def quality(entries, data):
     pen, used = 0.0, False
     by_t, by_c = defaultdict(list), defaultdict(list)
     for e in entries:
-        by_t[e["teacher"], e["department"], e["day"]].append(e["period"])
-        by_c[e["class"], e["day"]].append(e)
+        if e.get("teacher") is not None:
+            by_t[e["teacher"], e["department"], e["day"]].append(e["period"])
+        if e.get("class") is not None:
+            by_c[e["class"], e["day"]].append(e)
     for (t, dept, d), ps in by_t.items():
         ps.sort()
         n = len(data["settings"][dept]["periods"])
@@ -373,32 +478,58 @@ def quality(entries, data):
 
 def validate_move(data, entry, day, period, start, end):
     """Instant check for a manual move. `data['busy']` holds EVERY other placed session in the college
-    (not the one being moved). `entry` needs: class, teacher, room, subject, department."""
+    (not the one being moved). `entry` needs: class, teacher, room, subject, department, scope, course_type, enrolled_students."""
     here = [b for b in data["busy"] if b["day"] == day and ov(start, end, b["start"], b["end"])]
-    T = data["teachers"][entry["teacher"]]
-    for b in here:
-        if b["teacher"] == entry["teacher"]:
-            return False, f"{T['name']} is already teaching {b.get('department', 'another class')} · {b.get('subject', '')} at that time."
-    for b in here:
-        if b["class"] == entry["class"]:
-            return False, "This class already has another subject at that time."
-    if any(d == day and ov(start, end, s, e) for d, s, e in T.get("unavailable", [])):
-        return False, f"{T['name']} is not available at that time."
-    st = data.get("settings", {}).get(entry["department"])
-    if st:
+    t_id = entry.get("teacher")
+    if t_id is not None:
+        T = data["teachers"].get(t_id)
+        if T:
+            for b in here:
+                if b.get("teacher") == t_id:
+                    return False, f"{T['name']} is already teaching {b.get('department', 'another class')} · {b.get('subject', '')} at that time."
+            if any(d == day and ov(start, end, s, e) for d, s, e in T.get("unavailable", [])):
+                return False, f"{T['name']} is not available at that time."
+    c_id = entry.get("class")
+    if c_id is not None:
+        for b in here:
+            if b.get("class") == c_id:
+                return False, "This class already has another subject at that time."
+    # Scope check
+    is_common = entry.get("scope") == "college_wide" or entry.get("selection_type") == "STUDENT_SELECTED"
+    if is_common:
+        ctype = entry.get("course_type", "MDC")
+        cslots = data.get("common_slots", [])
+        if not any(cs["day"] == day and cs["start"] == start and cs["end"] == end and cs.get("course_type") in (ctype, "Both", None) for cs in cslots):
+            return False, f"College-wide student-selected {ctype} courses must use a configured common time slot."
+    # Student conflict checks
+    stu_ids = set(entry.get("enrolled_students", []))
+    cls_students = set(data.get("class_students", {}).get(c_id, [])) if c_id is not None else set()
+    all_stu = stu_ids | cls_students
+    if all_stu:
+        students_dict = data.get("students", {})
+        for b in here:
+            busy_stu = set(b.get("student_ids", []))
+            clash = all_stu & busy_stu
+            if clash:
+                first_sid = next(iter(clash))
+                sname = students_dict.get(first_sid, {}).get("name", f"Student {first_sid}")
+                return False, f"{sname} is already attending {b.get('subject', 'another course')} at that time."
+    st = data.get("settings", {}).get(entry.get("department"))
+    if st and not is_common:
         if day not in st["days"]:
             return False, "That day isn't one of your working days."
         if [day, period] in [list(f) for f in st.get("free", [])]:
             return False, "You chose to keep that period free."
-        same_day = [b for b in data["busy"] if b["day"] == day and b["class"] == entry["class"]]
-        mode, mx = rule(data, entry["department"], "spread")
-        if mode == "require" and sum(1 for b in same_day if b["subject"] == entry["subject"]) + 1 > mx:
-            return False, f"Your rule allows at most {mx} session(s) of {entry['subject']} per day for a class."
-        mode, mx = rule(data, entry["department"], "class_day_max")
-        if mode == "require" and len(same_day) + 1 > mx:
-            return False, f"Your rule allows at most {mx} periods per day for a class."
-    taken = {b["room"] for b in here if b["room"] is not None}
-    if data.get("use_rooms", True) and entry["room"] in taken:
+        if c_id is not None:
+            same_day = [b for b in data["busy"] if b["day"] == day and b.get("class") == c_id]
+            mode, mx = rule(data, entry["department"], "spread")
+            if mode == "require" and sum(1 for b in same_day if b.get("subject") == entry["subject"]) + 1 > mx:
+                return False, f"Your rule allows at most {mx} session(s) of {entry['subject']} per day for a class."
+            mode, mx = rule(data, entry["department"], "class_day_max")
+            if mode == "require" and len(same_day) + 1 > mx:
+                return False, f"Your rule allows at most {mx} periods per day for a class."
+    taken = {b["room"] for b in here if b.get("room") is not None}
+    if data.get("use_rooms", True) and entry.get("room") in taken:
         kind = next(r["type"] for r in data["rooms"] if r["id"] == entry["room"])
         if not any(r["type"] == kind and r["id"] not in taken for r in data["rooms"]):
             return False, "Every suitable room is already being used at that time."

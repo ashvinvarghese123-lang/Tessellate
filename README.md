@@ -36,6 +36,19 @@ Shows only the real issue and one short fix. Tests: `python backend\tests\test_c
 - Fresh seed creates username `registry` automatically (same password as the departments when SEED_PASSWORD is set).
 Tests: `python backend\tests\test_registry.py`
 
+## Cross-Department MDC, Minor & Student Enrollment Integration
+- **Institutional Categories:** Departments are classified as **Aided** or **Self-Financing** (organizational classification only; all departments have strictly equal scheduling priority).
+- **Three Scheduling Types:**
+  1. *Regular Department Courses* (managed departmentally, scheduled within department grid).
+  2. *College-Wide Common MDC / Minor Courses* (shared offerings across departments, common fixed slots, single room/teacher per section, enrolled students from multiple departments).
+  3. *Department-Specific MDC / Minor Courses* (managed within department, scheduled without forced common slots unless configured).
+- **Course Offering Model & Sections:** Course offerings (`course_offering`) instantiate course definitions for specific academic years and semesters with section management (`course_section`) and capacity controls.
+- **Cross-Department Student Enrollment:** College-wide student records (`register_number`, name, `home_department_id`). Dedicated enrollment UI allows single student enrollment, bulk CSV register number imports, and enrollment breakdown grouped by home department.
+- **College-Wide Fixed Time Slots:** Database-backed common time slots (`common_time_slot`) reserved for college-wide offerings. Regular classes automatically avoid clashing with common slots for enrolled students.
+- **Student-Level Conflict Detection:** CP-SAT constraint optimization strictly prevents any student from having overlapping regular and offering sessions.
+- **7 Timetable Views:** Class, Teacher, Room, Unified Student Schedule (`renderStudentTimetable`), College-wide Common Courses (`renderCommonTimetable`), Course Offering Timetable, and Conflict Center diagnostics.
+- Tests: `python backend\tests\test_cross_dept.py`.
+
 ## Not done yet
 Excel/CSV import, PDF/Excel export, website faculty sync, "remember this device", live "reserved" indicator, applying a college-wide alternative (it is shown as a proposal only), real email provider setup (set SMTP_* variables).
 

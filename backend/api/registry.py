@@ -40,7 +40,7 @@ def _issue(conn, acct, cid=None):
 
 
 @router.post("/auth/login")
-def login(req: LoginReq, conn=Depends(db)):
+def login(req: LoginReq, response: Response, conn=Depends(db)):
     bad = HTTPException(401, "The username or password is incorrect.")
     a = conn.execute("SELECT * FROM registry_account WHERE username=%s AND active", (req.username.strip().lower(),)).fetchone()
     if not a:
@@ -55,6 +55,14 @@ def login(req: LoginReq, conn=Depends(db)):
         conn.commit()
         raise bad
     conn.execute("UPDATE registry_account SET failed_logins=0, locked_until=NULL WHERE id=%s", (a["id"],))
+    from .config import REQUIRE_OTP
+    if not REQUIRE_OTP:                       # TEMPORARY testing mode: the password alone signs in
+        tok = secrets.token_urlsafe(32)
+        conn.execute("INSERT INTO registry_session (token_hash, account_id, expires_at) VALUES (%s,%s,%s)",
+                     (hashlib.sha256(tok.encode()).hexdigest(), a["id"], now() + timedelta(hours=SESSION_HOURS)))
+        conn.commit()
+        response.set_cookie(COOKIE, tok, httponly=True, samesite="lax", max_age=SESSION_HOURS * 3600, secure=os.environ.get("COOKIE_SECURE", "0") == "1")
+        return dict(signed_in=True)
     cid = _issue(conn, a)
     conn.commit()
     return dict(challenge_id=cid, email_hint=mask(a["email"]))
@@ -188,17 +196,27 @@ def overview(conn=Depends(db), u=Depends(current_registry)):
                 classes=n("class"), rooms=n("room"), subjects=n("teacher_allocation"), scheduled_sessions=n("timetable_entry"))
 
 
+# -- institutional categories
+@router.get("/categories")
+def categories(conn=Depends(db), u=Depends(current_registry)):
+    return conn.execute("SELECT id, name FROM institutional_category ORDER BY id").fetchall()
+
+
 # -- departments
 @router.get("/departments")
 def departments(conn=Depends(db), u=Depends(current_registry)):
-    return conn.execute("""SELECT d.id, d.code, d.name,
+    return conn.execute("""SELECT d.id, d.code, d.name, d.category_id, coalesce(ic.name, 'Aided') AS category_name,
         (SELECT count(*) FROM class c WHERE c.department_id=d.id) classes,
         (SELECT count(*) FROM faculty f WHERE f.home_department_id=d.id AND f.active) faculty,
-        EXISTS(SELECT 1 FROM department_account a WHERE a.department_id=d.id) has_account FROM department d ORDER BY d.name""").fetchall()
+        EXISTS(SELECT 1 FROM department_account a WHERE a.department_id=d.id) has_account
+        FROM department d
+        LEFT JOIN institutional_category ic ON ic.id=d.category_id
+        ORDER BY d.name""").fetchall()
 
 
 class DeptReq(BaseModel):
     name: str
+    category_id: int | None = None
 
 
 @router.post("/departments")
@@ -206,12 +224,16 @@ def add_department(req: DeptReq, conn=Depends(db), u=Depends(current_registry)):
     name = text(req.name, 2, 60, "the department name")
     if conn.execute("SELECT 1 FROM department WHERE lower(name)=lower(%s)", (name,)).fetchone():
         raise HTTPException(409, "A department with this name already exists.")
+    cat_id = req.category_id
+    if not cat_id:
+        def_cat = conn.execute("SELECT id FROM institutional_category WHERE name='Aided'").fetchone()
+        cat_id = def_cat["id"] if def_cat else 1
     base = "DEPT-" + (re.sub(r"[^A-Z0-9]", "", name.upper())[:8] or "NEW")
     code, k = base, 1
     while conn.execute("SELECT 1 FROM department WHERE code=%s", (code,)).fetchone():
         k += 1
         code = f"{base}{k}"
-    did = conn.execute("INSERT INTO department (code, name) VALUES (%s,%s) RETURNING id", (code, name)).fetchone()["id"]
+    did = conn.execute("INSERT INTO department (code, name, category_id) VALUES (%s,%s,%s) RETURNING id", (code, name, cat_id)).fetchone()["id"]
     rnote(conn, u, did, "registry_department_add", new={"name": name})
     return dict(id=did, code=code)
 
@@ -219,12 +241,13 @@ def add_department(req: DeptReq, conn=Depends(db), u=Depends(current_registry)):
 @router.put("/departments/{did}")
 def rename_department(did: int, req: DeptReq, conn=Depends(db), u=Depends(current_registry)):
     name = text(req.name, 2, 60, "the department name")
-    old = conn.execute("SELECT name FROM department WHERE id=%s", (did,)).fetchone()
+    old = conn.execute("SELECT name, category_id FROM department WHERE id=%s", (did,)).fetchone()
     if not old:
         raise HTTPException(404, "We couldn't find that department.")
     if conn.execute("SELECT 1 FROM department WHERE lower(name)=lower(%s) AND id<>%s", (name, did)).fetchone():
         raise HTTPException(409, "A department with this name already exists.")
-    conn.execute("UPDATE department SET name=%s WHERE id=%s", (name, did))
+    cat_id = req.category_id or old["category_id"]
+    conn.execute("UPDATE department SET name=%s, category_id=%s WHERE id=%s", (name, cat_id, did))
     rnote(conn, u, did, "registry_department_edit", {"name": old["name"]}, {"name": name})
     return dict(ok=True)
 
@@ -454,4 +477,61 @@ def delete_room(rid: int, conn=Depends(db), u=Depends(current_registry)):
         conn.execute("DELETE FROM room_availability WHERE room_id=%s", (rid,))
         conn.execute("DELETE FROM room WHERE id=%s", (rid,))
         rnote(conn, u, None, "registry_room_delete", {"name": r["name"]})
+    return dict(ok=True)
+
+
+# -- common time slots (college-wide fixed MDC / Minor slots)
+class CommonSlotReq(BaseModel):
+    day: int
+    start_time: str
+    end_time: str
+    applicable_course_type: str = "MDC"  # 'MDC', 'Minor', 'Both'
+    name: str = ""
+    semester: int = 1
+
+
+@router.get("/common-slots")
+def get_common_slots(conn=Depends(db), u=Depends(current_registry)):
+    return conn.execute("""SELECT id, day, start_min, end_min,
+        to_char(to_timestamp(start_min * 60) AT TIME ZONE 'UTC', 'HH24:MI') start_time,
+        to_char(to_timestamp(end_min * 60) AT TIME ZONE 'UTC', 'HH24:MI') end_time,
+        applicable_course_type, name, semester, status
+        FROM common_time_slot ORDER BY day, start_min""").fetchall()
+
+
+@router.post("/common-slots")
+def add_common_slot(req: CommonSlotReq, conn=Depends(db), u=Depends(current_registry)):
+    if not 0 <= req.day <= 6:
+        raise HTTPException(400, "Day must be between 0 (Monday) and 6 (Sunday).")
+    try:
+        s_ = int(req.start_time[:2]) * 60 + int(req.start_time[3:5])
+        e_ = int(req.end_time[:2]) * 60 + int(req.end_time[3:5])
+    except Exception:
+        raise HTTPException(400, "Please provide valid start and end times in HH:MM format.")
+    if s_ >= e_:
+        raise HTTPException(400, "End time must be after start time.")
+    if req.applicable_course_type not in ("MDC", "Minor", "Both"):
+        raise HTTPException(400, "Course type must be MDC, Minor, or Both.")
+    name = req.name.strip() or f"Common {req.applicable_course_type} Slot"
+    sid = conn.execute("""INSERT INTO common_time_slot (day, start_min, end_min, applicable_course_type, name, semester)
+        VALUES (%s,%s,%s,%s,%s,%s) RETURNING id""",
+        (req.day, s_, e_, req.applicable_course_type, name, req.semester)).fetchone()["id"]
+    return dict(id=sid)
+
+
+@router.put("/common-slots/{sid}")
+def edit_common_slot(sid: int, req: CommonSlotReq, conn=Depends(db), u=Depends(current_registry)):
+    s_ = int(req.start_time[:2]) * 60 + int(req.start_time[3:5])
+    e_ = int(req.end_time[:2]) * 60 + int(req.end_time[3:5])
+    if s_ >= e_:
+        raise HTTPException(400, "End time must be after start time.")
+    name = req.name.strip() or f"Common {req.applicable_course_type} Slot"
+    conn.execute("""UPDATE common_time_slot SET day=%s, start_min=%s, end_min=%s, applicable_course_type=%s, name=%s, semester=%s
+        WHERE id=%s""", (req.day, s_, e_, req.applicable_course_type, name, req.semester, sid))
+    return dict(ok=True)
+
+
+@router.delete("/common-slots/{sid}")
+def delete_common_slot(sid: int, conn=Depends(db), u=Depends(current_registry)):
+    conn.execute("DELETE FROM common_time_slot WHERE id=%s", (sid,))
     return dict(ok=True)

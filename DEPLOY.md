@@ -84,5 +84,8 @@ Each department then chooses its days, period times, breaks and rules under **Ru
 ## Rooms switched off (migration 005)
 Rooms are hidden and timetables are made without them. The update runs `005_rooms_optional.sql` by itself at the next deploy. To turn rooms back on later: Render > Environment > add `USE_ROOMS` = `1`.
 
+## Switching the email codes off (testing only)
+Set `REQUIRE_OTP` = `0` (Render > Environment, or `$env:REQUIRE_OTP = "0"` locally). Departments and the Registry then sign in with the password alone, and new departments are created without an emailed confirmation code. Set it to `1` or delete it to turn the codes back on. While it is `0` the login pages show a "Testing mode" notice, and email settings are not required to start. Password reset by email still needs email.
+
 ## Known gaps
 Excel/CSV import, PDF/Excel export and website faculty sync are not built. Email delivery has been tested only with a stand-in, not a real mail server: send yourself a code first.
