@@ -1,1979 +1,495 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="light">
-<head>
-<meta charset="utf-8">
+<html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>TESSellate · College Timetable &amp; Resource Synchronization</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<title>Tessellate</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400&family=Instrument+Sans:wght@400;500;600&display=swap">
 <style>
-/* =========================================================================
-   1. DESIGN SYSTEM TOKENS (Linear / Stripe Inspired)
-   ========================================================================= */
-:root {
-  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-mono: 'JetBrains Mono', monospace;
+:root{--bg:#f6f4ef;--panel:#fbfaf7;--ink:#1c1c1a;--mute:#7a7872;--line:#e4e1d9;--acc:#4d6a63;--accbg:#e6ece9;--lab:#ebe7dc;--warn:#9a6a1f;--crit:#a23b34;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#161615;--panel:#1c1c1a;--ink:#ece9e1;--mute:#97948c;--line:#2e2d2a;--acc:#8fb3a9;--accbg:#233230;--lab:#262521;--warn:#d9a54e;--crit:#e2837c}}
+:root[data-theme="dark"]{--bg:#161615;--panel:#1c1c1a;--ink:#ece9e1;--mute:#97948c;--line:#2e2d2a;--acc:#8fb3a9;--accbg:#233230;--lab:#262521;--warn:#d9a54e;--crit:#e2837c}
+html{scroll-padding-top:env(safe-area-inset-top,0px);height:100%}*{box-sizing:border-box}
+body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:15px/1.5 'Instrument Sans',system-ui,sans-serif}
+h1,h2,.logo{font-family:Fraunces,Georgia,serif;font-weight:400;letter-spacing:-.01em}
+h1{font-size:34px;margin:4px 0 6px;line-height:1.1}h2{font-size:20px;margin:30px 0 10px}
+.app{display:flex;min-height:100%}
+nav{width:208px;padding:26px 16px;border-right:1px solid var(--line);position:sticky;top:0;height:100vh;flex:none;display:flex;flex-direction:column;gap:2px}
+.logo{font-size:21px;margin:0 10px 18px}
+nav select{margin:0 0 18px;width:100%;font-size:13px}
+nav button{all:unset;cursor:pointer;padding:8px 10px;border-radius:6px;color:var(--mute);min-height:40px;display:flex;align-items:center;justify-content:space-between}
+nav button:hover{color:var(--ink)}nav button[aria-current=page]{color:var(--ink);background:var(--accbg)}
+nav .n{font-size:12px;border:1px solid var(--line);border-radius:10px;padding:0 7px}
+main{flex:1;padding:36px 44px 90px;min-width:0;max-width:1180px}
+.lab{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--mute)}
+.sub{color:var(--mute);margin:0 0 20px}.sm{font-size:13px;color:var(--mute)}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.sp{justify-content:space-between}
+.btn{font:inherit;cursor:pointer;border:1px solid var(--line);background:transparent;color:var(--ink);padding:9px 16px;border-radius:7px;min-height:40px}
+.btn:hover{border-color:var(--mute)}.btn.p{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+select,input{font:inherit;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:8px 10px;min-height:40px}
+.stats{display:flex;flex-wrap:wrap;border-top:1px solid var(--line);border-bottom:1px solid var(--line);margin:18px 0 10px}
+.stats div{flex:1 1 100px;padding:14px 0}.stats b{display:block;font:400 27px Fraunces,serif}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:44px}
+.kv{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--line)}
+.bar{height:5px;background:var(--line);border-radius:3px;margin-top:6px;overflow:hidden}.bar i{display:block;height:100%;background:var(--acc)}.bar.hi i{background:var(--warn)}.bar.ov i{background:var(--crit)}
+.item{padding:10px 0;border-bottom:1px solid var(--line)}
+.tag{display:inline-block;font-size:12px;font-weight:600;border:1px solid currentColor;border-radius:4px;padding:0 6px;margin-right:8px}
+.tag.c{color:var(--crit)}.tag.w{color:var(--warn)}.tag.i,.tag.s{color:var(--mute)}.tag.ok{color:var(--acc)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+.seg button{all:unset;cursor:pointer;padding:8px 14px;min-height:40px;box-sizing:border-box;color:var(--mute)}.seg button[aria-pressed=true]{background:var(--ink);color:var(--bg)}
+.gw{overflow-x:auto;margin-top:16px}
+table.g{border-collapse:collapse;width:100%;min-width:640px;table-layout:fixed}
+.g th{font-weight:500;color:var(--mute);font-size:13px;text-align:left;padding:8px;border-bottom:1px solid var(--line)}
+.g td{border:1px solid var(--line);padding:0;height:76px;vertical-align:top;background:var(--panel)}
+.g td.t{width:60px;border:0;background:none;color:var(--mute);font-size:12px;padding:8px 8px 0 0;text-align:right}
+.g td.br{height:24px;background:repeating-linear-gradient(135deg,transparent 0 6px,var(--line) 6px 7px);color:var(--mute);font-size:11px;text-align:center;vertical-align:middle;letter-spacing:.08em}
+.c{padding:8px 10px;height:100%;border-left:3px solid var(--acc)}.c[draggable=true]{cursor:grab}.c.lb{background:var(--lab);border-left-color:var(--mute)}
+.c b{display:block;font-size:12.5px;letter-spacing:.03em;text-transform:uppercase}.c span{display:block;font-size:12.5px;color:var(--mute)}
+td.over{outline:2px dashed var(--acc);outline-offset:-3px}.fr{color:var(--line);font-size:12px;padding:8px 10px}
+.bz{width:100%;height:100%;min-height:76px;font:inherit;font-size:12px;color:var(--warn);text-align:left;padding:8px 10px;background:repeating-linear-gradient(135deg,transparent 0 5px,var(--lab) 5px 6px);border:0;cursor:pointer}
+.bz.off{color:var(--mute);cursor:default}
+table.l{width:100%;border-collapse:collapse}.l th{text-align:left;font-weight:500;color:var(--mute);font-size:13px;padding:8px 8px 8px 0;border-bottom:1px solid var(--line)}.l td{padding:10px 8px 10px 0;border-bottom:1px solid var(--line)}
+.dl .it{display:flex;gap:16px;padding:14px 0;border-bottom:1px solid var(--line)}.dl .it time{width:56px;color:var(--mute);flex:none}.dl .it.fz{color:var(--mute)}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:12px 18px;border-radius:8px;max-width:92vw;z-index:9;display:none}
+.ov{position:fixed;inset:0;background:var(--bg);display:none;align-items:center;justify-content:center;z-index:20;padding:24px}.ov.on{display:flex}
+.ov ul{list-style:none;padding:0;margin:20px 0 0;min-height:190px;color:var(--mute)}.ov li{padding:3px 0;animation:f .4s}.ov li:last-child{color:var(--ink)}
+@keyframes f{from{opacity:0}}@media (prefers-reduced-motion:reduce){.ov li{animation:none}}
+.note{border:1px solid var(--line);padding:14px 16px;border-radius:8px;margin:14px 0;background:var(--panel)}
+.empty{text-align:center;padding:60px 10px;color:var(--mute)}.empty h2{color:var(--ink);margin-top:0}
+@media (max-width:820px){.app{flex-direction:column}nav{width:100%;height:auto;position:sticky;top:0;flex-direction:row;overflow-x:auto;padding:10px 12px;border-right:0;border-bottom:1px solid var(--line);background:var(--bg);z-index:5;align-items:center}.logo{display:none}nav select{width:auto;min-width:150px;margin:0 8px 0 0}nav button{white-space:nowrap}nav .n{display:none}main{padding:22px 16px 90px}.cols{grid-template-columns:1fr;gap:20px}h1{font-size:28px}}
+@media print{nav,.noprint{display:none!important}main{padding:0}}
 
-  /* Neutral Surface Palette - Light Mode */
-  --bg-app: #f8fafc;
-  --bg-surface: #ffffff;
-  --bg-surface-hover: #f1f5f9;
-  --bg-subtle: #f1f5f9;
-  --bg-muted: #e2e8f0;
-  
-  /* Text Colors */
-  --text-primary: #0f172a;
-  --text-secondary: #475569;
-  --text-muted: #64748b;
-  --text-tertiary: #94a3b8;
-  --text-inverse: #ffffff;
-
-  /* Borders */
-  --border-subtle: #e2e8f0;
-  --border-strong: #cbd5e1;
-  --border-focus: #3b82f6;
-
-  /* Brand Accent: Sophisticated Royal Indigo / Blue */
-  --brand: #2563eb;
-  --brand-hover: #1d4ed8;
-  --brand-subtle: #eff6ff;
-  --brand-border: #bfdbfe;
-  --brand-text: #1d4ed8;
-
-  /* Semantic Feedback */
-  --success: #10b981;
-  --success-subtle: #ecfdf5;
-  --success-border: #a7f3d0;
-  --success-text: #047857;
-
-  --warning: #f59e0b;
-  --warning-subtle: #fffbeb;
-  --warning-border: #fde68a;
-  --warning-text: #b45309;
-
-  --danger: #ef4444;
-  --danger-subtle: #fef2f2;
-  --danger-border: #fecaca;
-  --danger-text: #b91c1c;
-
-  /* Course Category Badges */
-  --badge-mdc-bg: #fff1f2;
-  --badge-mdc-border: #fecdd3;
-  --badge-mdc-text: #e11d48;
-  --badge-minor-bg: #fffbeb;
-  --badge-minor-border: #fde68a;
-  --badge-minor-text: #b45309;
-  --badge-reg-bg: #f0fdf4;
-  --badge-reg-border: #bbf7d0;
-  --badge-reg-text: #15803d;
-
-  /* Geometry & Elevation */
-  --radius-xs: 4px;
-  --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
-  --radius-full: 9999px;
-
-  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.06);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.08), 0 2px 4px -2px rgb(0 0 0 / 0.04);
-  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.08), 0 4px 6px -4px rgb(0 0 0 / 0.03);
-  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.04);
-
-  --sidebar-width: 240px;
-  --sidebar-width-collapsed: 68px;
-  --topbar-height: 56px;
-
-  --timing-fast: 120ms;
-  --timing-normal: 180ms;
-  --ease-smooth: cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-[data-theme="dark"] {
-  --bg-app: #0b0f17;
-  --bg-surface: #121a24;
-  --bg-surface-hover: #192332;
-  --bg-subtle: #192332;
-  --bg-muted: #243144;
-
-  --text-primary: #f8fafc;
-  --text-secondary: #94a3b8;
-  --text-muted: #64748b;
-  --text-tertiary: #475569;
-  --text-inverse: #0f172a;
-
-  --border-subtle: #1e293b;
-  --border-strong: #334155;
-  --border-focus: #60a5fa;
-
-  --brand: #3b82f6;
-  --brand-hover: #60a5fa;
-  --brand-subtle: #172554;
-  --brand-border: #1e3a8a;
-  --brand-text: #93c5fd;
-
-  --success: #10b981;
-  --success-subtle: #064e3b;
-  --success-border: #047857;
-  --success-text: #6ee7b7;
-
-  --warning: #f59e0b;
-  --warning-subtle: #451a03;
-  --warning-border: #78350f;
-  --warning-text: #fcd34d;
-
-  --danger: #ef4444;
-  --danger-subtle: #450a0a;
-  --danger-border: #7f1d1d;
-  --danger-text: #fca5a5;
-
-  --badge-mdc-bg: #3f101a;
-  --badge-mdc-border: #881337;
-  --badge-mdc-text: #fda4af;
-  --badge-minor-bg: #3b2204;
-  --badge-minor-border: #78350f;
-  --badge-minor-text: #fde68a;
-  --badge-reg-bg: #072e1c;
-  --badge-reg-border: #14532d;
-  --badge-reg-text: #86efac;
-
-  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.5);
-  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.6);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.6);
-  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.6);
-  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.7);
-}
-
-/* Base Styles */
-*,*::before,*::after{box-sizing:border-box}
-html{height:100%;-webkit-text-size-adjust:100%}
-body{margin:0;min-height:100%;background:var(--bg-app);color:var(--text-primary);font:14px/1.5 var(--font-sans);-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;transition:background-color var(--timing-normal) ease,color var(--timing-normal) ease}
-
-h1,h2,h3,h4,h5{margin:0;color:var(--text-primary);font-weight:600;letter-spacing:-0.015em}
-h1{font-size:24px;line-height:1.2}
-h2{font-size:18px;line-height:1.25}
-h3{font-size:15px;line-height:1.3}
-p{margin:0 0 12px;color:var(--text-secondary)}
-.sub{color:var(--text-secondary);font-size:13px;line-height:1.4}
-.sm{font-size:12px;color:var(--text-muted)}
-.mono{font-family:var(--font-mono)}
-
-/* Layout Shell */
-.app-shell{display:flex;min-height:100vh}
-.sidebar{
-  width:var(--sidebar-width);flex:none;height:100vh;position:sticky;top:0;
-  background:var(--bg-surface);border-right:1px solid var(--border-subtle);
-  display:flex;flex-direction:column;z-index:20;
-  transition:width var(--timing-normal) var(--ease-smooth);
-}
-.sidebar.collapsed{width:var(--sidebar-width-collapsed)}
-
-.sidebar-header{
-  height:var(--topbar-height);padding:0 16px;display:flex;align-items:center;
-  justify-content:space-between;border-bottom:1px solid var(--border-subtle);
-}
-.brand-link{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--text-primary)}
-.brand-logo-mark{
-  width:28px;height:28px;border-radius:var(--radius-sm);background:linear-gradient(135deg,var(--brand),#4f46e5);
-  color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow-sm);flex:none;
-}
-.brand-title{font-weight:700;font-size:16px;letter-spacing:-0.02em}
-.sidebar.collapsed .brand-title{display:none}
-
-.sidebar-nav{padding:14px 10px;display:flex;flex-direction:column;gap:3px;flex:1;overflow-y:auto}
-.nav-item{
-  all:unset;cursor:pointer;display:flex;align-items:center;gap:10px;padding:8px 12px;
-  border-radius:var(--radius-md);color:var(--text-secondary);font-weight:500;font-size:13.5px;
-  transition:all var(--timing-fast) ease;position:relative;user-select:none;
-}
-.nav-item:hover{background:var(--bg-subtle);color:var(--text-primary)}
-.nav-item[aria-current="page"]{background:var(--brand-subtle);color:var(--brand);font-weight:600}
-.nav-item[aria-current="page"]::before{
-  content:'';position:absolute;left:-10px;top:8px;bottom:8px;width:3px;
-  background:var(--brand);border-radius:0 var(--radius-xs) var(--radius-xs) 0;
-}
-.nav-icon{display:inline-flex;align-items:center;justify-content:center;flex:none}
-.sidebar.collapsed .nav-text{display:none}
-.sidebar.collapsed .nav-item{justify-content:center;padding:10px}
-
-.sidebar-footer{padding:12px;border-top:1px solid var(--border-subtle);display:flex;flex-direction:column;gap:4px}
-.dept-pill{
-  background:var(--bg-subtle);border:1px solid var(--border-subtle);border-radius:var(--radius-md);
-  padding:8px 10px;display:flex;align-items:center;justify-content:space-between;
-}
-.sidebar.collapsed .dept-pill{display:none}
-
-/* Main Area & Topbar */
-.main-wrapper{flex:1;min-width:0;display:flex;flex-direction:column;background:var(--bg-app)}
-.topbar{
-  height:var(--topbar-height);padding:0 28px;background:var(--bg-surface);
-  border-bottom:1px solid var(--border-subtle);display:flex;align-items:center;
-  justify-content:space-between;position:sticky;top:0;z-index:15;
-}
-.breadcrumb{display:flex;align-items:center;gap:8px;font-size:13.5px}
-.topbar-actions{display:flex;align-items:center;gap:10px}
-
-.content-body{padding:28px 32px 80px;flex:1;max-width:1440px;width:100%;margin:0 auto}
-
-/* Design System Buttons */
-.btn{
-  font:inherit;font-size:13.5px;font-weight:500;cursor:pointer;display:inline-flex;
-  align-items:center;justify-content:center;gap:7px;padding:0 14px;height:36px;
-  border-radius:var(--radius-md);border:1px solid var(--border-subtle);background:var(--bg-surface);
-  color:var(--text-primary);box-shadow:var(--shadow-xs);transition:all var(--timing-fast) ease;
-  user-select:none;white-space:nowrap;
-}
-.btn:hover{background:var(--bg-subtle);border-color:var(--border-strong);color:var(--text-primary)}
-.btn:active{transform:translateY(1px)}
-.btn:focus-visible{outline:2px solid var(--border-focus);outline-offset:2px}
-.btn.btn-primary{background:var(--brand);color:#fff;border-color:var(--brand);box-shadow:0 1px 3px 0 rgba(37,99,235,0.25)}
-.btn.btn-primary:hover{background:var(--brand-hover);border-color:var(--brand-hover)}
-.btn.btn-danger{background:var(--danger);color:#fff;border-color:var(--danger)}
-.btn.btn-danger:hover{background:#dc2626}
-.btn.btn-ghost{border-color:transparent;background:transparent;box-shadow:none}
-.btn.btn-ghost:hover{background:var(--bg-subtle)}
-.btn.btn-sm{height:30px;padding:0 10px;font-size:12.5px;border-radius:var(--radius-sm)}
-.btn.btn-lg{height:42px;padding:0 18px;font-size:14.5px;border-radius:var(--radius-lg)}
-.btn:disabled{opacity:0.5;cursor:not-allowed;pointer-events:none}
-
-/* Design System Inputs & Controls */
-input,select,textarea{
-  font:inherit;font-size:13.5px;color:var(--text-primary);background:var(--bg-surface);
-  border:1px solid var(--border-subtle);border-radius:var(--radius-md);height:36px;
-  padding:0 12px;outline:none;transition:border-color var(--timing-fast) ease,box-shadow var(--timing-fast) ease;
-  box-shadow:var(--shadow-xs);width:100%;
-}
-input:hover,select:hover,textarea:hover{border-color:var(--border-strong)}
-input:focus,select:focus,textarea:focus{border-color:var(--border-focus);box-shadow:0 0 0 3px rgba(59,130,246,0.15)}
-textarea{height:auto;padding:10px 12px}
-label{display:block;font-size:12.5px;font-weight:600;color:var(--text-secondary);margin-bottom:6px}
-.form-group{margin-bottom:16px}
-.form-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px}
-
-/* Cards & Surfaces */
-.card{
-  background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius-lg);
-  box-shadow:var(--shadow-xs);padding:20px;transition:box-shadow var(--timing-normal) ease;
-}
-.card:hover{box-shadow:var(--shadow-sm)}
-.card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
-
-/* Badges & Pills */
-.badge{
-  display:inline-flex;align-items:center;gap:4px;padding:2px 8px;font-size:11.5px;
-  font-weight:600;border-radius:var(--radius-full);line-height:1.3;
-}
-.badge-brand{background:var(--brand-subtle);color:var(--brand-text);border:1px solid var(--brand-border)}
-.badge-success{background:var(--success-subtle);color:var(--success-text);border:1px solid var(--success-border)}
-.badge-warning{background:var(--warning-subtle);color:var(--warning-text);border:1px solid var(--warning-border)}
-.badge-danger{background:var(--danger-subtle);color:var(--danger-text);border:1px solid var(--danger-border)}
-.badge-neutral{background:var(--bg-subtle);color:var(--text-secondary);border:1px solid var(--border-subtle)}
-
-/* Segmented Control & Subtabs */
-.segmented-tabs{display:inline-flex;background:var(--bg-subtle);padding:3px;border-radius:var(--radius-md);gap:2px}
-.segmented-tab{
-  all:unset;cursor:pointer;padding:6px 14px;font-size:13px;font-weight:500;
-  color:var(--text-secondary);border-radius:var(--radius-sm);transition:all var(--timing-fast) ease;
-}
-.segmented-tab:hover{color:var(--text-primary)}
-.segmented-tab.active{background:var(--bg-surface);color:var(--text-primary);font-weight:600;box-shadow:var(--shadow-xs)}
-
-/* Professional Data Tables */
-.table-container{
-  background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius-lg);
-  overflow-x:auto;box-shadow:var(--shadow-xs);
-}
-table.data-table{width:100%;border-collapse:collapse;text-align:left;font-size:13.5px}
-.data-table th{
-  padding:12px 16px;font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:0.04em;
-  color:var(--text-muted);border-bottom:1px solid var(--border-subtle);background:var(--bg-subtle);white-space:nowrap;
-}
-.data-table td{padding:14px 16px;border-bottom:1px solid var(--border-subtle);color:var(--text-primary);vertical-align:middle}
-.data-table tbody tr:hover{background:var(--bg-surface-hover)}
-.data-table tbody tr:last-child td{border-bottom:none}
-
-/* Search Bar in Tables */
-.table-toolbar{
-  padding:14px 16px;border-bottom:1px solid var(--border-subtle);display:flex;
-  align-items:center;justify-content:space-between;gap:12px;background:var(--bg-surface);flex-wrap:wrap;
-}
-.search-input-wrapper{position:relative;width:280px;max-width:100%}
-.search-input-wrapper input{padding-left:34px;height:34px;font-size:13px}
-.search-icon{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-muted);pointer-events:none}
-
-/* Timetable Editor Specific Styling */
-.tt-workspace{display:flex;gap:20px;align-items:flex-start}
-.tt-grid-area{flex:1;min-width:0}
-.tt-header-toolbar{
-  background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius-lg);
-  padding:14px 18px;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between;
-  flex-wrap:wrap;gap:12px;box-shadow:var(--shadow-xs);
-}
-
-.tt-grid-table{
-  border-collapse:collapse;width:100%;min-width:760px;table-layout:fixed;
-  background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius-lg);overflow:hidden;
-}
-.tt-grid-table th{
-  padding:12px 10px;text-align:center;font-weight:600;font-size:12.5px;
-  color:var(--text-secondary);background:var(--bg-subtle);border-bottom:1px solid var(--border-subtle);
-}
-.tt-grid-table th.time-col{width:86px;text-align:right;padding-right:12px}
-.tt-grid-table td{
-  border:1px solid var(--border-subtle);padding:6px;height:98px;vertical-align:top;
-  background:var(--bg-surface);transition:background var(--timing-fast) ease;position:relative;
-}
-.tt-grid-table td.time-cell{
-  background:none;border-left:none;border-right:1px solid var(--border-subtle);
-  color:var(--text-muted);font-size:12px;padding:10px 12px 0 0;text-align:right;
-}
-.tt-grid-table td.break-cell{
-  height:28px;background:repeating-linear-gradient(135deg,transparent 0 6px,var(--bg-subtle) 6px 7px);
-  color:var(--text-muted);font-size:11px;text-align:center;vertical-align:middle;font-weight:500;letter-spacing:0.06em;
-}
-.tt-grid-table td.drag-target-over{
-  outline:2px dashed var(--brand);outline-offset:-2px;background:var(--brand-subtle)!important;
-}
-
-/* Timetable Cards */
-.session-card{
-  padding:9px 10px;height:100%;border-radius:var(--radius-md);background:var(--bg-surface);
-  border:1px solid var(--border-subtle);border-left:3.5px solid var(--brand);
-  box-shadow:var(--shadow-xs);cursor:grab;display:flex;flex-direction:column;justify-content:space-between;
-  transition:transform var(--timing-fast) ease,box-shadow var(--timing-fast) ease,border-color var(--timing-fast) ease;
-  user-select:none;position:relative;
-}
-.session-card:hover{
-  box-shadow:var(--shadow-md);transform:translateY(-1px);border-color:var(--border-strong);
-}
-.session-card:active{cursor:grabbing;transform:scale(0.98);box-shadow:var(--shadow-lg)}
-.session-card.card-mdc{border-left-color:var(--badge-mdc-text);background:var(--badge-mdc-bg)}
-.session-card.card-minor{border-left-color:var(--badge-minor-text);background:var(--badge-minor-bg)}
-.session-card.card-lab{border-left-color:#0284c7;background:#f0f9ff}
-.session-card.pending-change{
-  box-shadow:0 0 0 2px var(--warning);animation:pulsePending 1.6s infinite alternate;
-}
-@keyframes pulsePending{
-  from{box-shadow:0 0 0 1.5px var(--warning)}
-  to{box-shadow:0 0 0 3.5px var(--warning)}
-}
-.session-card-title{font-weight:600;font-size:12.5px;line-height:1.2;color:var(--text-primary)}
-.session-card-meta{font-size:11.5px;color:var(--text-muted);display:flex;align-items:center;gap:4px;margin-top:2px}
-
-/* Conflict Cell Pulsing Highlight */
-.cell-conflict-pulse{animation:pulseCell 1s infinite alternate!important}
-@keyframes pulseCell{
-  0%{background:var(--danger-subtle);outline:2.5px solid var(--danger);outline-offset:-2px}
-  100%{background:transparent;outline:2.5px solid transparent;outline-offset:-2px}
-}
-
-/* Side Panel for Conflict Center */
-.side-conflict-panel{
-  width:350px;flex:none;background:var(--bg-surface);border:1px solid var(--border-subtle);
-  border-radius:var(--radius-lg);padding:18px;position:sticky;top:calc(var(--topbar-height) + 18px);
-  max-height:calc(100vh - var(--topbar-height) - 36px);overflow-y:auto;box-shadow:var(--shadow-sm);
-  display:flex;flex-direction:column;gap:14px;
-}
-.conflict-card-item{
-  background:var(--bg-app);border:1px solid var(--border-subtle);border-left:3.5px solid var(--danger);
-  border-radius:var(--radius-md);padding:12px;cursor:pointer;transition:transform var(--timing-fast) ease,border-color var(--timing-fast) ease;
-}
-.conflict-card-item:hover{border-color:var(--danger);transform:translateX(-2px);box-shadow:var(--shadow-xs)}
-
-/* Modal Dialog */
-.modal-backdrop{
-  position:fixed;inset:0;background:rgba(15,23,42,0.45);backdrop-filter:blur(3px);
-  display:flex;align-items:center;justify-content:center;z-index:100;padding:20px;
-  animation:fadeIn 150ms ease;
-}
-.modal-box{
-  background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius-xl);
-  padding:24px;width:100%;max-width:480px;box-shadow:var(--shadow-xl);animation:scaleIn 180ms var(--ease-smooth);
-}
-@keyframes fadeIn{from{opacity:0}to{opacity:1}}
-@keyframes scaleIn{from{opacity:0;transform:scale(0.96)}to{opacity:1;transform:scale(1)}}
-
-/* Dashboard Metric Cards */
-.metrics-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:16px;margin:20px 0}
-.metric-tile{
-  background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius-lg);
-  padding:18px 20px;box-shadow:var(--shadow-xs);display:flex;flex-direction:column;justify-content:space-between;
-}
-.metric-tile-num{font-size:32px;font-weight:700;letter-spacing:-0.03em;color:var(--text-primary);line-height:1;margin:8px 0 4px}
-
-/* Toast */
-.toast-bar{
-  position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--text-primary);
-  color:var(--text-inverse);padding:10px 18px;border-radius:var(--radius-full);font-size:13.5px;
-  font-weight:500;box-shadow:var(--shadow-lg);display:none;z-index:999;align-items:center;gap:8px;
-}
-
-@media(max-width:960px){
-  .sidebar{position:fixed;left:-260px;transition:left var(--timing-normal) ease}
-  .sidebar.mobile-open{left:0}
-  .tt-workspace{flex-direction:column}
-  .side-conflict-panel{width:100%;position:static;max-height:none}
-  .content-body{padding:20px 16px 60px}
-}
-</style>
-</head>
-<body>
-
-<div class="app-shell">
-  <!-- Sidebar -->
-  <aside class="sidebar" id="app-sidebar" aria-label="Main Navigation">
-    <div class="sidebar-header">
-      <a href="/" class="brand-link" title="TESSellate Timetable Synchronization">
-        <div class="brand-logo-mark">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h7v7H4z"/><path d="M13 4h7v7h-7z"/><path d="M4 13h7v7H4z"/><path d="M13 13h7v7h-7z"/></svg>
-        </div>
-        <span class="brand-title">TESSellate</span>
-      </a>
-      <button class="btn btn-ghost btn-sm" id="btn-sidebar-collapse" onclick="toggleSidebar()" title="Toggle Sidebar" style="padding:4px;height:28px;width:28px">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><path d="M9 3v18"/></svg>
-      </button>
-    </div>
-
-    <!-- 5 Core Navigation Sections -->
-    <nav class="sidebar-nav" id="sidebar-nav-list">
-      <button class="nav-item" data-v="dash" aria-current="page" onclick="nav('dash')">
-        <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg></span>
-        <span class="nav-text">Dashboard</span>
-      </button>
-
-      <button class="nav-item" data-v="tt" onclick="nav('tt')">
-        <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/><path d="M8 18h.01"/><path d="M12 18h.01"/><path d="M16 18h.01"/></svg></span>
-        <span class="nav-text">Timetable</span>
-      </button>
-
-      <button class="nav-item" data-v="su" onclick="nav('su')">
-        <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/><path d="M6 6h10"/><path d="M6 10h10"/></svg></span>
-        <span class="nav-text">Subjects</span>
-      </button>
-
-      <button class="nav-item" data-v="ru" onclick="nav('ru')">
-        <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/><line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/><line x1="21" x2="16" y1="20" y2="20"/><line x1="12" x2="3" y1="20" y2="20"/><line x1="14" x2="14" y1="2" y2="6"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="16" x2="16" y1="18" y2="22"/></svg></span>
-        <span class="nav-text">Rules</span>
-      </button>
-
-      <button class="nav-item" data-v="se" onclick="nav('se')">
-        <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></span>
-        <span class="nav-text">Settings</span>
-      </button>
-    </nav>
-
-    <!-- Sidebar Footer -->
-    <div class="sidebar-footer">
-      <div class="dept-pill" id="sidebar-dept-pill">
-        <div>
-          <div style="font-weight:600;font-size:12.5px" id="lbl-dept-name">Loading...</div>
-          <div class="sm" id="lbl-dept-cat">Academic 2026–27</div>
-        </div>
-      </div>
-      <button class="nav-item" onclick="logout()" style="color:var(--danger)">
-        <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg></span>
-        <span class="nav-text">Sign out</span>
-      </button>
-    </div>
-  </aside>
-
-  <!-- Main Workspace -->
-  <div class="main-wrapper">
-    <header class="topbar">
-      <div class="breadcrumb" id="topbar-breadcrumb">
-        <span style="font-weight:600" id="bc-title">Dashboard</span>
-      </div>
-      <div class="topbar-actions">
-        <!-- Theme Toggle -->
-        <button class="btn btn-ghost btn-sm" onclick="toggleTheme()" id="btn-theme-toggle" title="Switch Light / Dark Theme">
-          <svg id="theme-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
-        </button>
-        <span class="badge badge-brand" id="hdr-category-badge">Aided</span>
-      </div>
-    </header>
-
-    <main class="content-body" id="main-content">
-      <!-- Dynamic View Mounted Here -->
-    </main>
-  </div>
-</div>
-
-<div class="toast-bar" id="toast"></div>
-<div id="modal-slot"></div>
-
+.login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+.login form,.login .box{width:100%;max-width:360px}
+.login .logo{font-size:30px;margin:0 0 4px}
+.login label{display:block;margin:16px 0 6px;font-size:13px;color:var(--mute)}
+.login input{width:100%}.login .btn{width:100%;margin-top:22px}
+.login .lk{all:unset;cursor:pointer;color:var(--mute);font-size:13px;display:inline-block;margin-top:16px;text-decoration:underline;min-height:24px}
+.code{letter-spacing:.5em;font-size:22px;text-align:center}
+.err{color:var(--crit);font-size:14px;margin-top:12px;min-height:20px}
+.tg{width:100%;min-height:40px;border:0;background:var(--panel);color:var(--mute);font:inherit;font-size:12px;cursor:pointer}.tg:hover{color:var(--ink)}.tg.on{background:repeating-linear-gradient(135deg,transparent 0 5px,var(--lab) 5px 6px);color:var(--warn)}
+.chk{display:inline-flex;gap:6px;align-items:center;padding:6px 10px;border:1px solid var(--line);border-radius:6px;min-height:40px;cursor:pointer}.gapnote td{padding:2px 8px}
+</style></head><body>
+<div id="root"></div><div class="toast" id="toast" role="status"></div>
+<div class="ov" id="ov" role="dialog" aria-label="Working"><div style="max-width:420px;width:100%"><div class="lab">Preparing timetable</div><h1 id="ovt">Timetable</h1><ul id="steps" aria-live="polite"></ul></div></div>
 <script>
-const DAYS=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
-const $=s=>document.querySelector(s);
+const DAYS=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'],tmn=t=>+t.slice(0,2)*60+ +t.slice(3,5);
+const roomsOn=()=>!!(me&&me.features&&me.features.rooms);
+const STD=[['09:00','10:00'],['10:00','11:00'],['11:15','12:15'],['12:15','13:15'],['14:00','15:00'],['15:00','16:00']];
+const $=s=>document.querySelector(s),R=$('#root');
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const hm=m=>`${Math.floor(m/60).toString().padStart(2,'0')}:${(m%60).toString().padStart(2,'0')}`;
-const tomin=t=>+t.slice(0,2)*60+ +t.slice(3,5);
-
-let me=null;
-let V='dash'; // 'dash' | 'tt' | 'su' | 'ru' | 'se'
-let S={
-  selClass:null,
-  classes:[],
-  settings:null,
-  ttEntries:[],
-  pendingMoves:{},
-  undoStack:[],
-  conflicts:[],
-  isValid:true,
-  validating:false,
-  subTab:'alloc',
-  highlightedCells:new Set(),
-  stuOff:null,
-  searchQuery:''
-};
-
-// Theme Management
-function initTheme(){
-  const saved = localStorage.getItem('tess_theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-  document.documentElement.setAttribute('data-theme', saved);
-  updateThemeIcon(saved);
+async function api(p,o={}){const r=await fetch(p,{credentials:'same-origin',headers:{'content-type':'application/json'},...o,body:o.body?JSON.stringify(o.body):undefined});
+ let j={};try{j=await r.json()}catch(e){}
+ if(!r.ok){if(r.status==401&&me){location.replace('/login.html')}throw new Error(typeof j.detail=='string'?j.detail:'Something went wrong. Please try again.')}return j}
+function toast(t,ok){const e=$('#toast');e.textContent=(ok?'✓ ':'⚠ ')+t;e.style.display='block';clearTimeout(toast.h);toast.h=setTimeout(()=>e.style.display='none',5000)}
+let me=null,screen='login',V='dash',ch=null,hint='',cool=0,S={mode:'class',sel:null,dy:0,fav:null,rav:null,rt:'all',gen:null,stuOff:null};
+const NAV=[['dash','Dashboard'],['tt','Timetable'],['cl','Classes'],['su','Subjects'],['courses','Courses & Offerings'],['students','Students & Enrollment'],['cslots','Common Slots'],['fa','Faculty'],['ro','Rooms'],['co','Conflicts'],['ru','Rules'],['se','Settings']];
+function loginHtml(){
+ if(screen=='login')return `<div class="login"><form id="f1"><div class="logo">Tessellate</div><p class="sub">College Timetable &amp; Resource Synchronization</p>
+ <label for="u">Department username</label><input id="u" autocomplete="username" autocapitalize="none" required>
+ <label for="p">Password</label><input id="p" type="password" autocomplete="current-password" required>
+ <button class="btn p">Continue</button><div class="err" id="e" role="alert"></div><button type="button" class="lk" data-go="forgot">Forgot password?</button></form></div>`;
+ if(screen=='code')return `<div class="login"><form id="f2"><div class="lab">Verification required</div><h1 style="font-size:28px">Check your email</h1><p class="sub">A verification code has been sent to your registered department email, ${esc(hint)}.</p>
+ <label for="c">Verification code</label><input id="c" class="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required>
+ <button class="btn p">Verify</button><div class="err" id="e" role="alert"></div><button type="button" class="lk" id="rs" data-go="resend">${cool>0?'Resend code in '+cool+'s':'Resend code'}</button></form></div>`;
+ return `<div class="login"><form id="f3"><div class="lab">Reset password</div><h1 style="font-size:28px">Reset by email</h1><p class="sub">We send a reset code to the registered department email.</p>
+ <label for="u">Department username</label><input id="u" autocapitalize="none" required><button type="button" class="btn" data-go="sendreset">Send reset code</button>
+ <label for="t">Reset code from the email</label><input id="t"><label for="n">New password (10+ characters, letters and numbers)</label><input id="n" type="password" autocomplete="new-password">
+ <button class="btn p">Set new password</button><div class="err" id="e" role="alert"></div><button type="button" class="lk" data-go="login">Back to sign in</button></form></div>`}
+function shell(inner){
+ const cat=me&&me.department&&me.department.category;
+ const catBadge=cat?`<span class="tag ${cat=='Aided'?'ok':'w'}" style="font-size:10px;padding:1px 6px" title="Organizational classification · Equal scheduling priority">${esc(cat)}</span>`:'';
+ return `<div class="app"><nav aria-label="Main"><div class="logo">Tessellate</div><div class="sm" style="margin:0 10px 14px;display:flex;align-items:center;justify-content:space-between"><span>${esc(me.department.name)}</span>${catBadge}</div>${NAV.filter(([k])=>k!='ro'||roomsOn()).map(([k,l])=>`<button data-v="${k}" ${V==k?'aria-current="page"':''}>${l}</button>`).join('')}</nav><main>${inner}</main></div>`
 }
-function toggleTheme(){
-  const cur = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
-  const nw = cur === 'dark' ? 'light' : 'dark';
-  document.documentElement.setAttribute('data-theme', nw);
-  localStorage.setItem('tess_theme', nw);
-  updateThemeIcon(nw);
-}
-function updateThemeIcon(th){
-  const el = $('#theme-icon');
-  if(!el) return;
-  if(th==='dark'){
-    el.innerHTML = '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>';
-  } else {
-    el.innerHTML = '<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>';
-  }
-}
-initTheme();
+const head=(l,t,s,a)=>`<div class="row sp" style="align-items:flex-end"><div><div class="lab">${l}</div><h1>${t}</h1><p class="sub">${s}</p></div>${a||''}</div>`;
+const tab=(h,rows)=>`<table class="l"><thead><tr>${h.map(x=>`<th>${x}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+const STL={draft:'Draft',under_review:'Under review',approved:'Approved',published:'Published',frozen:'Frozen'},NXT={draft:['Submit for review','under_review'],under_review:['Approve','approved'],approved:['Publish','published'],published:['Freeze','frozen'],frozen:['Unfreeze','published']};
+const gen=`<button class="btn p noprint" data-a="gen">Generate timetable</button>`;
+async function redraw(){const y=scrollY;try{$('main').innerHTML=await page()}catch(e){toast(e.message)}scrollTo(0,y)}
+async function draw(){
+ if(!me){location.replace('/login.html');return}
+ R.innerHTML=shell('<p class="sub">Loading…</p>');
+ try{$('main').innerHTML=await page()}catch(e){$('main').innerHTML=`<div class="empty"><h2>We couldn’t load this page</h2><p>${esc(e.message)}</p></div>`}}
+async function page(){
+ if(V=='dash'){const d=await api('/api/dashboard'),st=d.status.length==1?d.status[0]:null;
+  if(!d.classes)return head('Welcome back',esc(d.department.name)+' Department','Academic year 2026–27')+`<div class="empty"><h2>Let’s set up your department</h2><p>Start by adding your classes. Then add subjects and generate.</p><button class="btn p" data-v="cl">Add your first class</button></div>`;
+  if(!d.sessions)return head('Welcome back',esc(d.department.name)+' Department','Academic year 2026–27')+`<div class="empty"><h2>No timetable yet</h2><p>Your department hasn’t generated a timetable yet.</p>${gen}</div>`;
+  return head('Welcome back',esc(d.department.name)+' Department','Academic year 2026–27 · Status: '+(st?STL[st]:'Mixed'),st?`<button class="btn p noprint" data-a="st" data-s="${NXT[st][1]}">${NXT[st][0]}</button>`:'')+
+  `<div class="stats">${[['Classes',d.classes],['Subjects',d.subjects],['Faculty',d.faculty],['Weekly sessions',d.sessions]].map(([a,b])=>`<div><b>${b}</b><span class="sm">${a}</span></div>`).join('')}</div><p class="sub">Teachers and rooms are shared across the college and checked every time you generate or edit.</p>`+gen}
+ if(V=='tt')return tt();
+ if(V=='ru')return ru();
+ if(V=='courses')return coursesPage();
+ if(V=='students')return studentsPage();
+ if(V=='cslots')return cslotsPage();
+ if(V=='cl'){const c=await api('/api/classes');return head('Structure','Classes',esc(me.department.name))+`<div class="note noprint"><div class="row"><label>Class name<br><input id="kn" placeholder="e.g. BSc Chemistry · Sem 1 · A"></label><label>Semester<br><select id="ks">${[1,2,3,4,5,6,7,8].map(n=>`<option>${n}</option>`).join('')}</select></label><label>Section<br><input id="kc" value="A" maxlength="3" style="width:70px"></label><label>Students<br><input id="kt" type="number" min="1" style="width:90px"></label><label><br><button class="btn p" data-a="addclass">Add class</button></label></div></div>`+(c.length?tab(['Class','Semester','Section','Students'],c.map(x=>[esc(x.name),x.semester,x.section,x.students??''])):'<div class="empty"><h2>No classes yet</h2><p>Add your first class above, then add its subjects.</p></div>')}
+ if(V=='su')return su();
+ if(V=='fa'){const f=await api('/api/faculty'),av=S.fav?await api(`/api/faculty/${S.fav}/availability`):null;
+  const fv=S.fd?f.filter(x=>dOf(x)==S.fd):f,ed=S.fe&&S.fe!='new'?f.find(x=>x.id==S.fe&&x.editable):null;
+  let panel='';if(S.fe=='new'||ed){const a=ed?await api(`/api/faculty/${ed.id}/base-availability`):[];S.un=new Set(a.filter(c=>c.state=='unavailable').map(c=>c.day+','+c.period));panel=facForm(ed,a)}
+  return head('Shared','Faculty','One record per person, used by every department',`<button class="btn p noprint" data-a="newfac">Add faculty</button>`)+panel+`<div class="row noprint" style="margin-bottom:12px"><label class="sm">Department&nbsp;<select id="fd">${deptOpts(f,S.fd||'')}</select></label><span class="sm">${fv.length} of ${f.length} faculty</span></div>`+
+  tab(['ID','Name','Home department','Sessions','Actions'],fv.map(x=>[x.faculty_code,esc(x.name),esc(x.department),`${x.sessions} / ${x.max_weekly_sessions}`,`<div class="row"><button class="btn" data-fav="${x.id}">Availability</button>${x.editable?`<button class="btn" data-fe="${x.id}">Edit</button>`:`<span class="sm">Managed by ${esc(dOf(x))}</span>`}</div>`]))+(av&&!panel?'<h2>'+esc(f.find(x=>x.id==S.fav).name)+'</h2>'+avGrid(av):'')}
+ if(V=='ro'){const r=await api('/api/rooms'),show=S.rt=='lab'?r.filter(x=>x.room_type!='Classroom'):r,av=S.rav?await api(`/api/rooms/${S.rav}/availability`):null;
+  return head('Shared','Rooms &amp; laboratories','One list for the whole college')+`<div class="seg noprint" role="group">${[['all','All'],['lab','Laboratories']].map(([k,l])=>`<button data-rt="${k}" aria-pressed="${S.rt==k}">${l}</button>`).join('')}</div>`+tab(['Name','Type','Capacity','Availability'],show.map(x=>[esc(x.name),x.room_type,x.capacity,`<button class="btn" data-rav="${x.id}">View</button>`]))+(av?'<h2>'+esc(r.find(x=>x.id==S.rav).name)+'</h2>'+avGrid(av):'')}
+ if(V=='co'){const r=await api('/api/conflicts'),items=(S.gen&&S.gen.issues)||r.items;
+  const alt=S.alt?(S.alt.status=='proposal'?`<div class="note"><b>A better college-wide arrangement exists.</b><p>${esc(S.alt.message)}</p>${S.alt.affected_departments.map(x=>`<div class="item">${esc(x.department)}: ${x.sessions_changed} sessions would change</div>`).join('')}</div>`:`<div class="note"><b>${esc(S.alt.message)}</b></div>`):'';
+  return head('Review','Conflicts &amp; Diagnostics',items.length?'What needs fixing':'Nothing to fix')+
+  (items.length?items.map(x=>{
+    const isStu=x.issue.includes('attending')||x.issue.includes('Student')||x.issue.includes('student');
+    const isCap=x.issue.includes('capacity')||x.issue.includes('exceeds');
+    const tagClass=isStu?'c':isCap?'w':'c';
+    const tagLabel=isStu?'Student Clash':isCap?'Section Capacity':'Issue';
+    return `<div class="item"><span class="tag ${tagClass}">${tagLabel}</span><b>${esc(x.issue)}</b><div style="margin-top:4px">Fix: ${esc(x.fix)}</div></div>`;
+  }).join(''):`<div class="empty"><h2>✓ No conflicts</h2><p>${r.generated?'Your timetable has no problems. All teacher, room, and student schedules are valid.':'Generate your timetable to see if anything needs fixing.'}</p></div>`)+
+  (items.some(x=>x.alt)?`<div class="row noprint" style="margin-top:14px"><button class="btn" data-a="alt">Look for a better college-wide arrangement</button></div>`:'')+alt}
+ if(V=='se'){const h=await api('/api/audit');return head('Account',esc(me.department.name),'Signed in as '+esc(me.username)+' · '+esc(me.email_hint))+
+  `<div class="row noprint"><button class="btn" data-a="pw">Change password</button><button class="btn" data-a="outall">Sign out of all devices</button><button class="btn" data-a="out">Sign out</button></div><h2>Recent changes</h2>`+(h.length?tab(['When','What','Details'],h.map(x=>[new Date(x.at).toLocaleString(),esc(x.action.replace('_',' ')),esc(x.reason||(x.new_value&&x.new_value.when)||'')])):'<p class="sub">No changes recorded yet.</p>')}}
+async function coursesPage(){
+ const [crs, offs, fac, rms] = await Promise.all([
+  api('/api/courses?all=1'),
+  api('/api/offerings/all'),
+  api('/api/faculty'),
+  roomsOn()?api('/api/rooms'):[]
+ ]);
+ if(!S.newCourseType) S.newCourseType = 'Regular';
+ if(!S.newCourseSel) S.newCourseSel = 'STUDENT_SELECTED';
 
-function toggleSidebar(){
-  const sb = $('#app-sidebar');
-  sb.classList.toggle('collapsed');
-}
+ const typeBadge = t => t=='MDC'?'<span class="tag c">MDC</span>':t=='Minor'?'<span class="tag w">Minor</span>':'<span class="tag ok">Regular</span>';
+ const selBadge = (st, ct) => ct=='Regular' ? '<span class="tag ok">Regular (Department)</span>' :
+   st=='DEPARTMENT_SELECTED' ? '<span class="tag i">Department-Selected (Internal)</span>' : '<span class="tag c">Student-Selected (College-wide)</span>';
+ const scopeBadge = s => s=='college_wide'?'<span class="tag c">College-wide</span>':'<span class="tag i">Department-specific</span>';
 
-async function api(p,o={}){
-  const r=await fetch(p,{credentials:'same-origin',headers:{'content-type':'application/json'},...o,body:o.body?JSON.stringify(o.body):undefined});
-  let j={};try{j=await r.json()}catch(e){}
-  if(!r.ok){
-    if(r.status==401&&me){location.replace('/login.html')}
-    const msg = typeof j.detail=='string'?j.detail:(j.detail&&j.detail.message)?j.detail.message:'Something went wrong.';
-    throw new Error(msg);
-  }
-  return j;
-}
-
-function toast(t, good=true){
-  const el=$('#toast');el.innerHTML=(good?'✓ ':'⚠ ')+esc(t);el.style.display='flex';
-  clearTimeout(toast.h);toast.h=setTimeout(()=>el.style.display='none',4000);
-}
-
-function nav(v){
-  V=v;
-  document.querySelectorAll('#sidebar-nav-list .nav-item').forEach(b => {
-    b.setAttribute('aria-current', b.dataset.v === v ? 'page' : 'false');
-  });
-  render();
-}
-
-async function init(){
-  try{
-    me = await api('/api/auth/me');
-    $('#lbl-dept-name').textContent = me.department.name;
-    $('#lbl-dept-cat').textContent = `${me.department.category} · 2026–27`;
-    $('#hdr-category-badge').textContent = me.department.category;
-    $('#hdr-category-badge').className = `badge ${me.department.category==='Aided'?'badge-brand':'badge-warning'}`;
-    render();
-  }catch(e){
-    location.replace('/login.html');
-  }
-}
-
-async function render(){
-  const titles = {dash:'Dashboard', tt:'Timetable Editor', su:'Subjects & Curriculum', ru:'Scheduling Rules', se:'Settings'};
-  $('#bc-title').textContent = titles[V] || 'Overview';
-  const main = $('#main-content');
-  main.innerHTML = `<div style="padding:40px 0;text-align:center;color:var(--text-muted)">Loading...</div>`;
-  try {
-    if(V==='dash') main.innerHTML = await renderDashboard();
-    else if(V==='tt') main.innerHTML = await renderTimetable();
-    else if(V==='su') main.innerHTML = await renderSubjects();
-    else if(V==='ru') main.innerHTML = await renderRules();
-    else if(V==='se') main.innerHTML = await renderSettings();
-  } catch(e){
-    main.innerHTML = `<div class="card" style="text-align:center;padding:40px">
-      <h3>Could not load section</h3>
-      <p class="sub">${esc(e.message)}</p>
-      <button class="btn btn-sm" onclick="render()">Try again</button>
-    </div>`;
-  }
-}
-
-/* =========================================================================
-   MODULE 1: DASHBOARD
-   ========================================================================= */
-async function renderDashboard(){
-  const [d, cf, audit] = await Promise.all([
-    api('/api/dashboard'),
-    api('/api/conflicts'),
-    api('/api/audit')
-  ]);
-  const conflictCount = (cf.items||[]).length;
-  const isGenerated = d.sessions > 0;
-
-  return `
-    <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:24px;flex-wrap:wrap;gap:16px">
-      <div>
-        <div class="sm" style="text-transform:uppercase;letter-spacing:0.06em;font-weight:600;color:var(--brand)">Department Overview</div>
-        <h1 style="margin-top:4px">${esc(d.department.name)}</h1>
-        <p class="sub" style="margin:2px 0 0">Institutional Classification: <b>${esc(d.department.category)}</b> · Equal priority scheduling across shared college resources.</p>
-      </div>
-      <div style="display:flex;gap:10px">
-        <button class="btn" onclick="generateTimetable()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21h5v-5"/></svg> Generate Timetable</button>
-        <button class="btn btn-primary" onclick="nav('tt')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/></svg> Open Timetable Editor</button>
-      </div>
+ return head('Curriculum','Courses &amp; Offerings','Define Course categories (Regular, MDC, Minor), selection methods (Student-Selected vs Department-Selected), and launch active Offerings.')+
+ `<div class="note noprint"><h2 style="margin-top:0">Add New Course</h2>
+  <div class="row">
+   <label>Course code<br><input id="cc_code" placeholder="e.g. MDC-CS-01" style="width:140px"></label>
+   <label>Course name<br><input id="cc_name" placeholder="e.g. Data Analytics" style="width:260px"></label>
+   <label>Course Category<br><select id="cc_type" data-a="cctypeselect"><option value="Regular" ${S.newCourseType=='Regular'?'selected':''}>Regular</option><option value="MDC" ${S.newCourseType=='MDC'?'selected':''}>MDC</option><option value="Minor" ${S.newCourseType=='Minor'?'selected':''}>Minor</option></select></label>
+   <label>Description<br><input id="cc_desc" placeholder="Course outline / description"></label>
+   <label><br><button class="btn p" data-a="addcourse">Create Course</button></label>
+  </div>
+  ${(S.newCourseType=='MDC'||S.newCourseType=='Minor')?`
+  <div style="margin-top:14px;padding:14px;background:var(--bg);border:1px solid var(--line);border-radius:8px">
+   <div style="font-weight:600;margin-bottom:8px">How is this ${S.newCourseType} course selected?</div>
+   <div class="cols" style="gap:14px">
+    <div class="item" data-a="seltype" data-st="STUDENT_SELECTED" style="cursor:pointer;flex:1;padding:12px;border:2px solid ${S.newCourseSel!='DEPARTMENT_SELECTED'?'var(--accent)':'var(--line)'};border-radius:6px;background:var(--panel)">
+     <div class="row sp"><b style="color:${S.newCourseSel!='DEPARTMENT_SELECTED'?'var(--accent)':'inherit'}">Student-Selected (College-Wide)</b><span class="tag c sm">Common Slot</span></div>
+     <p class="sm" style="margin:6px 0 0">Students from different departments can select this course. It will follow the common college-wide MDC/Minor timetable.</p>
     </div>
-
-    <div class="metrics-row">
-      <div class="metric-tile">
-        <div class="sm" style="font-weight:600">Total Subjects</div>
-        <div class="metric-tile-num">${d.subjects||0}</div>
-        <div class="sm">Course allocations</div>
-      </div>
-      <div class="metric-tile">
-        <div class="sm" style="font-weight:600">Classes &amp; Sections</div>
-        <div class="metric-tile-num">${d.classes||0}</div>
-        <div class="sm">Student cohorts</div>
-      </div>
-      <div class="metric-tile">
-        <div class="sm" style="font-weight:600">Total Faculty</div>
-        <div class="metric-tile-num">${d.faculty||0}</div>
-        <div class="sm">Assigned teachers</div>
-      </div>
-      <div class="metric-tile">
-        <div class="sm" style="font-weight:600">Weekly Sessions</div>
-        <div class="metric-tile-num">${d.sessions||0}</div>
-        <div class="sm">Lectures &amp; labs placed</div>
-      </div>
+    <div class="item" data-a="seltype" data-st="DEPARTMENT_SELECTED" style="cursor:pointer;flex:1;padding:12px;border:2px solid ${S.newCourseSel=='DEPARTMENT_SELECTED'?'var(--accent)':'var(--line)'};border-radius:6px;background:var(--panel)">
+     <div class="row sp"><b style="color:${S.newCourseSel=='DEPARTMENT_SELECTED'?'var(--accent)':'inherit'}">Department-Selected (Department-Specific)</b><span class="tag i sm">Dept Grid</span></div>
+     <p class="sm" style="margin:6px 0 0">This course is selected and managed within your own department. It will follow your department's regular timetable.</p>
     </div>
-
-    <div class="form-row" style="margin-top:20px;grid-template-columns:1.2fr 1fr">
-      <div class="card">
-        <div class="card-header">
-          <div>
-            <h3>Timetable Completion &amp; Health</h3>
-            <p class="sub" style="margin:2px 0 0">College-wide resource synchronization status.</p>
-          </div>
-          <div>${isGenerated ? (conflictCount===0 ? '<span class="badge badge-success">✓ Synced &amp; Compliant</span>' : `<span class="badge badge-danger">⚠ ${conflictCount} Conflict(s)</span>`) : '<span class="badge badge-warning">Draft Mode</span>'}</div>
-        </div>
-
-        <div style="background:var(--bg-subtle);border-radius:var(--radius-md);padding:14px;border:1px solid var(--border-subtle);margin-bottom:16px">
-          <div style="display:flex;justify-content:space-between;align-items:center">
-            <span style="font-weight:600;font-size:13px">Constraint Verification</span>
-            <span class="sm">${isGenerated ? (conflictCount===0 ? '100% Valid' : 'Needs attention') : 'Pending generation'}</span>
-          </div>
-          <div style="height:6px;background:var(--border-subtle);border-radius:3px;margin:8px 0;overflow:hidden">
-            <div style="height:100%;width:${isGenerated?(conflictCount===0?100:60):20}%;background:${conflictCount>0?'var(--danger)':'var(--success)'}"></div>
-          </div>
-          <div class="sm" style="color:var(--text-muted)">
-            ${conflictCount===0 ? 'No teacher, classroom or student clashes detected across college.' : `${conflictCount} scheduling clash(es) detected. Open the Timetable Editor to resolve them.`}
-          </div>
-        </div>
-
-        <div style="display:flex;gap:10px">
-          <button class="btn btn-sm btn-primary" onclick="nav('tt')">Launch Timetable Workspace →</button>
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="card-header">
-          <div>
-            <h3>Recent Timetable Updates</h3>
-            <p class="sub" style="margin:2px 0 0">Latest audit records for this department.</p>
-          </div>
-        </div>
-        ${audit&&audit.length ? `
-          <div style="display:flex;flex-direction:column;gap:10px">
-            ${audit.slice(0, 5).map(a => {
-              const dt = a.at ? new Date(a.at).toLocaleDateString(undefined, {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : 'Recent';
-              const act = (a.action||'update').replace(/_/g,' ');
-              return `<div style="display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:8px;border-bottom:1px solid var(--border-subtle)">
-                <div>
-                  <div style="font-weight:600;font-size:13px;text-transform:capitalize">${esc(act)}</div>
-                  <div class="sm">${a.reason ? esc(a.reason) : (a.new_value? 'Applied configuration changes' : 'System update')}</div>
-                </div>
-                <div class="sm mono" style="color:var(--text-muted);white-space:nowrap">${dt}</div>
-              </div>`;
-            }).join('')}
-          </div>
-        ` : '<p class="sub">No recent activity recorded.</p>'}
-      </div>
-    </div>`;
+   </div>
+  </div>`:''}
+ </div>
+ <h2>Department &amp; College Courses</h2>`+
+  (crs.length?tab(['Code','Name','Category','Course Selection Type','Offering Department','Institutional Classification'],crs.map(c=>[
+   `<b>${esc(c.course_code)}</b>`,
+   esc(c.course_name),
+   typeBadge(c.course_type),
+   selBadge(c.selection_type, c.course_type),
+   esc(c.department_name),
+   `<span class="tag sm ${c.category_name=='Aided'?'ok':'w'}">${esc(c.category_name)}</span>`
+  ])):'<p class="sub">No courses defined yet.</p>')+
+  `<div class="note noprint" style="margin-top:30px"><h2 style="margin-top:0">Create Course Offering</h2>
+   <p class="sm">An offering is an actual instance of that course conducted during an academic year and semester. Selection type is inherited from the course definition.</p>
+   <div class="row">
+    <label>Course<br><select id="co_cid">${crs.map(c=>`<option value="${c.id}">${esc(c.course_code)} · ${esc(c.course_name)} (${c.course_type}${c.selection_type==='DEPARTMENT_SELECTED'?' · Dept':' · Common'})</option>`).join('')}</select></label>
+    <label>Offering Code<br><input id="co_code" placeholder="e.g. MDC1-2026-SEM1" style="width:160px"></label>
+    <label>Semester<br><select id="co_sem">${[1,2,3,4,5,6,7,8].map(n=>`<option>${n}</option>`).join('')}</select></label>
+    <label>Weekly Sessions<br><input id="co_sess" type="number" min="1" max="10" value="2" style="width:80px"></label>
+    <label>Max Enrollment<br><input id="co_cap" type="number" min="5" max="300" value="60" style="width:90px"></label>
+    <label>Teacher<br><select id="co_fac">${facOpts(fac,me.department.name)}</select></label>
+    ${roomsOn()?`<label>Room<br><select id="co_room"><option value="">Any Classroom</option>${rms.map(r=>`<option value="${r.id}">${esc(r.name)} (${r.room_type})</option>`).join('')}</select></label>`:''}
+    <label><br><button class="btn p" data-a="addoffering">Launch Offering</button></label>
+   </div></div>
+   <h2>Active Course Offerings</h2>`+
+   (offs.length?tab(['Code','Course','Category','Selection Type','Sessions','Teacher','Sections','Enrolled / Cap','Actions'],offs.map(o=>[
+    `<b>${esc(o.offering_code)}</b>`,
+    esc(o.course_name),
+    typeBadge(o.course_type),
+    selBadge(o.selection_type, o.course_type),
+    o.required_sessions,
+    esc(o.teacher||'Unassigned'),
+    (o.sections&&o.sections.length)?o.sections.map(s=>`<span class="tag sm">${esc(s.section_name)} (${s.capacity})</span>`).join(' '):'<span class="sm">Single section</span>',
+    `<b>${o.enrolled_count||0}</b> / ${o.max_enrollment}`,
+    `<div class="row"><button class="btn sm" data-a="newsec" data-oid="${o.id}">+ Section</button><button class="btn sm" data-a="offtt" data-oid="${o.id}">Schedule</button>${o.offering_department_id==me.department.id?`<button class="btn sm" data-a="deloff" data-oid="${o.id}">Remove</button>`:''}</div>`
+   ])):'<p class="sub">No course offerings created yet.</p>');
 }
 
-/* =========================================================================
-   MODULE 2: TIMETABLE EDITOR (Interactive Grid + Drag & Drop + Side Panel)
-   ========================================================================= */
-async function renderTimetable(){
-  const [classes, st] = await Promise.all([
-    api('/api/classes'),
-    api('/api/settings')
-  ]);
-  S.classes = classes;
-  S.settings = st.config;
+async function studentsPage(){
+ const [students, offs, classes] = await Promise.all([
+  api('/api/students'),
+  api('/api/offerings/all'),
+  api('/api/classes')
+ ]);
+ if(!S.stuOff && offs.length) S.stuOff = offs[0].id;
+ const curOff = offs.find(o=>o.id==S.stuOff);
+ let enrData = {enrolled:[], by_department:{}, total_enrolled:0};
+ if(curOff) {
+  try { enrData = await api(`/api/offerings/${curOff.id}/enrollments`); } catch(e){}
+ }
+ const deptCounts = Object.entries(enrData.by_department||{}).map(([d,n])=>`<b>${esc(d)}:</b> ${n}`).join(' &nbsp;·&nbsp; ');
 
-  if(!classes.length){
-    return `<div class="card" style="text-align:center;padding:50px">
-      <h3>No Classes Found</h3>
-      <p class="sub">Please create classes and subjects before opening the timetable editor.</p>
-      <button class="btn btn-primary" onclick="nav('su')">Go to Subjects &amp; Classes</button>
-    </div>`;
-  }
-
-  if(!S.selClass || !classes.some(c=>c.id==S.selClass)){
-    S.selClass = classes[0].id;
-    S.pendingMoves = {};
-    S.undoStack = [];
-    S.conflicts = [];
-  }
-
-  const rawEntries = await api(`/api/timetable/${S.selClass}`);
-  S.ttEntries = rawEntries;
-
-  // Build simulated grid reflecting pendingMoves
-  const simulatedMap = {};
-  rawEntries.forEach(e => { simulatedMap[e.id] = {...e}; });
-  Object.values(S.pendingMoves).forEach(m => {
-    if(simulatedMap[m.id]){
-      if(m.deleted) delete simulatedMap[m.id];
-      else {
-        simulatedMap[m.id].day = m.day;
-        simulatedMap[m.id].period = m.period;
-        if(m.faculty_id !== undefined) simulatedMap[m.id].faculty_id = m.faculty_id;
-        if(m.room_id !== undefined) simulatedMap[m.id].room_id = m.room_id;
-      }
-    }
-  });
-
-  const pendingCount = Object.keys(S.pendingMoves).length;
-  const days = S.settings.days || [0,1,2,3,4];
-  const periods = S.settings.periods || [];
-
-  // Generate grid HTML
-  let gridHtml = `
-  <div class="table-container" style="border-radius:var(--radius-lg)">
-    <table class="tt-grid-table" id="tt-grid">
-      <thead>
-        <tr>
-          <th class="time-col">Period</th>
-          ${days.map(d=>`<th>${DAYS[d]}</th>`).join('')}
-        </tr>
-      </thead>
-      <tbody>`;
-
-  periods.forEach((p, pIdx) => {
-    gridHtml += `<tr>
-      <td class="time-cell">
-        <div style="font-weight:600;color:var(--text-primary)">P${pIdx+1}</div>
-        <div class="sm">${p.start}</div>
-        <div class="sm" style="color:var(--text-muted)">${p.end}</div>
-      </td>`;
-
-    days.forEach(d => {
-      const cellSessions = Object.values(simulatedMap).filter(s => s.day == d && s.period == pIdx);
-      const isFree = (S.settings.free||[]).some(f => f[0] == d && f[1] == pIdx);
-      const isHighlighted = S.highlightedCells.has(`${d},${pIdx}`);
-
-      gridHtml += `<td data-day="${d}" data-period="${pIdx}" class="${isHighlighted ? 'cell-conflict-pulse' : ''}" ondragover="onCellDragOver(event)" ondragleave="onCellDragLeave(event)" ondrop="onCellDrop(event, ${d}, ${pIdx})">`;
-
-      if(cellSessions.length > 0){
-        cellSessions.forEach(s => {
-          const isPending = !!S.pendingMoves[s.id];
-          const isMdc = s.entry_type === 'MDC';
-          const isMinor = s.entry_type === 'Minor';
-          const isLab = s.lab;
-          const cardClass = isMdc ? 'card-mdc' : isMinor ? 'card-minor' : isLab ? 'card-lab' : '';
-
-          gridHtml += `
-            <div class="session-card ${cardClass} ${isPending?'pending-change':''}" draggable="true" data-id="${s.id}" ondragstart="onCardDragStart(event, ${s.id})" onclick="openSessionModal(${s.id})">
-              <div>
-                <div style="display:flex;justify-content:space-between;align-items:flex-start">
-                  <div class="session-card-title">${esc(s.subject)}</div>
-                  ${isPending ? '<span class="badge badge-warning" style="font-size:9.5px;padding:1px 5px">Moved</span>' : ''}
-                </div>
-                <div class="session-card-meta">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                  ${esc(s.teacher)}
-                </div>
-                <div class="session-card-meta">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><line x1="3" x2="21" y1="9" y2="9"/><line x1="9" x2="9" y1="21" y2="9"/></svg>
-                  ${esc(s.room || '—')}
-                </div>
-              </div>
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
-                <span class="badge ${isMdc?'badge-danger':isMinor?'badge-warning':'badge-neutral'}" style="font-size:10px">${isMdc?'MDC':isMinor?'Minor':(s.lab?'Lab':'Lecture')}</span>
-              </div>
-            </div>`;
-        });
-      } else {
-        gridHtml += `<div class="sm" style="color:var(--text-tertiary);height:100%;display:flex;align-items:center;justify-content:center;opacity:0.4">${isFree ? 'Kept free' : 'Empty'}</div>`;
-      }
-      gridHtml += `</td>`;
-    });
-    gridHtml += `</tr>`;
-  });
-
-  gridHtml += `</tbody></table></div>`;
-
-  // Right Side Conflict Center
-  const conflictCount = S.conflicts.length;
-  const statusPill = S.validating ?
-    `<span class="badge badge-warning">Validating...</span>` :
-    conflictCount === 0 ?
-    `<span class="badge badge-success">✓ 0 Conflicts</span>` :
-    `<span class="badge badge-danger">⚠ ${conflictCount} Conflict(s)</span>`;
-
-  const sidePanelHtml = `
-    <div class="side-conflict-panel" id="side-conflict-panel">
-      <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border-subtle);padding-bottom:12px">
-        <div>
-          <h3 style="font-size:14px">Conflict Center</h3>
-          <div class="sm">Real-time scheduling validation</div>
-        </div>
-        ${statusPill}
-      </div>
-
-      <div style="display:flex;gap:8px">
-        <button class="btn btn-sm btn-primary" onclick="validateCurrentBatch()" style="flex:1">Re-check Schedule</button>
-        <button class="btn btn-sm" onclick="clearHighlights()" title="Clear highlight rings">Clear</button>
-      </div>
-
-      <div style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:10px">
-        ${conflictCount === 0 ? `
-          <div style="text-align:center;padding:36px 14px">
-            <div style="width:40px;height:40px;border-radius:var(--radius-full);background:var(--success-subtle);color:var(--success);display:flex;align-items:center;justify-content:center;margin:0 auto 10px">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-            </div>
-            <div style="font-weight:600;font-size:13.5px">Zero Conflicts Found</div>
-            <p class="sm" style="margin-top:4px">All teacher assignments, rooms, and enrolled students are aligned.</p>
-          </div>
-        ` : `
-          <div class="sm" style="color:var(--text-muted)">Click any conflict card to highlight conflicting cells:</div>
-          ${S.conflicts.map(c => `
-            <div class="conflict-card-item" onclick="highlightCells(${JSON.stringify(c.cells||[]).replace(/"/g,'&quot;')})">
-              <div style="font-weight:600;font-size:12.5px;color:var(--danger)">${esc(c.issue)}</div>
-              <div class="sm" style="margin-top:4px"><b>Fix:</b> ${esc(c.fix)}</div>
-            </div>
-          `).join('')}
-        `}
-      </div>
-    </div>`;
-
-  return `
-    <div class="tt-header-toolbar">
-      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-        <label style="margin:0;display:flex;align-items:center;gap:8px;font-size:13px">
-          <b>Class:</b>
-          <select id="tt-class-dropdown" onchange="onClassChange(this.value)" style="width:auto;min-width:180px">
-            ${classes.map(c=>`<option value="${c.id}" ${c.id==S.selClass?'selected':''}>${esc(c.name)}</option>`).join('')}
-          </select>
-        </label>
-        <button class="btn btn-sm" onclick="generateTimetable()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg> Regenerate</button>
-      </div>
-
-      <div style="display:flex;align-items:center;gap:10px">
-        ${pendingCount > 0 ? `<span class="badge badge-warning">● ${pendingCount} unsaved change(s)</span>` : ''}
-        <button class="btn btn-sm" onclick="undoLastMove()" ${S.undoStack.length===0?'disabled':''}>↺ Undo</button>
-        <button class="btn btn-sm" onclick="discardAllEdits()" ${pendingCount===0?'disabled':''}>Discard</button>
-        <button class="btn btn-sm btn-primary" onclick="saveBatchEdits()" ${pendingCount===0?'disabled':''}>💾 Save Changes</button>
-      </div>
+ return head('Students &amp; Enrollment','Cross-Department Enrollment','College-wide student identity and course offering selections.')+
+ `<div class="note noprint"><h2 style="margin-top:0">Select Course Offering to Manage Enrollment</h2>
+  <div class="row">
+   <label>Course Offering<br><select id="stu_off_sel">${offs.map(o=>`<option value="${o.id}" ${o.id==S.stuOff?'selected':''}>${esc(o.offering_code)} · ${esc(o.course_name)} (${esc(o.offering_department)} · ${o.selection_type==='DEPARTMENT_SELECTED'?'Dept-Selected':'Student-Selected'})</option>`).join('')}</select></label>
+  </div>
+  ${curOff?`
+  <div style="margin-top:14px">
+   <div class="row sp">
+    <div><b>Capacity:</b> ${enrData.total_enrolled} / ${curOff.max_enrollment} students enrolled</div>
+    <div class="sm">${curOff.selection_type==='DEPARTMENT_SELECTED'?'<span class="tag i">Department-Selected</span> Restricted to '+esc(curOff.offering_department)+' students':'<span class="tag c">Student-Selected</span> College-wide enrollment pool'}</div>
+   </div>
+   <div class="bar ${enrData.total_enrolled>=curOff.max_enrollment?'ov':''}" style="margin:8px 0 14px"><i style="width:${Math.min(100,Math.round((enrData.total_enrolled/curOff.max_enrollment)*100))}%"></i></div>
+   ${deptCounts?`<div class="item sm" style="padding:4px 0"><b>Enrolled by home department:</b> ${deptCounts}</div>`:''}
+   <div class="cols" style="margin-top:14px;gap:20px">
+    <div>
+     <h3>Enroll Department Students</h3>
+     <div class="row">
+      <select id="stu_to_enr" style="min-width:220px">${students.map(s=>`<option value="${s.id}">${esc(s.register_number)} · ${esc(s.name)} (${esc(s.class_name||'Unassigned')})</option>`).join('')}</select>
+      ${(curOff.sections&&curOff.sections.length)?`<select id="stu_enr_sec"><option value="">No specific section</option>${curOff.sections.map(s=>`<option value="${s.id}">Section ${esc(s.section_name)} (Cap ${s.capacity})</option>`).join('')}</select>`:''}
+      <button class="btn p" data-a="enrollstudent">Enroll</button>
+     </div>
     </div>
-
-    <div class="tt-workspace">
-      <div class="tt-grid-area">${gridHtml}</div>
-      ${sidePanelHtml}
-    </div>`;
-}
-
-// Drag & Drop Handlers
-let draggedCardId = null;
-
-function onCardDragStart(ev, id){
-  draggedCardId = id;
-  ev.dataTransfer.setData('text/plain', String(id));
-  ev.dataTransfer.effectAllowed = 'move';
-}
-
-function onCellDragOver(ev){
-  ev.preventDefault();
-  ev.dataTransfer.dropEffect = 'move';
-  const td = ev.target.closest('td[data-day]');
-  if(td) td.classList.add('drag-target-over');
-}
-
-function onCellDragLeave(ev){
-  const td = ev.target.closest('td[data-day]');
-  if(td) td.classList.remove('drag-target-over');
-}
-
-async function onCellDrop(ev, targetDay, targetPeriod){
-  ev.preventDefault();
-  const td = ev.target.closest('td[data-day]');
-  if(td) td.classList.remove('drag-target-over');
-
-  const id = draggedCardId || +ev.dataTransfer.getData('text/plain');
-  if(!id) return;
-
-  const currentEntry = S.ttEntries.find(e => e.id == id);
-  if(!currentEntry) return;
-
-  const curDay = S.pendingMoves[id] ? S.pendingMoves[id].day : currentEntry.day;
-  const curPeriod = S.pendingMoves[id] ? S.pendingMoves[id].period : currentEntry.period;
-
-  if(curDay === targetDay && curPeriod === targetPeriod) return;
-
-  // Check if session exists in target cell (swap)
-  const existingInTarget = S.ttEntries.find(e => {
-    const d = S.pendingMoves[e.id] ? S.pendingMoves[e.id].day : e.day;
-    const p = S.pendingMoves[e.id] ? S.pendingMoves[e.id].period : e.period;
-    return d === targetDay && p === targetPeriod && (!S.pendingMoves[e.id] || !S.pendingMoves[e.id].deleted);
-  });
-
-  // Record undo
-  S.undoStack.push({
-    movedId: id,
-    prevDay: curDay,
-    prevPeriod: curPeriod,
-    swappedId: existingInTarget ? existingInTarget.id : null,
-    swapPrevDay: targetDay,
-    swapPrevPeriod: targetPeriod
-  });
-
-  S.pendingMoves[id] = {
-    id: id,
-    day: targetDay,
-    period: targetPeriod,
-    faculty_id: currentEntry.faculty_id,
-    room_id: currentEntry.room_id
-  };
-
-  if(existingInTarget){
-    S.pendingMoves[existingInTarget.id] = {
-      id: existingInTarget.id,
-      day: curDay,
-      period: curPeriod,
-      faculty_id: existingInTarget.faculty_id,
-      room_id: existingInTarget.room_id
-    };
-    toast(`Swapped ${currentEntry.subject} with ${existingInTarget.subject}`);
-  } else {
-    toast(`Moved ${currentEntry.subject} to ${DAYS[targetDay]} P${targetPeriod+1}`);
-  }
-
-  validateCurrentBatch(false);
-  render();
-}
-
-function undoLastMove(){
-  if(!S.undoStack.length) return;
-  const step = S.undoStack.pop();
-
-  if(step.movedId){
-    const orig = S.ttEntries.find(e => e.id == step.movedId);
-    if(orig && orig.day === step.prevDay && orig.period === step.prevPeriod){
-      delete S.pendingMoves[step.movedId];
-    } else {
-      S.pendingMoves[step.movedId] = { id: step.movedId, day: step.prevDay, period: step.prevPeriod };
-    }
-  }
-
-  if(step.swappedId){
-    const origSwap = S.ttEntries.find(e => e.id == step.swappedId);
-    if(origSwap && origSwap.day === step.swapPrevDay && origSwap.period === step.swapPrevPeriod){
-      delete S.pendingMoves[step.swappedId];
-    } else {
-      S.pendingMoves[step.swappedId] = { id: step.swappedId, day: step.swapPrevDay, period: step.swapPrevPeriod };
-    }
-  }
-
-  toast('Undid last move');
-  validateCurrentBatch(false);
-  render();
-}
-
-function discardAllEdits(){
-  if(!confirm('Discard all pending moves and restore original schedule?')) return;
-  S.pendingMoves = {};
-  S.undoStack = [];
-  S.conflicts = [];
-  S.highlightedCells.clear();
-  toast('Unsaved changes discarded');
-  render();
-}
-
-async function validateCurrentBatch(showNotification=true){
-  S.validating = true;
-  try{
-    const moves = Object.values(S.pendingMoves);
-    const res = await api('/api/timetables/validate-batch', {
-      method: 'POST',
-      body: { class_id: S.selClass, moves }
-    });
-    S.isValid = res.valid;
-    S.conflicts = res.items || [];
-    if(showNotification){
-      if(res.valid) toast('Schedule is valid with zero conflicts!', true);
-      else toast(`Detected ${S.conflicts.length} conflict(s).`, false);
-    }
-  } catch(e){
-    toast(e.message, false);
-  } finally {
-    S.validating = false;
-    updateSideConflictPanel();
-  }
-}
-
-function updateSideConflictPanel(){
-  const panel = $('#side-conflict-panel');
-  if(!panel) return;
-  const conflictCount = S.conflicts.length;
-  const statusPill = S.validating ?
-    `<span class="badge badge-warning">Validating...</span>` :
-    conflictCount === 0 ?
-    `<span class="badge badge-success">✓ 0 Conflicts</span>` :
-    `<span class="badge badge-danger">⚠ ${conflictCount} Conflict(s)</span>`;
-
-  panel.innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border-subtle);padding-bottom:12px">
-      <div>
-        <h3 style="font-size:14px">Conflict Center</h3>
-        <div class="sm">Real-time scheduling validation</div>
-      </div>
-      ${statusPill}
+    <div>
+     <h3>Bulk Enroll by Register Numbers (CSV / Text)</h3>
+     <p class="sm">Paste comma- or line-separated student register numbers:</p>
+     <textarea id="stu_bulk" rows="2" style="width:100%;font:inherit;padding:6px 10px;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:6px" placeholder="REG-CS-001, REG-CS-002&#10;REG-MATH-001"></textarea>
+     <div class="row" style="margin-top:6px"><button class="btn" data-a="bulkenroll">Bulk Enroll</button></div>
     </div>
-
-    <div style="display:flex;gap:8px">
-      <button class="btn btn-sm btn-primary" onclick="validateCurrentBatch()" style="flex:1">Re-check Schedule</button>
-      <button class="btn btn-sm" onclick="clearHighlights()" title="Clear highlight rings">Clear</button>
-    </div>
-
-    <div style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:10px">
-      ${conflictCount === 0 ? `
-        <div style="text-align:center;padding:36px 14px">
-          <div style="width:40px;height:40px;border-radius:var(--radius-full);background:var(--success-subtle);color:var(--success);display:flex;align-items:center;justify-content:center;margin:0 auto 10px">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-          </div>
-          <div style="font-weight:600;font-size:13.5px">Zero Conflicts Found</div>
-          <p class="sm" style="margin-top:4px">All teacher assignments, rooms, and enrolled students are aligned.</p>
-        </div>
-      ` : `
-        <div class="sm" style="color:var(--text-muted)">Click any conflict card to highlight conflicting cells:</div>
-        ${S.conflicts.map(c => `
-          <div class="conflict-card-item" onclick="highlightCells(${JSON.stringify(c.cells||[]).replace(/"/g,'&quot;')})">
-            <div style="font-weight:600;font-size:12.5px;color:var(--danger)">${esc(c.issue)}</div>
-            <div class="sm" style="margin-top:4px"><b>Fix:</b> ${esc(c.fix)}</div>
-          </div>
-        `).join('')}
-      `}
-    </div>`;
+   </div>
+  </div>`:''}
+ </div>
+ <h2>Enrolled Students in Selected Offering</h2>`+
+ (enrData.enrolled.length?tab(['Register No','Name','Home Department','Class','Section','Actions'],enrData.enrolled.map(e=>[
+   `<b>${esc(e.register_number)}</b>`,
+   esc(e.name),
+   esc(e.home_department),
+   esc(e.class_name||'Unassigned'),
+   e.section_name?`<span class="tag sm">${esc(e.section_name)}</span>`:'—',
+   `<button class="btn sm" data-a="unenroll" data-oid="${curOff.id}" data-sid="${e.student_id}">Remove</button>`
+ ])):'<p class="sub">No students enrolled in this offering yet.</p>')+
+ `<div class="note noprint" style="margin-top:30px"><h2 style="margin-top:0">Add Student to Department</h2>
+  <div class="row">
+   <label>Register Number<br><input id="st_reg" placeholder="e.g. REG-CS-005" style="width:140px"></label>
+   <label>Student Name<br><input id="st_name" placeholder="Full name" style="width:220px"></label>
+   <label>Semester<br><select id="st_sem">${[1,2,3,4,5,6,7,8].map(n=>`<option>${n}</option>`).join('')}</select></label>
+   <label>Class<br><select id="st_cls"><option value="">None / Elective only</option>${classes.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select></label>
+   <label><br><button class="btn p" data-a="addstudent">Add Student</button></label>
+  </div>
+ </div>
+ <h2>Department Students</h2>`+
+ (students.length?tab(['Register No','Name','Semester','Class','Unified Schedule'],students.map(s=>[
+   `<b>${esc(s.register_number)}</b>`,
+   esc(s.name),
+   s.semester,
+   esc(s.class_name||'Unassigned'),
+   `<button class="btn sm" data-a="viewstudenttt" data-sid="${s.id}">View Timetable</button>`
+ ])):'<p class="sub">No students registered in this department yet.</p>');
 }
 
-function highlightCells(cells){
-  S.highlightedCells.clear();
-  (cells||[]).forEach(c => S.highlightedCells.add(`${c.day},${c.period}`));
-  document.querySelectorAll('#tt-grid td[data-day]').forEach(td => {
-    const d = +td.dataset.day, p = +td.dataset.period;
-    if(S.highlightedCells.has(`${d},${p}`)){
-      td.classList.add('cell-conflict-pulse');
-      td.scrollIntoView({behavior:'smooth', block:'nearest'});
-    } else {
-      td.classList.remove('cell-conflict-pulse');
-    }
-  });
+async function cslotsPage(){
+ const slots = await api('/api/common-slots');
+ return head('Policy &amp; Synchronization','College-Wide Fixed Time Slots','Designated fixed periods for college-wide MDC and Minor course offerings.')+
+ `<div class="note"><div class="row sp"><div style="max-width:680px"><b>Common Slot Adherence Rule</b><div class="sm">When an offering is marked College-Wide, it follows these configured common slot rules. Every department respects these reserved periods to prevent student timetable collisions.</div></div><div class="tag ok">Active Policy</div></div></div>`+
+ (slots.length?tab(['Day','Start','End','Applicable Course Type','Slot Name','Semester'],slots.map(s=>[
+   DAYS[s.day],
+   `<b>${s.start}</b>`,
+   `<b>${s.end}</b>`,
+   s.applicable_course_type=='MDC'?'<span class="tag c">MDC</span>':s.applicable_course_type=='Minor'?'<span class="tag w">Minor</span>':'<span class="tag ok">Both</span>',
+   esc(s.name),
+   s.semester
+ ])):'<div class="empty"><h2>No common slots configured</h2><p>Contact the College Registry to configure college-wide MDC and Minor slots.</p></div>');
 }
 
-function clearHighlights(){
-  S.highlightedCells.clear();
-  document.querySelectorAll('#tt-grid td.cell-conflict-pulse').forEach(td => {
-    td.classList.remove('cell-conflict-pulse');
-  });
+function renderStudentTimetable(st, entries, studentList){
+ const ds = [0, 1, 2, 3, 4];
+ const typeBadge = t => t=='MDC'?'<span class="tag c" style="font-size:10px;padding:1px 4px">MDC</span>':t=='Minor'?'<span class="tag w" style="font-size:10px;padding:1px 4px">Minor</span>':'<span class="tag ok" style="font-size:10px;padding:1px 4px">Regular</span>';
+ 
+ const times = [...new Set(entries.map(e=>e.start+' - '+e.end))].sort();
+ let rows = times.length ? times.map(t=>({s:t.split(' - ')[0], e:t.split(' - ')[1]})) : STD.map(([a,b])=>({s:a,e:b}));
+
+ const cell = (d, r) => {
+  const e = entries.find(x => x.day == d && x.start == r.s);
+  if(!e) return '<div class="fr">Free</div>';
+  return `<div class="c ${e.course_type!='Regular'?'lb':''}" tabindex="0">
+    <div style="display:flex;justify-content:space-between;align-items:center"><b>${esc(e.subject)}</b>${typeBadge(e.course_type)}</div>
+    <span>${esc(e.teacher||'')} · ${esc(e.department||'')}</span>
+    ${e.room?`<span>${esc(e.room)}</span>`:''}
+  </div>`;
+ };
+
+ let g=`<div class="gw"><table class="g"><thead><tr><th></th>${ds.map(d=>`<th>${DAYS[d]}</th>`).join('')}</tr></thead><tbody>`;
+ for(const r of rows){
+  g+=`<tr><td class="t">${r.s}<br>${r.e}</td>${ds.map(d=>`<td>${cell(d,r)}</td>`).join('')}</tr>`;
+ }
+ g+='</tbody></table></div>';
+
+ return head('Unified Student Schedule', `${esc(st.name||'Student')} (${esc(st.register_number||'')})`, `Home Department: ${esc(st.home_department||'')} · Class: ${esc(st.class_name||'Unassigned')} · Category: ${esc(st.category_name||'')}`)+
+ `<div class="row noprint" style="margin-bottom:14px">
+   <div class="seg" role="group" aria-label="View">${[['class','Class'],['teacher','Teacher']].concat(roomsOn()?[['room','Room / lab']]:[]).concat([['student','Student schedule'],['common','Common courses']]).map(([k,l])=>`<button data-m="${k}" aria-pressed="${S.mode==k}">${l}</button>`).join('')}</div>
+   <select id="sel" aria-label="Select student">${studentList.map(([i,n])=>`<option value="${i}" ${i==S.sel?'selected':''}>${esc(n)}</option>`).join('')}</select>
+   <button class="btn" data-a="print">Print</button>
+  </div>`+
+  `<div class="note"><div class="row sp"><div><b>Combines Regular Class Lectures &amp; Enrolled MDC/Minor Courses</b><div class="sm">${entries.length} scheduled session(s) this week. Hard constraint: guaranteed zero overlapping classes.</div></div><div class="tag ok">Unified Schedule</div></div></div>`+
+  g;
 }
 
-async function saveBatchEdits(){
-  if(S.conflicts.length > 0){
-    if(!confirm(`There are ${S.conflicts.length} conflict(s) detected. The backend requires zero conflicts to save. Try saving anyway?`)){
-      return;
-    }
-  }
-  const moves = Object.values(S.pendingMoves);
-  try{
-    const res = await api('/api/timetables/save-batch', {
-      method: 'POST',
-      body: { class_id: S.selClass, moves }
-    });
-    toast(res.message || 'Timetable saved successfully!', true);
-    S.pendingMoves = {};
-    S.undoStack = [];
-    S.conflicts = [];
-    S.highlightedCells.clear();
-    render();
-  } catch(e){
-    toast(e.message, false);
-    validateCurrentBatch(false);
-  }
+function renderCommonTimetable(list){
+ const typeBadge = t => t=='MDC'?'<span class="tag c">MDC</span>':t=='Minor'?'<span class="tag w">Minor</span>':'<span class="tag ok">Regular</span>';
+ return head('College-Wide Schedule', 'Common MDC &amp; Minor Offerings', 'College-wide schedule across all Aided and Self-Financing departments.')+
+ `<div class="row noprint" style="margin-bottom:14px">
+   <div class="seg" role="group" aria-label="View">${[['class','Class'],['teacher','Teacher']].concat(roomsOn()?[['room','Room / lab']]:[]).concat([['student','Student schedule'],['common','Common courses']]).map(([k,l])=>`<button data-m="${k}" aria-pressed="${S.mode==k}">${l}</button>`).join('')}</div>
+   <button class="btn" data-a="print">Print</button>
+  </div>`+
+ (list.length?tab(['Day','Time','Subject','Type','Offering Department','Category','Teacher','Room','Enrolled'],list.map(e=>[
+   DAYS[e.day],
+   `<b>${e.start}–${e.end}</b>`,
+   `<b>${esc(e.subject)}</b> (${esc(e.offering_code)})`,
+   typeBadge(e.course_type),
+   esc(e.department),
+   `<span class="tag sm ${e.category=='Aided'?'ok':'w'}">${esc(e.category)}</span>`,
+   esc(e.teacher||'Unassigned'),
+   esc(e.room||'Classroom'),
+   `<b>${e.enrolled_count||0}</b> students`
+ ])):'<div class="empty"><h2>No common courses scheduled</h2><p>Generate timetables for departments offering college-wide MDC and Minor courses.</p></div>');
 }
 
-function onClassChange(cid){
-  if(Object.keys(S.pendingMoves).length > 0){
-    if(!confirm('You have unsaved moves for this class. Discard them?')){
-      $('#tt-class-dropdown').value = S.selClass;
-      return;
-    }
-  }
-  S.selClass = +cid;
-  S.pendingMoves = {};
-  S.undoStack = [];
-  S.conflicts = [];
-  render();
-}
+function facForm(ed,a){const v=ed||{},cell=(d,p)=>{const c=a.find(x=>x.day==d&&x.period==p);if(c&&c.state=='busy')return `<div class="bz off" style="min-height:40px" title="${esc(c.reason)}">Teaching</div>`;const on=S.un.has(d+','+p);return `<button type="button" class="tg ${on?'on':''}" data-un="${d},${p}" aria-pressed="${on}">${on?'Unavailable':'Available'}</button>`};
+ return `<div class="note"><h2 style="margin-top:0">${ed?'Edit '+esc(ed.name):'Add faculty'}</h2><p class="sm">${ed?esc(ed.faculty_code)+' · changes apply to every department that uses this teacher.':'New teachers are shared with all departments and get a college-wide ID.'}</p>
+ <div class="row"><label>Name<br><input id="fn" value="${esc(v.name||'')}"></label><label>Designation<br><input id="fg" value="${esc(v.designation||'')}" placeholder="e.g. Assistant Professor"></label><label>Official email<br><input id="fx" type="email" value="${esc(v.email||'')}"></label><label>Max sessions per week<br><input id="fm" type="number" min="1" max="40" value="${v.max_weekly_sessions||18}" style="width:90px"></label></div>
+ ${ed?`<h2>Periods this teacher cannot teach</h2><p class="sm">Select a period to mark it unavailable. Periods already scheduled are shown as Teaching and can't be changed here.</p><div class="gw"><table class="g" style="min-width:520px"><thead><tr><th></th>${gridRows(a).days.map(d=>`<th>${DAYS[d].slice(0,3)}</th>`).join('')}</tr></thead><tbody>${gridRows(a).pers.map(p=>`<tr><td class="t">${gridRows(a).lab(p)}</td>${gridRows(a).days.map(d=>`<td style="height:40px">${cell(d,p)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`:''}
+ <div class="row" style="margin-top:16px"><button class="btn p" data-a="savefac">${ed?'Save changes':'Add teacher'}</button><button class="btn" data-a="cancelfac">Cancel</button>${ed?`<button class="btn" data-a="rmfac" style="margin-left:auto">Remove teacher</button>`:''}</div></div>`}
+function gridRows(a){const days=[...new Set(a.map(x=>x.day))].sort((x,y)=>x-y),pers=[...new Set(a.map(x=>x.period))].sort((x,y)=>x-y);return {days,pers,lab:p=>{const c=a.find(x=>x.period==p);return c?c.start:''}}}
+function avGrid(a){const g=gridRows(a);let h=`<div class="gw"><table class="g" style="min-width:520px"><thead><tr><th></th>${g.days.map(d=>`<th>${DAYS[d].slice(0,3)}</th>`).join('')}</tr></thead><tbody>`;
+ for(const p of g.pers)h+=`<tr><td class="t">${g.lab(p)}</td>${g.days.map(d=>{const c=a.find(x=>x.day==d&&x.period==p);return `<td style="height:44px">${!c||c.state=='available'?'<div class="fr">Available</div>':`<button class="bz ${c.state=='busy'?'':'off'}" style="min-height:44px" data-why="${esc(c.reason)}">${c.state=='busy'?'Busy':'Unavailable'}</button>`}</td>`}).join('')}</tr>`;
+ return h+'</tbody></table></div><div id="why" class="sm" style="margin-top:8px" aria-live="polite">Select a busy slot to see why.</div>'}
+async function tt(){const [cs,st]=await Promise.all([api('/api/classes'),api('/api/settings')]);const cfg=st.config;let ents=[];
+ if(S.mode=='class')ents=cs.map(c=>[c.id,c.name]);
+ else if(S.mode=='teacher')ents=(await api('/api/faculty')).map(f=>[f.id,f.name]);
+ else if(S.mode=='room')ents=(await api('/api/rooms')).map(r=>[r.id,r.name]);
+ else if(S.mode=='student')ents=(await api('/api/students')).map(s=>[s.id,`${s.register_number} · ${s.name} (${s.home_department||''})`]);
+ else if(S.mode=='common')ents=[['all','All College-Wide Offerings']];
 
-async function openSessionModal(entryId){
-  const entry = S.ttEntries.find(e => e.id == entryId);
-  if(!entry) return;
-  const [fac, rooms] = await Promise.all([
-    api('/api/faculty'),
-    (me&&me.features&&me.features.rooms) ? api('/api/rooms') : []
-  ]);
+ if(S.mode=='student'){
+  if(!ents.some(e=>e[0]==S.sel))S.sel=ents.length?ents[0][0]:null;
+  const res=S.sel?await api(`/api/students/${S.sel}/timetable`):{student:{},entries:[]};
+  return renderStudentTimetable(res.student||{},res.entries||[],ents);
+ }
+ if(S.mode=='common'){
+  const list=await api('/api/timetables/common-courses');
+  return renderCommonTimetable(list);
+ }
 
-  const modal = $('#modal-slot');
-  modal.innerHTML = `
-    <div class="modal-backdrop" onclick="if(event.target===this)closeModal()">
-      <div class="modal-box">
-        <div class="sm" style="font-weight:600;text-transform:uppercase;color:var(--brand)">Session Configuration</div>
-        <h2 style="margin:4px 0 2px">${esc(entry.subject)}</h2>
-        <p class="sub">${DAYS[entry.day]} · Period ${entry.period+1}</p>
-
-        <form onsubmit="onQuickEditSave(event, ${entryId})">
-          <div class="form-group">
-            <label>Assigned Faculty</label>
-            <select id="mdl_fac">
-              ${fac.map(f => `<option value="${f.id}" ${f.id == entry.faculty_id ? 'selected' : ''}>${esc(f.name)} (${esc(f.faculty_code)})</option>`).join('')}
-            </select>
-          </div>
-
-          ${rooms.length ? `
-          <div class="form-group">
-            <label>Room / Laboratory</label>
-            <select id="mdl_room">
-              <option value="">No specific room</option>
-              ${rooms.map(r => `<option value="${r.id}" ${r.id == entry.room_id ? 'selected' : ''}>${esc(r.name)} (${r.room_type})</option>`).join('')}
-            </select>
-          </div>` : ''}
-
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:24px">
-            <button type="button" class="btn btn-sm btn-danger" onclick="onDeleteSession(${entryId})">Delete</button>
-            <div style="display:flex;gap:8px">
-              <button type="button" class="btn btn-sm" onclick="closeModal()">Cancel</button>
-              <button type="submit" class="btn btn-sm btn-primary">Save Changes</button>
-            </div>
-          </div>
-        </form>
-      </div>
-    </div>`;
-}
-
-function closeModal(){
-  $('#modal-slot').innerHTML = '';
-}
-
-async function onQuickEditSave(ev, entryId){
-  ev.preventDefault();
-  const facId = +$('#mdl_fac').value;
-  const roomId = $('#mdl_room') ? (+$('#mdl_room').value || null) : null;
-  try{
-    await api(`/api/entries/${entryId}`, {
-      method: 'PUT',
-      body: { faculty_id: facId, room_id: roomId }
-    });
-    closeModal();
-    toast('Session updated', true);
-    render();
-  } catch(e){
-    toast(e.message, false);
-  }
-}
-
-async function onDeleteSession(entryId){
-  if(!confirm('Permanently delete this scheduled session?')) return;
-  try{
-    await api(`/api/entries/${entryId}`, { method: 'DELETE' });
-    closeModal();
-    toast('Session deleted', true);
-    render();
-  } catch(e){
-    toast(e.message, false);
-  }
-}
-
-/* =========================================================================
-   MODULE 3: SUBJECTS (Allocations, MDC/Minor, Offerings, Enrollment, Classes)
-   ========================================================================= */
-async function renderSubjects(){
-  const tab = S.subTab || 'alloc';
-  const tabs = [
-    ['alloc','Department Allocations'],
-    ['courses','MDC &amp; Minor Catalog'],
-    ['offerings','Course Offerings'],
-    ['enroll','Cross-Enrollment'],
-    ['classes','Classes &amp; Sections']
-  ];
-
-  let body = '';
-  if(tab==='alloc') body = await renderAllocationsTab();
-  else if(tab==='courses') body = await renderCoursesTab();
-  else if(tab==='offerings') body = await renderOfferingsTab();
-  else if(tab==='enroll') body = await renderEnrollmentTab();
-  else if(tab==='classes') body = await renderClassesTab();
-
-  return `
-    <div style="margin-bottom:20px">
-      <h1>Curriculum &amp; Course Offerings</h1>
-      <p class="sub">Manage department courses, college-wide MDC &amp; Minor selections, and student cross-enrollment.</p>
-    </div>
-
-    <div class="segmented-tabs" style="margin-bottom:20px">
-      ${tabs.map(([k,l]) => `<button class="segmented-tab ${tab===k?'active':''}" onclick="S.subTab='${k}';render()">${l}</button>`).join('')}
-    </div>
-
-    ${body}`;
-}
-
-async function renderAllocationsTab(){
-  const [a, c, f] = await Promise.all([api('/api/allocations'), api('/api/classes'), api('/api/faculty')]);
-  const q = S.searchQuery.toLowerCase();
-  const filtered = a.filter(x => !q || x.subject.toLowerCase().includes(q) || x.class_name.toLowerCase().includes(q) || (x.teacher||'').toLowerCase().includes(q));
-
-  return `
-    <div class="card" style="margin-bottom:20px">
-      <h3>Add Department Subject Allocation</h3>
-      <p class="sub">Allocate a subject to a class cohort with weekly frequency.</p>
-      <div class="form-row" style="margin-top:14px">
-        <div>
-          <label>Class</label>
-          <select id="alloc_cls">${c.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('')}</select>
-        </div>
-        <div>
-          <label>Subject Title</label>
-          <input id="alloc_sub" placeholder="e.g. Data Structures">
-        </div>
-        <div>
-          <label>Weekly Sessions</label>
-          <select id="alloc_ses">${[1,2,3,4,5,6].map(n=>`<option ${n==3?'selected':''}>${n}</option>`).join('')}</select>
-        </div>
-        <div>
-          <label>Faculty</label>
-          <select id="alloc_fac">${f.map(x=>`<option value="${x.id}">${esc(x.name)} (${esc(x.department||'')})</option>`).join('')}</select>
-        </div>
-      </div>
-      <div style="margin-top:14px">
-        <button class="btn btn-primary btn-sm" onclick="submitAddAlloc()">+ Allocate Subject</button>
-      </div>
-    </div>
-
-    <div class="table-container">
-      <div class="table-toolbar">
-        <div class="search-input-wrapper">
-          <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-          <input placeholder="Search allocations..." value="${esc(S.searchQuery)}" oninput="S.searchQuery=this.value;render()">
-        </div>
-        <div class="sm">${filtered.length} allocation(s)</div>
-      </div>
-      <table class="data-table">
-        <thead><tr><th>Class</th><th>Subject</th><th>Faculty</th><th>Sessions Placed</th></tr></thead>
-        <tbody>
-          ${filtered.length ? filtered.map(x=>`
-            <tr>
-              <td><b>${esc(x.class_name)}</b></td>
-              <td>${esc(x.subject)}</td>
-              <td>${esc(x.teacher)}</td>
-              <td><span class="badge badge-brand">${x.placed} / ${x.sessions_per_week}</span></td>
-            </tr>
-          `).join('') : '<tr><td colspan="4" style="text-align:center;color:var(--text-muted)">No allocations match your search.</td></tr>'}
-        </tbody>
-      </table>
-    </div>`;
-}
-
-async function renderCoursesTab(){
-  const courses = await api('/api/courses?all=true');
-  const q = S.searchQuery.toLowerCase();
-  const filtered = courses.filter(c => !q || c.course_code.toLowerCase().includes(q) || c.course_name.toLowerCase().includes(q) || (c.department_name||'').toLowerCase().includes(q));
-
-  return `
-    <div class="card" style="margin-bottom:20px">
-      <h3>Add New Course to Catalog</h3>
-      <p class="sub">Configure course classification and selection method.</p>
-      <div class="form-row" style="margin-top:14px">
-        <div>
-          <label>Course Code</label>
-          <input id="crs_code" placeholder="e.g. MDC-CS-01" style="text-transform:uppercase">
-        </div>
-        <div>
-          <label>Course Title</label>
-          <input id="crs_name" placeholder="Full course title">
-        </div>
-        <div>
-          <label>Course Type</label>
-          <select id="crs_type">
-            <option value="Regular">Regular Subject</option>
-            <option value="MDC" selected>MDC</option>
-            <option value="Minor">Minor</option>
-          </select>
-        </div>
-        <div>
-          <label>Selection Type</label>
-          <select id="crs_sel">
-            <option value="STUDENT_SELECTED">Student-Selected (College-Wide)</option>
-            <option value="DEPARTMENT_SELECTED">Department-Selected (Internal)</option>
-          </select>
-        </div>
-      </div>
-      <div style="margin-top:14px">
-        <button class="btn btn-primary btn-sm" onclick="submitAddCourse()">+ Create Course</button>
-      </div>
-    </div>
-
-    <div class="table-container">
-      <div class="table-toolbar">
-        <div class="search-input-wrapper">
-          <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-          <input placeholder="Search courses..." value="${esc(S.searchQuery)}" oninput="S.searchQuery=this.value;render()">
-        </div>
-        <div class="sm">${filtered.length} course(s)</div>
-      </div>
-      <table class="data-table">
-        <thead><tr><th>Code</th><th>Course Name</th><th>Offering Department</th><th>Type</th><th>Selection Model</th></tr></thead>
-        <tbody>
-          ${filtered.length ? filtered.map(c=>`
-            <tr>
-              <td class="mono"><b>${esc(c.course_code)}</b></td>
-              <td><b>${esc(c.course_name)}</b></td>
-              <td>${esc(c.department_name)} <span class="badge ${c.category_name==='Aided'?'badge-brand':'badge-warning'}">${esc(c.category_name||'')}</span></td>
-              <td>${c.course_type==='MDC'?'<span class="badge badge-danger">MDC</span>':c.course_type==='Minor'?'<span class="badge badge-warning">Minor</span>':'<span class="badge badge-success">Regular</span>'}</td>
-              <td>${c.selection_type==='STUDENT_SELECTED'?'<span class="badge badge-brand">Student-Selected (College-Wide)</span>':'<span class="badge badge-neutral">Department-Selected</span>'}</td>
-            </tr>
-          `).join('') : '<tr><td colspan="5" style="text-align:center;color:var(--text-muted)">No courses match your filter.</td></tr>'}
-        </tbody>
-      </table>
-    </div>`;
-}
-
-async function renderOfferingsTab(){
-  const [courses, offs, fac] = await Promise.all([
-    api('/api/courses'),
-    api('/api/offerings/all'),
-    api('/api/faculty')
-  ]);
-
-  return `
-    <div class="card" style="margin-bottom:20px">
-      <h3>Launch Active Course Offering</h3>
-      <p class="sub">Open an offering section for enrollment with capacity limit.</p>
-      <div class="form-row" style="margin-top:14px">
-        <div>
-          <label>Course</label>
-          <select id="off_crs">${courses.map(c=>`<option value="${c.id}">${esc(c.course_code)} · ${esc(c.course_name)}</option>`).join('')}</select>
-        </div>
-        <div>
-          <label>Offering Code</label>
-          <input id="off_code" placeholder="e.g. MDC-CS-S1" style="text-transform:uppercase">
-        </div>
-        <div>
-          <label>Weekly Sessions</label>
-          <select id="off_ses">${[1,2,3,4,5].map(n=>`<option ${n==2?'selected':''}>${n}</option>`).join('')}</select>
-        </div>
-        <div>
-          <label>Max Enrollment</label>
-          <input id="off_cap" type="number" min="5" max="300" value="60">
-        </div>
-        <div>
-          <label>Teacher</label>
-          <select id="off_fac">${fac.map(f=>`<option value="${f.id}">${esc(f.name)} (${esc(f.department||'')})</option>`).join('')}</select>
-        </div>
-      </div>
-      <div style="margin-top:14px">
-        <button class="btn btn-primary btn-sm" onclick="submitAddOffering()">+ Launch Offering</button>
-      </div>
-    </div>
-
-    <div class="table-container">
-      <table class="data-table">
-        <thead><tr><th>Code</th><th>Course</th><th>Department</th><th>Selection</th><th>Sessions</th><th>Faculty</th><th>Enrolled / Max</th><th>Actions</th></tr></thead>
-        <tbody>
-          ${offs.length ? offs.map(o=>`
-            <tr>
-              <td class="mono"><b>${esc(o.offering_code)}</b></td>
-              <td><b>${esc(o.course_name)}</b></td>
-              <td>${esc(o.offering_department)}</td>
-              <td>${o.selection_type==='STUDENT_SELECTED'?'<span class="badge badge-brand">Student-Selected</span>':'<span class="badge badge-neutral">Internal</span>'}</td>
-              <td>${o.required_sessions}</td>
-              <td>${esc(o.teacher || 'Unassigned')}</td>
-              <td><b>${o.enrolled_count||0}</b> / ${o.max_enrollment}</td>
-              <td>
-                <div style="display:flex;gap:6px">
-                  <button class="btn btn-sm" onclick="addSectionPrompt(${o.id})">+ Section</button>
-                  ${o.offering_department_id==me.department.id ? `<button class="btn btn-sm btn-danger" onclick="deleteOffering(${o.id})">Remove</button>` : ''}
-                </div>
-              </td>
-            </tr>
-          `).join('') : '<tr><td colspan="8" style="text-align:center;color:var(--text-muted)">No course offerings created yet.</td></tr>'}
-        </tbody>
-      </table>
-    </div>`;
-}
-
-async function renderEnrollmentTab(){
-  const [students, offs] = await Promise.all([
-    api('/api/students'),
-    api('/api/offerings/all')
-  ]);
-  if(!S.stuOff && offs.length) S.stuOff = offs[0].id;
-  const curOff = offs.find(o => o.id == S.stuOff);
-  let enr = {enrolled:[], by_department:{}, total_enrolled:0};
-  if(curOff){
-    try { enr = await api(`/api/offerings/${curOff.id}/enrollments`); } catch(e){}
-  }
-
-  return `
-    <div class="card" style="margin-bottom:20px">
-      <h3>Cross-Department Student Enrollment</h3>
-      <p class="sub">Enroll students from different departments into college-wide offerings.</p>
-      <div class="form-row" style="margin-top:14px">
-        <div>
-          <label>Active Offering</label>
-          <select onchange="S.stuOff=+this.value;render()">
-            ${offs.map(o=>`<option value="${o.id}" ${o.id==S.stuOff?'selected':''}>${esc(o.offering_code)} · ${esc(o.course_name)} (${esc(o.offering_department)})</option>`).join('')}
-          </select>
-        </div>
-      </div>
-
-      ${curOff ? `
-        <div style="margin-top:14px;background:var(--bg-subtle);padding:14px;border-radius:var(--radius-md);border:1px solid var(--border-subtle)">
-          <div style="display:flex;justify-content:space-between;align-items:center">
-            <span style="font-weight:600">Capacity: ${enr.total_enrolled} / ${curOff.max_enrollment} students</span>
-            <span class="badge ${curOff.selection_type==='STUDENT_SELECTED'?'badge-brand':'badge-neutral'}">${curOff.selection_type==='STUDENT_SELECTED'?'College-Wide Enrollment':'Home Dept Restricted'}</span>
-          </div>
-          <div style="height:6px;background:var(--border-subtle);border-radius:3px;margin:8px 0;overflow:hidden">
-            <div style="height:100%;width:${Math.min(100, Math.round((enr.total_enrolled/curOff.max_enrollment)*100))}%;background:var(--brand)"></div>
-          </div>
-          <div class="form-row" style="margin-top:12px">
-            <div>
-              <label>Select Student to Enroll</label>
-              <select id="enr_stu_id">
-                ${students.map(s=>`<option value="${s.id}">${esc(s.register_number)} · ${esc(s.name)} (${esc(s.class_name||'Unassigned')})</option>`).join('')}
-              </select>
-            </div>
-            ${(curOff.sections&&curOff.sections.length)?`
-            <div>
-              <label>Section</label>
-              <select id="enr_sec_id">
-                <option value="">Default section</option>
-                ${curOff.sections.map(sec=>`<option value="${sec.id}">Section ${esc(sec.section_name)} (Cap ${sec.capacity})</option>`).join('')}
-              </select>
-            </div>`:''}
-            <div style="display:flex;align-items:flex-end">
-              <button class="btn btn-primary btn-sm" onclick="submitEnrollStudent()">Enroll Student</button>
-            </div>
-          </div>
-        </div>
-      ` : ''}
-    </div>
-
-    <div class="table-container">
-      <table class="data-table">
-        <thead><tr><th>Register Number</th><th>Student Name</th><th>Home Department</th><th>Cohort</th><th>Action</th></tr></thead>
-        <tbody>
-          ${enr.enrolled.length ? enr.enrolled.map(e=>`
-            <tr>
-              <td class="mono"><b>${esc(e.register_number)}</b></td>
-              <td><b>${esc(e.name)}</b></td>
-              <td>${esc(e.home_department)}</td>
-              <td>${esc(e.class_name || '—')}</td>
-              <td><button class="btn btn-sm btn-danger" onclick="unenrollStudent(${curOff.id}, ${e.student_id})">Unenroll</button></td>
-            </tr>
-          `).join('') : '<tr><td colspan="5" style="text-align:center;color:var(--text-muted)">No students enrolled yet.</td></tr>'}
-        </tbody>
-      </table>
-    </div>`;
-}
-
-async function renderClassesTab(){
-  const classes = await api('/api/classes');
-  return `
-    <div class="card" style="margin-bottom:20px">
-      <h3>Create Class / Section Cohort</h3>
-      <div class="form-row" style="margin-top:14px">
-        <div>
-          <label>Class Name</label>
-          <input id="cls_name" placeholder="e.g. BSc CS · Sem 1 · A">
-        </div>
-        <div>
-          <label>Semester</label>
-          <select id="cls_sem">${[1,2,3,4,5,6,7,8].map(n=>`<option>${n}</option>`).join('')}</select>
-        </div>
-        <div>
-          <label>Section</label>
-          <input id="cls_sec" value="A">
-        </div>
-        <div>
-          <label>Student Count</label>
-          <input id="cls_stu" type="number" min="5" max="300" value="40">
-        </div>
-      </div>
-      <div style="margin-top:14px">
-        <button class="btn btn-primary btn-sm" onclick="submitAddClass()">+ Add Class</button>
-      </div>
-    </div>
-
-    <div class="table-container">
-      <table class="data-table">
-        <thead><tr><th>ID</th><th>Class Name</th><th>Semester</th><th>Section</th><th>Students</th></tr></thead>
-        <tbody>
-          ${classes.map(c=>`
-            <tr>
-              <td class="mono">${c.id}</td>
-              <td><b>${esc(c.name)}</b></td>
-              <td>${c.semester}</td>
-              <td><span class="badge badge-neutral">${esc(c.section)}</span></td>
-              <td>${c.students||'—'}</td>
-            </tr>
-          `).join('')}
-        </tbody>
-      </table>
-    </div>`;
-}
-
-/* =========================================================================
-   MODULE 4: RULES (Working days, Periods, Break timings, Common Slots)
-   ========================================================================= */
-async function renderRules(){
-  if(!S.rcfg){
-    const r = await api('/api/settings');
-    S.rcfg = JSON.parse(JSON.stringify(r.config));
-    S.rdefs = r.rule_defs;
-    S.rstale = r.stale;
-  }
-  const c = S.rcfg;
-  const commonSlots = await api('/api/common-slots');
-
-  const daysCheckboxes = `
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 20px">
-      ${[0,1,2,3,4,5,6].map(d=>`
-        <button type="button" class="btn btn-sm ${c.days.includes(d)?'btn-primary':''}" onclick="toggleDay(${d})">
-          ${DAYS[d].slice(0,3)}
-        </button>
-      `).join('')}
-    </div>`;
-
-  let perRows = '';
-  c.periods.forEach((p, i) => {
-    const prev = c.periods[i-1];
-    if(prev && tomin(p.start) > tomin(prev.end)){
-      perRows += `<tr class="gapnote"><td></td><td colspan="3" class="sm" style="color:var(--warning)">Break · ${tomin(p.start)-tomin(prev.end)} min</td></tr>`;
-    }
-    perRows += `<tr>
-      <td><b>P${i+1}</b></td>
-      <td><input type="time" data-pt="${i}:start" value="${p.start}"></td>
-      <td><input type="time" data-pt="${i}:end" value="${p.end}"></td>
-      <td><button class="btn btn-sm btn-danger" onclick="removePeriod(${i})" ${c.periods.length<2?'disabled':''}>Remove</button></td>
-    </tr>`;
-  });
-
-  const freeGrid = `
-    <div class="table-container"><table class="data-table" style="min-width:440px">
-      <thead><tr><th></th>${c.days.map(d=>`<th>${DAYS[d].slice(0,3)}</th>`).join('')}</tr></thead>
-      <tbody>
-        ${c.periods.map((p, i)=>`
-          <tr>
-            <td class="mono sm"><b>${p.start}</b></td>
-            ${c.days.map(d=>{
-              const on = (c.free||[]).some(f=>f[0]==d && f[1]==i);
-              return `<td style="height:44px;text-align:center;vertical-align:middle">
-                <button type="button" class="btn btn-sm ${on?'btn-danger':'btn-ghost'}" onclick="toggleFreeSlot(${d}, ${i})" style="width:90%">
-                  ${on?'Kept Free':'Open'}
-                </button>
-              </td>`;
-            }).join('')}
-          </tr>
-        `).join('')}
-      </tbody>
-    </table></div>`;
-
-  return `
-    <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:20px;flex-wrap:wrap;gap:12px">
-      <div>
-        <h1>Timetable Rules &amp; Schedule Policies</h1>
-        <p class="sub">Configure working days, period timings, breaks, kept-free periods, and college-wide common time slots.</p>
-      </div>
-      <div>
-        <button class="btn btn-primary" onclick="saveAllRules()">Save Rules</button>
-      </div>
-    </div>
-
-    ${S.rstale ? `<div class="card" style="border-left:4px solid var(--warning);margin-bottom:20px"><b>Notice:</b> Schedule settings changed. Regenerate timetable to apply.</div>` : ''}
-
-    <div class="form-row" style="grid-template-columns:1.2fr 1fr">
-      <div>
-        <div class="card" style="margin-bottom:20px">
-          <h3>Active Teaching Days</h3>
-          <p class="sub">Select working days for your department.</p>
-          ${daysCheckboxes}
-
-          <h3>Teaching Periods &amp; Breaks</h3>
-          <p class="sub">Configured daily period times. Gaps between periods become scheduled breaks.</p>
-          <div class="table-container" style="margin-top:12px">
-            <table class="data-table">
-              <thead><tr><th>Period</th><th>Start</th><th>End</th><th>Action</th></tr></thead>
-              <tbody>${perRows}</tbody>
-            </table>
-          </div>
-          <div style="display:flex;gap:10px;margin-top:14px">
-            <button class="btn btn-sm" onclick="addPeriod()">+ Add Period</button>
-            <button class="btn btn-sm" onclick="presetPeriods()">Reset to Standard 6 Periods</button>
-          </div>
-        </div>
-      </div>
-
-      <div>
-        <div class="card" style="margin-bottom:20px">
-          <h3>Kept-Free Periods</h3>
-          <p class="sub">Mark periods that no class in this department should use.</p>
-          ${freeGrid}
-        </div>
-
-        <div class="card">
-          <h3>College-Wide Common Slots</h3>
-          <p class="sub">Fixed synchronized periods for student-selected MDC &amp; Minor courses.</p>
-          <div class="table-container" style="margin-top:12px">
-            <table class="data-table">
-              <thead><tr><th>Day</th><th>Time</th><th>Course Type</th><th>Slot Name</th></tr></thead>
-              <tbody>
-                ${commonSlots.length ? commonSlots.map(cs=>`
-                  <tr>
-                    <td><b>${DAYS[cs.day]}</b></td>
-                    <td class="mono">${cs.start}–${cs.end}</td>
-                    <td><span class="badge ${cs.applicable_course_type==='MDC'?'badge-danger':cs.applicable_course_type==='Minor'?'badge-warning':'badge-success'}">${cs.applicable_course_type}</span></td>
-                    <td>${esc(cs.name)}</td>
-                  </tr>
-                `).join('') : '<tr><td colspan="4" style="text-align:center;color:var(--text-muted)">No common slots configured.</td></tr>'}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </div>`;
-}
-
-/* =========================================================================
-   MODULE 5: SETTINGS
-   ========================================================================= */
-async function renderSettings(){
-  const audit = await api('/api/audit');
-  return `
-    <div style="margin-bottom:24px">
-      <h1>Settings &amp; Preferences</h1>
-      <p class="sub">Department profile, credentials, and institutional synchronization details.</p>
-    </div>
-
-    <div class="form-row" style="grid-template-columns:1.2fr 1fr">
-      <div>
-        <div class="card" style="margin-bottom:20px">
-          <h3>Department Profile</h3>
-          <p class="sub">Institutional classification and credentials.</p>
-          <div style="margin-top:16px;display:flex;flex-direction:column;gap:12px">
-            <div style="display:flex;justify-content:space-between;padding-bottom:10px;border-bottom:1px solid var(--border-subtle)">
-              <span class="sm">Department Name</span>
-              <b>${esc(me.department.name)}</b>
-            </div>
-            <div style="display:flex;justify-content:space-between;padding-bottom:10px;border-bottom:1px solid var(--border-subtle)">
-              <span class="sm">Department Code</span>
-              <span class="mono"><b>${esc(me.department.code)}</b></span>
-            </div>
-            <div style="display:flex;justify-content:space-between;padding-bottom:10px;border-bottom:1px solid var(--border-subtle)">
-              <span class="sm">Username</span>
-              <span class="mono">${esc(me.username)}</span>
-            </div>
-            <div style="display:flex;justify-content:space-between;padding-bottom:10px;border-bottom:1px solid var(--border-subtle)">
-              <span class="sm">Institutional Category</span>
-              <span class="badge ${me.department.category==='Aided'?'badge-brand':'badge-warning'}">${esc(me.department.category)}</span>
-            </div>
-            <div style="display:flex;justify-content:space-between">
-              <span class="sm">Scheduling Priority</span>
-              <b>Equal Priority (College-Wide Synchronization)</b>
-            </div>
-          </div>
-        </div>
-
-        <div class="card">
-          <h3>Security &amp; Password</h3>
-          <p class="sub">Update your department password.</p>
-          <form onsubmit="onUpdatePassword(event)" style="margin-top:16px">
-            <div class="form-group">
-              <label>Current Password</label>
-              <input type="password" id="pw_cur" required>
-            </div>
-            <div class="form-group">
-              <label>New Password (10+ characters, letters &amp; numbers)</label>
-              <input type="password" id="pw_new" required>
-            </div>
-            <div class="form-group">
-              <label>Confirm New Password</label>
-              <input type="password" id="pw_cnf" required>
-            </div>
-            <button type="submit" class="btn btn-primary btn-sm">Update Password</button>
-          </form>
-        </div>
-      </div>
-
-      <div>
-        <div class="card">
-          <h3>Audit Log History</h3>
-          <p class="sub">Logged actions for this department.</p>
-          <div style="max-height:480px;overflow-y:auto;margin-top:14px">
-            <table class="data-table">
-              <thead><tr><th>Time</th><th>Action</th><th>Detail</th></tr></thead>
-              <tbody>
-                ${audit&&audit.length ? audit.map(a => {
-                  const dt = a.at ? new Date(a.at).toLocaleString(undefined, {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : 'Recent';
-                  return `<tr>
-                    <td class="sm mono">${dt}</td>
-                    <td><b>${esc((a.action||'').replace(/_/g,' '))}</b></td>
-                    <td class="sm">${a.reason ? esc(a.reason) : (a.new_value? JSON.stringify(a.new_value) : '—')}</td>
-                  </tr>`;
-                }).join('') : '<tr><td colspan="3" style="text-align:center;color:var(--text-muted)">No audit entries.</td></tr>'}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </div>`;
-}
-
-// Action Handlers
-async function generateTimetable(){
-  try{
-    const res = await api('/api/generate', { method:'POST', body:{} });
-    if(res.status==='ok') toast(`Timetable generated successfully! Quality: ${res.quality}%`, true);
-    else toast(res.message || 'Could not place all sessions', false);
-    S.pendingMoves = {};
-    S.undoStack = [];
-    S.conflicts = [];
-    render();
-  }catch(e){
-    toast(e.message, false);
-  }
-}
-
-async function submitAddAlloc(){
-  const body = {
-    class_id: +$('#alloc_cls').value,
-    subject: $('#alloc_sub').value.trim(),
-    sessions: +$('#alloc_ses').value,
-    faculty_id: +$('#alloc_fac').value
-  };
-  if(!body.subject) return toast('Please enter subject title', false);
-  try{
-    await api('/api/allocations', { method:'POST', body });
-    toast('Subject allocated successfully');
-    render();
-  } catch(e){
-    toast(e.message, false);
-  }
-}
-
-async function submitAddCourse(){
-  const body = {
-    course_code: $('#crs_code').value.trim().toUpperCase(),
-    course_name: $('#crs_name').value.trim(),
-    course_type: $('#crs_type').value,
-    selection_type: $('#crs_sel').value
-  };
-  if(!body.course_code || !body.course_name) return toast('Fill course code and title', false);
-  try{
-    await api('/api/courses', { method:'POST', body });
-    toast('Course created in catalog');
-    render();
-  }catch(e){
-    toast(e.message, false);
-  }
-}
-
-async function submitAddOffering(){
-  const body = {
-    course_id: +$('#off_crs').value,
-    offering_code: $('#off_code').value.trim().toUpperCase(),
-    required_sessions: +$('#off_ses').value,
-    max_enrollment: +$('#off_cap').value,
-    faculty_id: +$('#off_fac').value,
-    room_id: null
-  };
-  if(!body.offering_code) return toast('Enter offering code', false);
-  try{
-    await api('/api/offerings', { method:'POST', body });
-    toast('Course offering launched');
-    render();
-  }catch(e){
-    toast(e.message, false);
-  }
-}
-
-async function addSectionPrompt(offId){
-  const name = prompt('Section Name (e.g. B, C):', 'B');
-  if(!name) return;
-  const cap = +prompt('Section Capacity:', '30') || 30;
-  try{
-    await api(`/api/offerings/${offId}/sections`, { method:'POST', body:{ section_name: name.toUpperCase(), capacity: cap }});
-    toast(`Section ${name} created`);
-    render();
-  }catch(e){
-    toast(e.message, false);
-  }
-}
-
-async function deleteOffering(offId){
-  if(!confirm('Permanently remove this course offering?')) return;
-  try{
-    await api(`/api/offerings/${offId}`, { method:'DELETE' });
-    toast('Offering removed');
-    render();
-  }catch(e){
-    toast(e.message, false);
-  }
-}
-
-async function submitEnrollStudent(){
-  const sid = +$('#enr_stu_id').value;
-  const secEl = $('#enr_sec_id');
-  const secId = secEl ? (+secEl.value || null) : null;
-  try{
-    await api(`/api/offerings/${S.stuOff}/enrollments`, { method:'POST', body:{ student_id: sid, section_id: secId }});
-    toast('Student enrolled');
-    render();
-  }catch(e){
-    toast(e.message, false);
-  }
-}
-
-async function unenrollStudent(offId, stuId){
-  if(!confirm('Unenroll student from offering?')) return;
-  try{
-    await api(`/api/offerings/${offId}/enrollments/${stuId}`, { method:'DELETE' });
-    toast('Student unenrolled');
-    render();
-  }catch(e){
-    toast(e.message, false);
-  }
-}
-
-async function submitAddClass(){
-  const body = {
-    name: $('#cls_name').value.trim(),
-    semester: +$('#cls_sem').value,
-    section: $('#cls_sec').value.trim().toUpperCase() || 'A',
-    students: +$('#cls_stu').value || null
-  };
-  if(!body.name) return toast('Please enter class name', false);
-  try{
-    await api('/api/classes', { method:'POST', body });
-    toast('Class added');
-    render();
-  }catch(e){
-    toast(e.message, false);
-  }
-}
-
-function toggleDay(d){
-  if(S.rcfg.days.includes(d)) S.rcfg.days = S.rcfg.days.filter(x => x !== d);
-  else S.rcfg.days = [...S.rcfg.days, d].sort();
-  render();
-}
-
-function toggleFreeSlot(d, p){
-  if(!S.rcfg.free) S.rcfg.free = [];
-  const idx = S.rcfg.free.findIndex(f => f[0] == d && f[1] == p);
-  if(idx >= 0) S.rcfg.free.splice(idx, 1);
-  else S.rcfg.free.push([d, p]);
-  render();
-}
-
-function addPeriod(){
-  const last = S.rcfg.periods[S.rcfg.periods.length - 1];
-  const start = last ? last.end : '09:00';
-  const endM = tomin(start) + 60;
-  S.rcfg.periods.push({ start: start, end: hm(endM) });
-  render();
-}
-
-function removePeriod(i){
-  S.rcfg.periods.splice(i, 1);
-  render();
-}
-
-function presetPeriods(){
-  S.rcfg.periods = [
-    {start:'09:00', end:'10:00'},
-    {start:'10:00', end:'11:00'},
-    {start:'11:15', end:'12:15'},
-    {start:'12:15', end:'13:15'},
-    {start:'14:00', end:'15:00'},
-    {start:'15:00', end:'16:00'}
-  ];
-  render();
-}
-
-async function saveAllRules(){
-  document.querySelectorAll('input[data-pt]').forEach(inp => {
-    const [idx, field] = inp.dataset.pt.split(':');
-    S.rcfg.periods[+idx][field] = inp.value;
-  });
-  try{
-    await api('/api/settings', { method:'PUT', body: S.rcfg });
-    S.rstale = true;
-    toast('Rules and period timings saved', true);
-    render();
-  }catch(e){
-    toast(e.message, false);
-  }
-}
-
-async function onUpdatePassword(ev){
-  ev.preventDefault();
-  const cur = $('#pw_cur').value;
-  const nw = $('#pw_new').value;
-  const cnf = $('#pw_cnf').value;
-  if(nw !== cnf) return toast('Passwords do not match', false);
-  try{
-    await api('/api/auth/change-password', { method:'POST', body:{ current: cur, new: nw }});
-    toast('Password updated successfully', true);
-    $('#pw_cur').value = ''; $('#pw_new').value = ''; $('#pw_cnf').value = '';
-  }catch(e){
-    toast(e.message, false);
-  }
-}
-
-async function logout(){
-  if(!confirm('Sign out of your department workspace?')) return;
-  await api('/api/auth/logout', { method:'POST' });
-  location.replace('/login.html');
-}
-
-// Start
-init();
-</script>
-</body>
-</html>
+ if(!ents.some(e=>e[0]==S.sel))S.sel=ents.length?ents[0][0]:null;
+ const url=S.mode=='class'?`/api/timetable/${S.sel}`:S.mode=='teacher'?`/api/faculty/${S.sel}/timetable`:`/api/rooms/${S.sel}/timetable`;
+ const rows=await api(url);S.rows=rows;
+ const prs=cfg.periods.map((p,i)=>({s:p.start,e:p.end,p:i})),seen=new Set(),other=[];
+ rows.forEach(r=>{const k=r.start+'-'+r.end;if(!seen.has(k)){seen.add(k);other.push({s:r.start,e:r.end,p:-1})}});
+ const known=new Set(prs.map(r=>r.s+'-'+r.e));
+ let rws=S.mode=='class'?prs.concat(other.filter(o=>!known.has(o.s+'-'+o.e))):(other.length?other:prs);
+ rws=rws.sort((a,b)=>a.s<b.s?-1:a.s>b.s?1:0);
+ const days=[...new Set(cfg.days.concat(rows.map(r=>r.day)))].sort((a,b)=>a-b),narrow=innerWidth<820,ds=narrow?[days.includes(S.dy)?S.dy:days[0]]:days;
+ const cell=(d,r)=>{const e=rows.find(x=>x.day==d&&x.start==r.s&&x.end==r.e);if(!e)return '<div class="fr">'+((cfg.free||[]).some(f=>f[0]==d&&f[1]==r.p)?'Kept free':'Free')+'</div>';
+  return `<div class="c ${e.lab?'lb':''}" ${S.mode=='class'?`draggable="true" data-id="${e.id}"`:''} tabindex="0"><b>${esc(e.subject)}</b><span>${esc(S.mode=='class'?e.teacher:e.class_name)}</span>${roomsOn()?`<span>${esc(S.mode=='room'?e.teacher:e.room)}</span>`:''}</div>`};
+ let g=`<div class="gw"><table class="g"><thead><tr><th></th>${ds.map(d=>`<th>${DAYS[d]}</th>`).join('')}</tr></thead><tbody>`,prev=null;
+ for(const r of rws){if(prev&&tmn(r.s)-tmn(prev.e)>=5)g+=`<tr><td class="t"></td><td class="br" colspan="${ds.length}">BREAK · ${tmn(r.s)-tmn(prev.e)} MIN</td></tr>`;
+  g+=`<tr><td class="t">${r.s}<br>${r.e}</td>${ds.map(d=>`<td ${r.p>=0&&S.mode=='class'?`data-d="${d}" data-p="${r.p}"`:''}>${cell(d,r)}</td>`).join('')}</tr>`;prev=r}
+ return head('Timetable',esc((ents.find(e=>e[0]==S.sel)||[])[1]),S.mode=='class'?'Drag a session to another period. Every change is checked against the whole college and your rules.':'Shared view across all departments. Read only.',gen)+
+ (st.stale?`<div class="note"><b>Your period times or days changed.</b> Generate the timetable again to apply them.</div>`:'')+
+ `<div class="row noprint"><div class="seg" role="group" aria-label="View">${[['class','Class'],['teacher','Teacher']].concat(roomsOn()?[['room','Room / lab']]:[]).concat([['student','Student schedule'],['common','Common courses']]).map(([k,l])=>`<button data-m="${k}" aria-pressed="${S.mode==k}">${l}</button>`).join('')}</div><select id="sel" aria-label="Select">${ents.map(([i,n])=>`<option value="${i}" ${i==S.sel?'selected':''}>${esc(n)}</option>`).join('')}</select><button class="btn" data-a="print">Print</button><button class="btn" data-v="ru">Timing &amp; rules</button></div>`+
+ (narrow?`<div class="seg noprint" style="margin-top:12px">${days.map(i=>`<button data-dy="${i}" aria-pressed="${ds[0]==i}">${DAYS[i].slice(0,3)}</button>`).join('')}</div>`:'')+g+'</tbody></table></div>'}
+async function ru(){if(!S.rcfg){const r=await api('/api/settings');S.rcfg=JSON.parse(JSON.stringify(r.config));S.rdefs=r.rule_defs;S.rstale=r.stale}
+ const c=S.rcfg,D=S.rdefs,MODE={off:'Off',prefer:'Prefer when possible',require:'Always required'};
+ const days=`<div class="row">${[0,1,2,3,4,5,6].map(d=>`<label class="chk"><input type="checkbox" data-rd="${d}" ${c.days.includes(d)?'checked':''}> ${DAYS[d].slice(0,3)}</label>`).join('')}</div>`;
+ let per='';c.periods.forEach((p,i)=>{const prev=c.periods[i-1];if(prev&&tmn(p.start)>tmn(prev.end))per+=`<tr class="gapnote"><td></td><td colspan="3" class="sm">Break · ${tmn(p.start)-tmn(prev.end)} min</td></tr>`;
+  per+=`<tr><td>${i+1}</td><td><input type="time" data-pt="${i}:start" value="${p.start}"></td><td><input type="time" data-pt="${i}:end" value="${p.end}"></td><td><button class="btn" data-a="rmper" data-i="${i}" ${c.periods.length<2?'disabled':''}>Remove</button></td></tr>`});
+ const rules=Object.entries(D).map(([k,df])=>{const r=c.rules[k]||{mode:'off'};return `<div class="item"><div class="row sp"><div style="max-width:560px"><b>${esc(df.title)}</b><div class="sm">${esc(df.help)}</div></div><div class="row"><select data-rm="${k}" aria-label="${esc(df.title)}">${df.modes.map(m=>`<option value="${m}" ${r.mode==m?'selected':''}>${MODE[m]}</option>`).join('')}</select>${df.param?`<label class="sm">${esc(df.param.label)}&nbsp;<input type="number" data-rp="${k}" min="${df.param.min}" max="${df.param.max}" value="${r[df.param.key]??df.param.default}" style="width:70px" ${r.mode=='off'?'disabled':''}></label>`:''}</div></div></div>`}).join('');
+ const free=`<div class="gw"><table class="g" style="min-width:420px"><thead><tr><th></th>${c.days.map(d=>`<th>${DAYS[d].slice(0,3)}</th>`).join('')}</tr></thead><tbody>${c.periods.map((p,i)=>`<tr><td class="t">${p.start}</td>${c.days.map(d=>{const on=c.free.some(f=>f[0]==d&&f[1]==i);return `<td style="height:40px"><button type="button" class="tg ${on?'on':''}" data-free="${d},${i}" aria-pressed="${on}">${on?'Kept free':'Use'}</button></td>`}).join('')}</tr>`).join('')}</tbody></table></div>`;
+ return head('Timetable rules','How your timetable looks','You decide the working days, period times, breaks and rules. Clash checks are always on: no double-booking, every required session placed, teacher availability.',`<button class="btn p noprint" data-a="saverules">Save</button>`)+
+ (S.rstale?`<div class="note"><b>Your timing changed after the last timetable was made.</b> Save, then generate again to apply it. <button class="btn" data-a="gen" style="margin-left:10px">Generate timetable</button></div>`:'')+
+ `<h2>Working days</h2>${days}<h2>Periods and breaks</h2><p class="sm">Each row is one teaching period. A gap between two periods is a break.</p><div class="gw"><table class="l"><thead><tr><th>#</th><th>Start</th><th>End</th><th></th></tr></thead><tbody>${per}</tbody></table></div><div class="row noprint" style="margin-top:10px"><button class="btn" data-a="addper">Add period</button><button class="btn" data-a="preset">Use 6 standard periods</button></div>
+ <h2>Rules</h2><p class="sm">Choose which rules your timetable should follow. “Always required” can make a timetable impossible; “Prefer when possible” never does.</p>${rules}<div class="row noprint" style="margin-top:12px"><button class="btn" data-a="clearrules">Turn all rules off</button></div>
+ <h2>Keep these periods free</h2><p class="sm">Select periods that none of your classes should use, for example a free hour for everyone.</p>${free}<div class="row noprint" style="margin-top:20px"><button class="btn p" data-a="saverules">Save</button></div>`}
+const dOf=x=>x.department||'Unassigned',depts=f=>[...new Set(f.map(dOf))].sort();
+const deptOpts=(f,sel)=>`<option value="">All departments</option>`+depts(f).map(d=>`<option ${d==sel?'selected':''}>${esc(d)}</option>`).join('');
+const facOpts=(f,d)=>f.filter(x=>!d||dOf(x)==d).sort((a,b)=>a.name.localeCompare(b.name)).map(x=>`<option value="${x.id}">${esc(x.name)} · ${x.faculty_code}${d?'':' · '+esc(dOf(x))}</option>`).join('')||'<option value="">No faculty in this department</option>';
+async function su(){const [a,c,f]=await Promise.all([api('/api/allocations'),api('/api/classes'),api('/api/faculty')]);S.fl=f;
+ return head('Curriculum','Subjects','Class → subject → sessions per week → faculty',gen)+
+ `<div class="note"><div class="row"><label>Class<br><select id="bc">${c.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('')}</select></label><label>Subject<br><input id="bs" placeholder="e.g. Python"></label>
+ ${roomsOn()?`<label>Type<br><select id="bl"><option value="">Lecture</option><option>Computer lab</option><option>Laboratory</option></select></label>`:''}<label>Sessions per week<br><select id="bn">${[1,2,3,4,5,6].map(n=>`<option ${n==3?'selected':''}>${n}</option>`).join('')}</select></label>
+ <label>Faculty department<br><select id="bd">${deptOpts(f,S.bd||'')}</select></label><label>Faculty<br><select id="bt">${facOpts(f,S.bd||'')}</select></label><label><br><button class="btn p" data-a="add">Add subject</button></label></div></div>`+
+ tab(['Class','Subject','Faculty','Placed'],a.map(x=>[esc(x.class_name),esc(x.subject),esc(x.teacher),`${x.placed} / ${x.sessions_per_week}`]))}
+function run(fn){const ov=$('#ov'),ul=$('#steps'),st=['Checking faculty availability…','Checking shared resources…','Resolving cross-department conflicts…','Balancing workloads…','Optimizing rooms…','Finalizing schedule…'];
+ $('#ovt').textContent=me.department.name;ul.innerHTML='';ov.classList.add('on');let i=0;const iv=setInterval(()=>{if(i<st.length)ul.insertAdjacentHTML('beforeend',`<li>${st[i++]}</li>`)},350);
+ fn().then(r=>{clearInterval(iv);ul.insertAdjacentHTML('beforeend',r.status=='ok'?`<li>✓ Timetable ready · no clashes · ${r.rules_used?r.quality+'% on your '+r.rules_used+' rule(s)':'no rules chosen yet'}</li>`:'<li>We couldn’t fit every session</li>');setTimeout(()=>{ov.classList.remove('on');S.gen=r.status=='ok'?null:r;if(r.status!='ok')V='co';draw()},1100)}).catch(e=>{clearInterval(iv);ov.classList.remove('on');toast(e.message)})}
+const err=m=>{const e=$('#e');if(e)e.textContent=m};
+function tick(){cool=30;const t=setInterval(()=>{cool--;const b=$('#rs');if(b)b.textContent=cool>0?'Resend code in '+cool+'s':'Resend code';if(cool<=0)clearInterval(t)},1000)}
+document.addEventListener('submit',async ev=>{ev.preventDefault();const id=ev.target.id;
+ try{if(id=='f1'){const r=await api('/api/auth/login',{method:'POST',body:{username:$('#u').value,password:$('#p').value}});if(r.signed_in){me=await api('/api/auth/me');V='dash';return draw()}ch=r.challenge_id;hint=r.email_hint;screen='code';tick();draw()}
+ else if(id=='f2'){const r=await api('/api/auth/verify',{method:'POST',body:{challenge_id:ch,code:$('#c').value}});me=await api('/api/auth/me');V='dash';draw()}
+ else if(id=='f3'){await api('/api/auth/reset',{method:'POST',body:{token:$('#t').value,new_password:$('#n').value}});screen='login';draw();toast('Password updated. Please sign in.',1)}}
+ catch(e){err(e.message)}});
+document.addEventListener('click',async ev=>{const t=ev.target.closest('button, [data-a]');if(!t)return;const D=t.dataset;
+ try{if(D.go=='forgot'||D.go=='login'){screen=D.go;draw()}
+ else if(D.go=='resend'){if(cool>0)return;await api('/api/auth/resend',{method:'POST',body:{challenge_id:ch}});tick();toast('A new code has been sent.',1)}
+ else if(D.go=='sendreset'){const r=await api('/api/auth/forgot',{method:'POST',body:{username:$('#u').value}});err(r.message)}
+ else if(D.v){V=D.v;S.gen=null;S.alt=null;S.rcfg=null;draw()}else if(D.m){S.mode=D.m;S.sel=null;draw()}else if(D.dy){S.dy=+D.dy;draw()}
+ else if(D.un){if(S.un.has(D.un))S.un.delete(D.un);else S.un.add(D.un);const on=S.un.has(D.un);t.classList.toggle('on',on);t.setAttribute('aria-pressed',on);t.textContent=on?'Unavailable':'Available'}
+ else if(D.fe){S.fe=+D.fe;S.fav=null;draw()}
+ else if(D.a=='newfac'){S.fe='new';S.fav=null;draw()}
+ else if(D.a=='cancelfac'){S.fe=null;draw()}
+ else if(D.a=='savefac'){const body={name:$('#fn').value,designation:$('#fg').value||null,email:$('#fx').value||null,max_weekly_sessions:+$('#fm').value};
+  if(S.fe=='new'){const r=await api('/api/faculty',{method:'POST',body});S.fe=r.id;toast('Teacher added as '+r.faculty_code+'. You can set unavailable periods now.',1)}
+  else{await api('/api/faculty/'+S.fe,{method:'PUT',body});await api('/api/faculty/'+S.fe+'/unavailable',{method:'PUT',body:{slots:[...S.un].map(k=>k.split(',').map(Number))}});toast('Changes saved.',1);S.fe=null}draw()}
+ else if(D.a=='rmfac'){const n=$('#fn').value;if(!confirm('Remove '+n+' from the faculty list? This can only be done if they have no subjects.'))return;await api('/api/faculty/'+S.fe,{method:'DELETE'});S.fe=null;toast('Teacher removed.',1);draw()} else if(D.fav){S.fav=D.fav;draw()}else if(D.rav){S.rav=D.rav;draw()}else if(D.rt){S.rt=D.rt;draw()}
+ else if(D.why!==undefined){$('#why').textContent=D.why}
+ else if(D.a=='gen')run(()=>api('/api/generate',{method:'POST',body:{}}));
+ else if(D.a=='alt'){S.alt=await api('/api/alternatives',{method:'POST'});draw()}
+ else if(D.a=='st'){await api('/api/status',{method:'PUT',body:{status:D.s}});toast('Status updated.',1);draw()}
+ else if(D.a=='add'){const b=$('#bs').value.trim();if(!b)return toast('Enter a subject name first.');await api('/api/allocations',{method:'POST',body:{class_id:+$('#bc').value,subject:b,faculty_id:+$('#bt').value,sessions:+$('#bn').value,lab:($('#bl')&&$('#bl').value)||null}});toast('Subject added. Generate to schedule it.',1);draw()}
+ else if(D.a=='seltype'){S.newCourseSel=D.st;redraw()}
+  else if(D.a=='addcourse'){const code=$('#cc_code').value.trim().toUpperCase(), name=$('#cc_name').value.trim(); if(!code||!name)return toast('Course code and name required.'); const ctype=$('#cc_type').value; const selType=ctype=='Regular'?null:(S.newCourseSel||'STUDENT_SELECTED'); await api('/api/courses',{method:'POST',body:{course_code:code,course_name:name,course_type:ctype,selection_type:selType,description:$('#cc_desc').value||null}}); toast('Course created.',1); redraw()}
+ else if(D.a=='addoffering'){const code=$('#co_code').value.trim().toUpperCase(); if(!code)return toast('Offering code required.'); await api('/api/offerings',{method:'POST',body:{course_id:+$('#co_cid').value,offering_code:code,semester:+$('#co_sem').value,required_sessions:+$('#co_sess').value,max_enrollment:+$('#co_cap').value,faculty_id:+$('#co_fac').value||null,room_id:+$('#co_room')?.value||null}}); toast('Offering launched.',1); redraw()}
+ else if(D.a=='deloff'){if(!confirm('Delete this course offering?'))return; await api('/api/offerings/'+D.oid,{method:'DELETE'}); toast('Offering removed.',1); redraw()}
+ else if(D.a=='newsec'){const sname=prompt('Section name (e.g. B):'); if(!sname)return; const cap=+prompt('Section capacity:', '60')||60; await api('/api/offerings/'+D.oid+'/sections',{method:'POST',body:{section_name:sname,capacity:cap}}); toast('Section added.',1); redraw()}
+ else if(D.a=='offtt'){const tt=await api('/api/offerings/'+D.oid+'/timetable'); alert('Scheduled Sessions:\n'+(tt.map(s=>DAYS[s.day]+' '+s.start+'-'+s.end+' · '+(s.room||'Classroom')+' · '+(s.teacher||'Teacher')).join('\n')||'No sessions scheduled yet. Click Generate timetable to schedule.'));}
+ else if(D.a=='addstudent'){const reg=$('#st_reg').value.trim().toUpperCase(), sname=$('#st_name').value.trim(); if(!reg||!sname)return toast('Register number and name required.'); await api('/api/students',{method:'POST',body:{register_number:reg,name:sname,semester:+$('#st_sem').value,class_id:+$('#st_cls').value||null}}); toast('Student added.',1); redraw()}
+ else if(D.a=='enrollstudent'){const sid=+$('#stu_to_enr').value, secId=+$('#stu_enr_sec')?.value||null; await api('/api/offerings/'+S.stuOff+'/enroll',{method:'POST',body:{student_ids:[sid],section_id:secId}}); toast('Student enrolled.',1); redraw()}
+ else if(D.a=='bulkenroll'){const raw=$('#stu_bulk').value.trim(); if(!raw)return toast('Paste register numbers first.'); const res=await api('/api/offerings/'+S.stuOff+'/bulk-enroll',{method:'POST',body:{register_numbers:raw}}); toast('Enrolled '+res.enrolled+' students (Total: '+res.total+').',1); redraw()}
+ else if(D.a=='unenroll'){await api('/api/offerings/'+D.oid+'/enroll/'+D.sid,{method:'DELETE'}); toast('Student removed.',1); redraw()}
+ else if(D.a=='viewstudenttt'){S.mode='student'; S.sel=+D.sid; V='tt'; draw()}
+ else if(D.a=='addclass'){const n=$('#kn').value.trim();if(!n)return toast('Enter a class name first.');await api('/api/classes',{method:'POST',body:{name:n,semester:+$('#ks').value,section:$('#kc').value||'A',students:$('#kt').value?+$('#kt').value:null}});toast('Class added.',1);draw()}
+ else if(D.a=='rmper'){const c=S.rcfg;c.periods.splice(+D.i,1);c.free=c.free.filter(f=>f[1]<c.periods.length);redraw()}
+ else if(D.a=='addper'){const c=S.rcfg,l=c.periods[c.periods.length-1],st=l?tmn(l.end)+15:540,en=st+60;if(en>1439||c.periods.length>=12)return toast('No room for another period today.');const f=n=>String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0');c.periods.push({start:f(st),end:f(en)});redraw()}
+ else if(D.a=='preset'){S.rcfg.periods=STD.map(([a,b])=>({start:a,end:b}));S.rcfg.free=S.rcfg.free.filter(f=>f[1]<6);redraw()}
+ else if(D.a=='clearrules'){for(const k in S.rcfg.rules)S.rcfg.rules[k].mode='off';redraw()}
+ else if(D.a=='saverules'){const c=S.rcfg,rules={};for(const [k,df] of Object.entries(S.rdefs)){const r=c.rules[k]||{mode:'off'};rules[k]={mode:r.mode};if(df.param)rules[k][df.param.key]=+(r[df.param.key]??df.param.default)}
+  const r=await api('/api/settings',{method:'PUT',body:{days:c.days,periods:c.periods,rules,free:c.free}});S.rcfg=JSON.parse(JSON.stringify(r.config));S.rstale=r.stale;toast('Saved. Generate your timetable to use these rules.',1);redraw()}
+ else if(D.free){const [d,p]=D.free.split(',').map(Number),c=S.rcfg,i=c.free.findIndex(f=>f[0]==d&&f[1]==p);if(i>=0)c.free.splice(i,1);else c.free.push([d,p]);const on=i<0;t.classList.toggle('on',on);t.setAttribute('aria-pressed',on);t.textContent=on?'Kept free':'Use'}
+ else if(D.a=='print')print();
+ else if(D.a=='out'||D.a=='outall'){await api(D.a=='out'?'/api/auth/logout':'/api/auth/logout-all',{method:'POST'});location.replace('/login.html')}
+ else if(D.a=='pw'){const c=prompt('Current password');if(!c)return;const n=prompt('New password (10+ characters, letters and numbers)');if(!n)return;await api('/api/auth/change-password',{method:'POST',body:{current:c,new:n}});toast('Password changed. Other devices were signed out.',1)}}
+ catch(e){toast(e.message)}});
+document.addEventListener('change',ev=>{const t=ev.target,D=t.dataset;
+ if(t.id=='cc_type'){S.newCourseType=t.value;return redraw()}
+ if(D.rd!==undefined){const c=S.rcfg,d=+D.rd;if(t.checked)c.days=[...new Set(c.days.concat(d))].sort();else{if(c.days.length<2){t.checked=true;return toast('Keep at least one working day.')}c.days=c.days.filter(x=>x!=d);c.free=c.free.filter(f=>f[0]!=d)}return redraw()}
+ if(D.pt){const [i,k]=D.pt.split(':');if(t.value){S.rcfg.periods[+i][k]=t.value;redraw()}return}
+ if(D.rm){S.rcfg.rules[D.rm]=Object.assign(S.rcfg.rules[D.rm]||{},{mode:t.value});return redraw()}
+ if(D.rp){S.rcfg.rules[D.rp]=Object.assign(S.rcfg.rules[D.rp]||{mode:'prefer'},{[S.rdefs[D.rp].param.key]:+t.value});return}
+ if(t.id=='sel'){S.sel=t.value;draw()}
+ else if(t.id=='stu_off_sel'){S.stuOff=+t.value;redraw()}
+ else if(t.id=='bd'){S.bd=t.value;$('#bt').innerHTML=facOpts(S.fl||[],S.bd)}
+ else if(t.id=='fd'){S.fd=t.value;S.fav=null;draw()}});
+let drag=null;
+document.addEventListener('dragstart',e=>{const c=e.target.closest('[data-id]');if(c)drag=c.dataset.id});
+document.addEventListener('dragover',e=>{const td=e.target.closest('td[data-d]');if(td&&drag){e.preventDefault();td.classList.add('over')}});
+document.addEventListener('dragleave',e=>e.target.closest&&e.target.closest('td')?.classList.remove('over'));
+document.addEventListener('drop',async e=>{const td=e.target.closest('td[data-d]');if(!td||!drag)return;e.preventDefault();const id=drag;drag=null;const body={day:+td.dataset.d,period:+td.dataset.p};
+ try{try{await api(`/api/entries/${id}/move`,{method:'POST',body});toast('Change made.',1)}
+  catch(er){if(!/Request change/.test(er.message))throw er;const reason=prompt('This timetable is published. Why is the change needed?');if(!reason)return;await api(`/api/entries/${id}/request-change`,{method:'POST',body:{...body,reason}});toast('Change made and recorded.',1)}
+  draw()}catch(er){toast(er.message);draw()}});
+addEventListener('resize',()=>{if(me&&V=='tt'){clearTimeout(addEventListener.h);addEventListener.h=setTimeout(draw,200)}});
+api('/api/auth/me').then(r=>{me=r;draw()}).catch(()=>location.replace('/login.html'));
+</script></body></html>
