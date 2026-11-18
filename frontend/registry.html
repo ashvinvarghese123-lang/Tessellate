@@ -10,127 +10,913 @@
 html{scroll-padding-top:env(safe-area-inset-top,0px);height:100%}*{box-sizing:border-box}
 body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:15px/1.5 'Instrument Sans',system-ui,sans-serif}
 h1,h2,.logo{font-family:Fraunces,Georgia,serif;font-weight:400;letter-spacing:-.01em}
-h1{font-size:34px;margin:4px 0 6px;line-height:1.1}h2{font-size:20px;margin:30px 0 10px}
+h1{font-size:32px;margin:4px 0 6px;line-height:1.15}h2{font-size:20px;margin:24px 0 10px}
 .app{display:flex;min-height:100%}
-nav{width:208px;padding:26px 16px;border-right:1px solid var(--line);position:sticky;top:0;height:100vh;flex:none;display:flex;flex-direction:column;gap:2px}
-.logo{font-size:21px;margin:0 10px 18px}
-nav select{margin:0 0 18px;width:100%;font-size:13px}
-nav button{all:unset;cursor:pointer;padding:8px 10px;border-radius:6px;color:var(--mute);min-height:40px;display:flex;align-items:center;justify-content:space-between}
-nav button:hover{color:var(--ink)}nav button[aria-current=page]{color:var(--ink);background:var(--accbg)}
-nav .n{font-size:12px;border:1px solid var(--line);border-radius:10px;padding:0 7px}
-main{flex:1;padding:36px 44px 90px;min-width:0;max-width:1180px}
+nav{width:220px;padding:26px 16px;border-right:1px solid var(--line);position:sticky;top:0;height:100vh;flex:none;display:flex;flex-direction:column;gap:3px;background:var(--bg)}
+.logo{font-size:21px;margin:0 10px 4px}
+.reg-badge{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--mute);margin:0 10px 22px}
+nav button{all:unset;cursor:pointer;padding:8px 12px;border-radius:6px;color:var(--mute);min-height:40px;display:flex;align-items:center;justify-content:space-between;font-weight:500}
+nav button:hover{color:var(--ink);background:var(--panel)}nav button[aria-current=page]{color:var(--ink);background:var(--accbg)}
+nav .n{font-size:12px;border:1px solid var(--line);border-radius:10px;padding:0 7px;font-weight:400}
+main{flex:1;padding:36px 44px 90px;min-width:0;max-width:1200px}
 .lab{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--mute)}
 .sub{color:var(--mute);margin:0 0 20px}.sm{font-size:13px;color:var(--mute)}
 .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.sp{justify-content:space-between}
-.btn{font:inherit;cursor:pointer;border:1px solid var(--line);background:transparent;color:var(--ink);padding:9px 16px;border-radius:7px;min-height:40px}
+.btn{font:inherit;cursor:pointer;border:1px solid var(--line);background:transparent;color:var(--ink);padding:8px 15px;border-radius:7px;min-height:38px;font-weight:500;display:inline-flex;align-items:center;justify-content:center;gap:6px}
 .btn:hover{border-color:var(--mute)}.btn.p{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.btn.danger{color:var(--crit);border-color:var(--crit)}.btn.danger:hover{background:var(--crit);color:#fff}
+.btn.sm{padding:4px 10px;min-height:30px;font-size:13px}
 :focus-visible{outline:2px solid var(--acc);outline-offset:2px}
-select,input{font:inherit;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:8px 10px;min-height:40px}
-.stats{display:flex;flex-wrap:wrap;border-top:1px solid var(--line);border-bottom:1px solid var(--line);margin:18px 0 10px}
-.stats div{flex:1 1 100px;padding:14px 0}.stats b{display:block;font:400 27px Fraunces,serif}
-.cols{display:grid;grid-template-columns:1fr 1fr;gap:44px}
-.kv{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--line)}
-.bar{height:5px;background:var(--line);border-radius:3px;margin-top:6px;overflow:hidden}.bar i{display:block;height:100%;background:var(--acc)}.bar.hi i{background:var(--warn)}.bar.ov i{background:var(--crit)}
-.item{padding:10px 0;border-bottom:1px solid var(--line)}
-.tag{display:inline-block;font-size:12px;font-weight:600;border:1px solid currentColor;border-radius:4px;padding:0 6px;margin-right:8px}
-.tag.c{color:var(--crit)}.tag.w{color:var(--warn)}.tag.i,.tag.s{color:var(--mute)}.tag.ok{color:var(--acc)}
-.seg{display:inline-flex;border:1px solid var(--line);border-radius:7px;overflow:hidden}
-.seg button{all:unset;cursor:pointer;padding:8px 14px;min-height:40px;box-sizing:border-box;color:var(--mute)}.seg button[aria-pressed=true]{background:var(--ink);color:var(--bg)}
-.gw{overflow-x:auto;margin-top:16px}
-table.g{border-collapse:collapse;width:100%;min-width:640px;table-layout:fixed}
-.g th{font-weight:500;color:var(--mute);font-size:13px;text-align:left;padding:8px;border-bottom:1px solid var(--line)}
-.g td{border:1px solid var(--line);padding:0;height:76px;vertical-align:top;background:var(--panel)}
-.g td.t{width:60px;border:0;background:none;color:var(--mute);font-size:12px;padding:8px 8px 0 0;text-align:right}
-.g td.br{height:24px;background:repeating-linear-gradient(135deg,transparent 0 6px,var(--line) 6px 7px);color:var(--mute);font-size:11px;text-align:center;vertical-align:middle;letter-spacing:.08em}
-.c{padding:8px 10px;height:100%;border-left:3px solid var(--acc)}.c[draggable=true]{cursor:grab}.c.lb{background:var(--lab);border-left-color:var(--mute)}
-.c b{display:block;font-size:12.5px;letter-spacing:.03em;text-transform:uppercase}.c span{display:block;font-size:12.5px;color:var(--mute)}
-td.over{outline:2px dashed var(--acc);outline-offset:-3px}.fr{color:var(--line);font-size:12px;padding:8px 10px}
-.bz{width:100%;height:100%;min-height:76px;font:inherit;font-size:12px;color:var(--warn);text-align:left;padding:8px 10px;background:repeating-linear-gradient(135deg,transparent 0 5px,var(--lab) 5px 6px);border:0;cursor:pointer}
-.bz.off{color:var(--mute);cursor:default}
-table.l{width:100%;border-collapse:collapse}.l th{text-align:left;font-weight:500;color:var(--mute);font-size:13px;padding:8px 8px 8px 0;border-bottom:1px solid var(--line)}.l td{padding:10px 8px 10px 0;border-bottom:1px solid var(--line)}
-.dl .it{display:flex;gap:16px;padding:14px 0;border-bottom:1px solid var(--line)}.dl .it time{width:56px;color:var(--mute);flex:none}.dl .it.fz{color:var(--mute)}
-.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:12px 18px;border-radius:8px;max-width:92vw;z-index:9;display:none}
-.ov{position:fixed;inset:0;background:var(--bg);display:none;align-items:center;justify-content:center;z-index:20;padding:24px}.ov.on{display:flex}
-.ov ul{list-style:none;padding:0;margin:20px 0 0;min-height:190px;color:var(--mute)}.ov li{padding:3px 0;animation:f .4s}.ov li:last-child{color:var(--ink)}
-@keyframes f{from{opacity:0}}@media (prefers-reduced-motion:reduce){.ov li{animation:none}}
-.note{border:1px solid var(--line);padding:14px 16px;border-radius:8px;margin:14px 0;background:var(--panel)}
-.empty{text-align:center;padding:60px 10px;color:var(--mute)}.empty h2{color:var(--ink);margin-top:0}
-@media (max-width:820px){.app{flex-direction:column}nav{width:100%;height:auto;position:sticky;top:0;flex-direction:row;overflow-x:auto;padding:10px 12px;border-right:0;border-bottom:1px solid var(--line);background:var(--bg);z-index:5;align-items:center}.logo{display:none}nav select{width:auto;min-width:150px;margin:0 8px 0 0}nav button{white-space:nowrap}nav .n{display:none}main{padding:22px 16px 90px}.cols{grid-template-columns:1fr;gap:20px}h1{font-size:28px}}
-@media print{nav,.noprint{display:none!important}main{padding:0}}
-
-.login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
-.login form,.login .box{width:100%;max-width:360px}
-.login .logo{font-size:30px;margin:0 0 4px}
-.login label{display:block;margin:16px 0 6px;font-size:13px;color:var(--mute)}
-.login input{width:100%}.login .btn{width:100%;margin-top:22px}
-.login .lk{all:unset;cursor:pointer;color:var(--mute);font-size:13px;display:inline-block;margin-top:16px;text-decoration:underline;min-height:24px}
-.code{letter-spacing:.5em;font-size:22px;text-align:center}
-.err{color:var(--crit);font-size:14px;margin-top:12px;min-height:20px}
-.tg{width:100%;min-height:40px;border:0;background:var(--panel);color:var(--mute);font:inherit;font-size:12px;cursor:pointer}.tg:hover{color:var(--ink)}.tg.on{background:repeating-linear-gradient(135deg,transparent 0 5px,var(--lab) 5px 6px);color:var(--warn)}
+select,input,textarea{font:inherit;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:8px 10px;min-height:38px}
+textarea{min-height:70px;resize:vertical}
+.stats{display:flex;flex-wrap:wrap;border-top:1px solid var(--line);border-bottom:1px solid var(--line);margin:18px 0 24px}
+.stats div{flex:1 1 120px;padding:16px 12px 16px 0;border-right:1px solid var(--line)}.stats div:last-child{border-right:0}
+.stats b{display:block;font:400 28px Fraunces,serif;margin-bottom:2px}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:36px}
+.tag{display:inline-block;font-size:11.5px;font-weight:600;border:1px solid currentColor;border-radius:4px;padding:1px 6px}
+.tag.ok{color:var(--acc)}.tag.warn{color:var(--warn)}.tag.crit{color:var(--crit)}.tag.mute{color:var(--mute)}
+.gw{overflow-x:auto;margin-top:14px}
+table.l{width:100%;border-collapse:collapse;font-size:14px}
+.l th{text-align:left;font-weight:500;color:var(--mute);font-size:12.5px;padding:8px 10px;border-bottom:1px solid var(--line)}
+.l td{padding:10px 10px;border-bottom:1px solid var(--line);vertical-align:middle}
+.l tr:hover td{background:var(--panel)}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:12px 20px;border-radius:8px;max-width:92vw;z-index:99;display:none;font-size:14px;box-shadow:0 6px 18px rgba(0,0,0,.15)}
+.empty{text-align:center;padding:50px 10px;color:var(--mute)}.empty h2{color:var(--ink);margin-top:0}
+/* Modal system */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);backdrop-filter:blur(2px);display:none;align-items:center;justify-content:center;z-index:90;padding:20px}
+.modal-overlay.on{display:flex}
+.modal{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:28px;width:100%;max-width:540px;max-height:90vh;overflow-y:auto;box-shadow:0 12px 32px rgba(0,0,0,.2)}
+.modal h2{margin:0 0 6px;font-size:22px}
+.modal .form-group{margin-bottom:14px}
+.modal label{display:block;font-size:12.5px;color:var(--mute);margin-bottom:5px;font-weight:500}
+.modal input,.modal select,.modal textarea{width:100%}
+.modal .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.cred-box{background:var(--accbg);border:1px solid var(--acc);border-radius:8px;padding:16px;margin:16px 0}
+.cred-box div{font-family:monospace;font-size:15px;margin:4px 0}
+@media (max-width:820px){.app{flex-direction:column}nav{width:100%;height:auto;position:sticky;top:0;flex-direction:row;overflow-x:auto;padding:10px 12px;border-right:0;border-bottom:1px solid var(--line);z-index:5}.logo,.reg-badge{display:none}main{padding:20px 16px 90px}.cols{grid-template-columns:1fr;gap:20px}h1{font-size:26px}}
 </style></head><body>
-<div id="root"></div><div class="toast" id="toast" role="status"></div>
+<div id="root"></div>
+<div class="toast" id="toast" role="status"></div>
+<div class="modal-overlay" id="modal-box" role="dialog" aria-modal="true"><div class="modal" id="modal-content"></div></div>
+
 <script>
 const $=s=>document.querySelector(s),R=$('#root');
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 async function api(p,o={}){const r=await fetch(p,{credentials:'same-origin',headers:{'content-type':'application/json'},...o,body:o.body?JSON.stringify(o.body):undefined});
  let j={};try{j=await r.json()}catch(e){}
  if(!r.ok){if(r.status==401)location.replace('/registry-login.html');throw new Error(typeof j.detail=='string'?j.detail:'Something went wrong. Please try again.')}return j}
-function toast(t,ok){const e=$('#toast');e.textContent=(ok?'✓ ':'⚠ ')+t;e.style.display='block';clearTimeout(toast.h);toast.h=setTimeout(()=>e.style.display='none',5000)}
-const API='/api/registry/';let me=null,V='ov',ed=null,L={};
-const roomsOn=()=>!!(me&&me.features&&me.features.rooms);
-const NAV=[['ov','Overview'],['departments','Departments'],['faculty','Faculty'],['classes','Classes'],['common-slots','Common slots'],['rooms','Rooms'],['se','Account']];
-const TYPES='Classroom|Computer lab|Laboratory';
-const DAYS=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
-const ENT={
- departments:{title:'Departments',sub:'Departments exist here first. A department then signs up and claims its name.',one:'department',
-  cols:[['code','ID'],['name','Name'],['category_name','Category'],['classes','Classes'],['faculty','Faculty'],['has_account','Login account',v=>v?'Yes':'Not yet']],
-  fields:[['name','Department name','text'],['category_id','Category','sel:categories']]},
- faculty:{title:'Faculty',sub:'One record per person. Every department can pick these teachers.',one:'teacher',
-  cols:[['faculty_code','ID'],['name','Name'],['department','Home department'],['designation','Designation'],['email','Email'],['sessions','Sessions',(v,r)=>v+' / '+r.max_weekly_sessions]],
-  fields:[['name','Name','text'],['home_department_id','Home department','sel:departments'],['designation','Designation','text'],['email','Official email','text'],['max_weekly_sessions','Max sessions per week','number',18]]},
- classes:{title:'Classes',sub:'Classes and sections for every department.',one:'class',
-  cols:[['name','Class'],['department','Department'],['semester','Semester'],['section','Section'],['students','Students'],['home_room','Home room'],['subjects','Subjects']],
-  fields:[['name','Class name','text'],['department_id','Department','sel:departments','','lock'],['semester','Semester','number',1],['section','Section','text','A'],['students','Students','number'],['home_room_id','Home room (optional)','sel:rooms']]},
- 'common-slots':{title:'Common time slots',sub:'Fixed college-wide scheduling periods for MDC and Minor offerings.',one:'common slot',
-  cols:[['name','Slot label'],['day','Day',v=>DAYS[v]||v],['start_time','Start'],['end_time','End'],['applicable_course_type','Course type'],['semester','Semester']],
-  fields:[['name','Slot name','text','Common Slot'],['day','Day (0=Mon .. 6=Sun)','number',0],['start_time','Start time (HH:MM)','text','10:00'],['end_time','End time (HH:MM)','text','11:00'],['applicable_course_type','Course type','sel:MDC|Minor|Both','MDC'],['semester','Semester','number',1]]},
- rooms:{title:'Rooms &amp; laboratories',sub:'One shared list. Departments book from it when they generate timetables.',one:'room',
-  cols:[['name','Name'],['room_type','Type'],['capacity','Capacity'],['sessions','Scheduled sessions']],
-  fields:[['name','Room name','text'],['room_type','Type','sel:'+TYPES,'Classroom'],['capacity','Capacity','number']]}};
-const head=(l,t,s,a)=>`<div class="row sp" style="align-items:flex-end"><div><div class="lab">${l}</div><h1>${t}</h1><p class="sub">${s}</p></div>${a||''}</div>`;
-const tab=(h,rows)=>`<div class="gw"><table class="l"><thead><tr>${h.map(x=>`<th>${x}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
-function shell(inner){return `<div class="app"><nav aria-label="Main"><div class="logo">Tessellate</div><div class="sm" style="margin:0 10px 14px">College Registry</div>${NAV.filter(([k])=>k!='rooms'||roomsOn()).map(([k,l])=>`<button data-v="${k}" ${V==k?'aria-current="page"':''}>${l}</button>`).join('')}</nav><main>${inner}</main></div>`}
-async function draw(){R.innerHTML=shell('<p class="sub">Loading…</p>');try{$('main').innerHTML=await page()}catch(e){$('main').innerHTML=`<div class="empty"><h2>We couldn’t load this page</h2><p>${esc(e.message)}</p></div>`}}
-async function page(){
- if(V=='ov'){const o=await api(API+'overview');return head('Registry','College records','Shared data used by every department. Timetables are not visible here.')+
-  `<div class="stats">${[['Departments',o.departments],['Faculty',o.faculty],['Classes',o.classes],...(roomsOn()?[['Rooms & labs',o.rooms]]:[]),['Department logins',o.department_accounts],['Subjects set by departments',o.subjects]].map(([a,b])=>`<div><b>${b}</b><span class="sm">${a}</span></div>`).join('')}</div>
-  <div class="cols"><section><h2>What this account does</h2><p>Adds and edits departments, faculty and classes${roomsOn()?' and rooms':''}. Changes appear immediately in every department’s workspace.</p></section>
-  <section><h2>What it cannot do</h2><p>It cannot see, create, edit or publish any timetable, and it gives no department priority. Subjects and weekly sessions stay with each department.</p></section></div>`}
- if(V=='se')return head('Account','Registry account','Signed in as '+esc(me.username)+' · '+esc(me.email_hint))+`<div class="row noprint"><button class="btn" data-a="pw">Change password</button><button class="btn" data-a="out">Sign out</button></div>`;
- const E=ENT[V],rows=await api(API+V);
- for(const f of E.fields){if(f[2]=='sel:departments')L.departments=await api(API+'departments');if(f[2]=='sel:rooms')L.rooms=await api(API+'rooms');if(f[2]=='sel:categories')L.categories=await api(API+'categories')}
- L.rows=rows;const cur=ed&&ed!='new'?rows.find(r=>r.id==ed):null;
- return head('Registry',E.title,E.sub,`<button class="btn p noprint" data-a="new">Add ${E.one}</button>`)+(ed?form(E,cur):'')+
-  `<div class="row noprint" style="margin-bottom:10px"><input id="q" placeholder="Search…" aria-label="Search" style="width:min(320px,100%)"><span class="sm">${rows.length} total</span></div>`+
-  (rows.length?tab(E.cols.map(c=>c[1]).concat(['']),rows.map(r=>E.cols.map(c=>esc(c[2]?c[2](r[c[0]],r):r[c[0]])).concat([`<button class="btn" data-e="${r.id}">Edit</button>`]))):`<div class="empty"><h2>Nothing here yet</h2><p>Add the first ${E.one} above.</p></div>`)}
-function opts(src,val,blank){if(src=='sel:departments')return L.departments.map(d=>`<option value="${d.id}" ${d.id==val?'selected':''}>${esc(d.name)}</option>`).join('');
- if(src=='sel:rooms')return '<option value="">None</option>'+L.rooms.map(d=>`<option value="${d.id}" ${d.id==val?'selected':''}>${esc(d.name)}</option>`).join('');
- if(src=='sel:categories')return (L.categories||[]).map(c=>`<option value="${c.id}" ${c.id==val?'selected':''}>${esc(c.name)}</option>`).join('');
- return src.slice(4).split('|').map(t=>`<option ${t==val?'selected':''}>${t}</option>`).join('')}
-function form(E,cur){return `<div class="note"><h2 style="margin-top:0">${cur?'Edit '+E.one:'Add '+E.one}</h2><div class="row">${E.fields.map(([k,l,t,d,lock])=>{const v=cur?cur[k]:(d??'');
-  const dis=cur&&lock?' disabled':'';return `<label>${l}<br>${t.startsWith('sel:')?`<select id="f_${k}"${dis}>${opts(t,v)}</select>`:`<input id="f_${k}" type="${t}" value="${esc(v)}"${t=='number'?' style="width:120px"':''}>`}</label>`}).join('')}</div>
-  <div class="row" style="margin-top:16px"><button class="btn p" data-a="save">${cur?'Save changes':'Add'}</button><button class="btn" data-a="cancel">Cancel</button>${cur?'<button class="btn" data-a="del" style="margin-left:auto">Delete</button>':''}</div></div>`}
-function body(E){const b={};for(const [k,,t] of E.fields){const e=$('#f_'+k);let v=e.value;if(t=='number')v=v===''?null:+v;else if(k.endsWith('_id'))v=v===''?null:+v;b[k]=v}return b}
-document.addEventListener('click',async ev=>{const t=ev.target.closest('button');if(!t)return;const D=t.dataset;
- try{if(D.v){V=D.v;ed=null;draw()}
- else if(D.e){ed=+D.e;await draw();scrollTo(0,0)}
- else if(D.a=='new'){ed='new';draw()}
- else if(D.a=='cancel'){ed=null;draw()}
- else if(D.a=='save'){const E=ENT[V],b=body(E);if(ed=='new')await api(API+V,{method:'POST',body:b});else await api(API+V+'/'+ed,{method:'PUT',body:b});toast('Saved. Departments see this now.',1);ed=null;draw()}
- else if(D.a=='del'){if(!confirm('Delete this '+ENT[V].one+'? This cannot be undone.'))return;await api(API+V+'/'+ed,{method:'DELETE'});toast('Deleted.',1);ed=null;draw()}
- else if(D.a=='pw'){const c=prompt('Current password');if(!c)return;const n=prompt('New password (10+ characters, letters and numbers)');if(!n)return;await api(API+'auth/change-password',{method:'POST',body:{current:c,new:n}});toast('Password changed.',1)}
- else if(D.a=='out'){await api(API+'auth/logout',{method:'POST'});location.replace('/registry-login.html')}}
- catch(e){toast(e.message)}});
-document.addEventListener('input',ev=>{if(ev.target.id!='q')return;const q=ev.target.value.toLowerCase();document.querySelectorAll('main tbody tr').forEach(r=>r.style.display=r.textContent.toLowerCase().includes(q)?'':'none')});
-api(API+'auth/me').then(r=>{me=r;if(!roomsOn()){ENT.classes.cols=ENT.classes.cols.filter(c=>c[0]!='home_room');ENT.classes.fields=ENT.classes.fields.filter(f=>f[0]!='home_room_id');delete ENT.rooms}draw()}).catch(()=>location.replace('/registry-login.html'));
+function toast(t,ok=true){const e=$('#toast');e.textContent=(ok?'✓ ':'⚠ ')+t;e.style.display='block';clearTimeout(toast.h);toast.h=setTimeout(()=>e.style.display='none',5000)}
+
+const API='/api/registry/';
+let me=null,V='dash',depts=[],fac=[],cls=[],cats=[],accts=[];
+
+// 5 Main sections as strictly specified
+const NAV=[
+ ['dash','Dashboard'],
+ ['depts','Departments'],
+ ['fac','Faculty'],
+ ['cls','Classes & Sections'],
+ ['accts','Department Accounts']
+];
+
+function shell(inner){
+ return `<div class="app">
+  <nav aria-label="Main Navigation">
+   <div class="logo">Tessellate</div>
+   <div class="reg-badge">College Registry</div>
+   ${NAV.map(([k,l])=>`<button data-v="${k}" ${V==k?'aria-current="page"':''}>${l}</button>`).join('')}
+   <div style="margin-top:auto;border-top:1px solid var(--line);padding-top:14px">
+    <button class="btn sm" data-a="out" style="width:100%">Sign out</button>
+   </div>
+  </nav>
+  <main>${inner}</main>
+ </div>`;
+}
+
+async function loadData(){
+ [cats,depts,fac,cls]=await Promise.all([
+  api(API+'categories').catch(()=>[]),
+  api(API+'departments').catch(()=>[]),
+  api(API+'faculty').catch(()=>[]),
+  api(API+'classes').catch(()=>[])
+ ]);
+}
+
+async function draw(){
+ R.innerHTML=shell('<p class="sub">Loading Registry records…</p>');
+ try{
+  await loadData();
+  $('main').innerHTML=await renderPage();
+ }catch(e){
+  $('main').innerHTML=`<div class="empty"><h2>We couldn't load this page</h2><p>${esc(e.message)}</p></div>`;
+ }
+}
+
+async function renderPage(){
+ if(V=='dash'){
+  const o=await api(API+'overview');
+  return `<div>
+   <div class="lab">College Registry Overview</div>
+   <h1>Registry Dashboard</h1>
+   <p class="sub">Central source of information for all departments, faculty and classes.</p>
+   
+   <div class="stats">
+    <div><b>${o.departments}</b><span class="sm">Total Departments</span></div>
+    <div><b>${o.faculty}</b><span class="sm">Faculty Members</span></div>
+    <div><b>${o.classes}</b><span class="sm">Total Classes</span></div>
+    <div><b>${o.sections}</b><span class="sm">Total Sections</span></div>
+    <div><b>${o.department_accounts}</b><span class="sm">Active Accounts</span></div>
+   </div>
+
+   <div class="row sp" style="margin-bottom:24px">
+    <div class="row">
+     <button class="btn p" data-a="modal-dept-add">+ Add Department</button>
+     <button class="btn" data-a="modal-fac-add">+ Add Faculty</button>
+     <button class="btn" data-a="modal-cls-add">+ Add Class</button>
+    </div>
+   </div>
+
+   <div class="cols">
+    <section>
+     <h2>Central Registry Governance</h2>
+     <p class="sm" style="line-height:1.6">The Registry creates departments and provisions initial secure login credentials. Department self-registration and OTP emails are permanently removed.</p>
+     <p class="sm" style="line-height:1.6">All departments, faculty identities and academic classes maintained here appear instantly inside department workspaces with strict cross-department clash validation.</p>
+    </section>
+    <section>
+     <h2>Institutional Categories</h2>
+     <p class="sm" style="line-height:1.6">Departments belong to <b>Aided</b> or <b>Self-Financing</b> categories. Both operate with equal priority across shared resources, laboratory bookings, and common course periods.</p>
+    </section>
+   </div>
+  </div>`;
+ }
+
+ if(V=='depts'){
+  return `<div>
+   <div class="row sp" style="margin-bottom:14px">
+    <div>
+     <div class="lab">Academic Registry</div>
+     <h1>Departments</h1>
+     <p class="sub">Manage college departments and generate secure login accounts.</p>
+    </div>
+    <button class="btn p" data-a="modal-dept-add">+ Add Department</button>
+   </div>
+
+   <div class="row" style="margin-bottom:16px">
+    <input id="q-depts" placeholder="Search departments…" style="width:260px" aria-label="Search departments">
+    <select id="filt-dept-cat" aria-label="Filter by category">
+     <option value="">All Categories</option>
+     <option value="Aided">Aided</option>
+     <option value="Self-Financing">Self-Financing</option>
+    </select>
+    <select id="filt-dept-status" aria-label="Filter by account status">
+     <option value="">All Statuses</option>
+     <option value="active">Active</option>
+     <option value="inactive">Inactive</option>
+    </select>
+    <span class="sm" style="margin-left:auto">${depts.length} departments</span>
+   </div>
+
+   ${depts.length?`
+   <div class="gw">
+    <table class="l">
+     <thead>
+      <tr>
+       <th>Code</th>
+       <th>Department Name</th>
+       <th>Category</th>
+       <th>Classes</th>
+       <th>Faculty</th>
+       <th>Username</th>
+       <th>Account Status</th>
+       <th>Actions</th>
+      </tr>
+     </thead>
+     <tbody id="dept-table-body">
+      ${depts.map(d=>`
+       <tr data-cat="${esc(d.category_name)}" data-active="${d.active?'active':'inactive'}">
+        <td><b>${esc(d.code)}</b></td>
+        <td>${esc(d.name)}${d.description?`<br><span class="sm">${esc(d.description)}</span>`:''}</td>
+        <td><span class="tag ${d.category_name=='Aided'?'ok':'warn'}">${esc(d.category_name)}</span></td>
+        <td>${d.classes}</td>
+        <td>${d.faculty}</td>
+        <td><code>${esc(d.username||'none')}</code></td>
+        <td><span class="tag ${d.active?'ok':'crit'}">${d.active?'Active':'Inactive'}</span></td>
+        <td>
+         <div class="row" style="gap:6px">
+          <button class="btn sm" data-a="modal-dept-edit" data-id="${d.id}">Edit</button>
+          <button class="btn sm" data-a="dept-reset-pw" data-id="${d.id}" data-code="${esc(d.code)}" data-name="${esc(d.name)}">Reset PW</button>
+          <button class="btn sm danger" data-a="dept-del" data-id="${d.id}" data-name="${esc(d.name)}">Delete</button>
+         </div>
+        </td>
+       </tr>
+      `).join('')}
+     </tbody>
+    </table>
+   </div>`:`<div class="empty"><h2>No departments found</h2><p>Click + Add Department above to create one.</p></div>`}
+  </div>`;
+ }
+
+ if(V=='fac'){
+  return `<div>
+   <div class="row sp" style="margin-bottom:14px">
+    <div>
+     <div class="lab">Faculty Management</div>
+     <h1>Faculty Registry</h1>
+     <p class="sub">Centralized faculty records. Single college-wide identity prevents cross-department double-booking.</p>
+    </div>
+    <button class="btn p" data-a="modal-fac-add">+ Add Faculty</button>
+   </div>
+
+   <div class="row" style="margin-bottom:16px">
+    <input id="q-fac" placeholder="Search faculty by name, ID, or designation…" style="width:300px" aria-label="Search faculty">
+    <select id="filt-fac-dept" aria-label="Filter by department">
+     <option value="">All Departments</option>
+     ${depts.map(d=>`<option value="${esc(d.name)}">${esc(d.name)}</option>`).join('')}
+    </select>
+    <span class="sm" style="margin-left:auto">${fac.length} faculty members</span>
+   </div>
+
+   ${fac.length?`
+   <div class="gw">
+    <table class="l">
+     <thead>
+      <tr>
+       <th>ID</th>
+       <th>Name</th>
+       <th>Home Department</th>
+       <th>Designation</th>
+       <th>Contact / Phone</th>
+       <th>Specialization</th>
+       <th>Max Sessions</th>
+       <th>Status</th>
+       <th>Actions</th>
+      </tr>
+     </thead>
+     <tbody id="fac-table-body">
+      ${fac.map(f=>`
+       <tr data-dept="${esc(f.department||'')}">
+        <td><b>${esc(f.faculty_code)}</b></td>
+        <td>
+         <b>${esc(f.name)}</b>
+         ${f.assigned_departments&&f.assigned_departments.length?`<br><span class="sm">Also teaches: ${esc(f.assigned_departments.join(', '))}</span>`:''}
+        </td>
+        <td>${esc(f.department||'Unassigned')}</td>
+        <td>${esc(f.designation||'—')}</td>
+        <td>${esc(f.phone||f.email||'—')}</td>
+        <td>${esc(f.specialization||'—')}</td>
+        <td>${f.sessions} / ${f.max_weekly_sessions}</td>
+        <td><span class="tag ${f.active?'ok':'crit'}">${f.active?'Active':'Inactive'}</span></td>
+        <td>
+         <div class="row" style="gap:6px">
+          <button class="btn sm" data-a="modal-fac-edit" data-id="${f.id}">Edit</button>
+          <button class="btn sm danger" data-a="fac-del" data-id="${f.id}" data-name="${esc(f.name)}">Remove</button>
+         </div>
+        </td>
+       </tr>
+      `).join('')}
+     </tbody>
+    </table>
+   </div>`:`<div class="empty"><h2>No faculty members found</h2><p>Click + Add Faculty above to register teachers.</p></div>`}
+  </div>`;
+ }
+
+ if(V=='cls'){
+  return `<div>
+   <div class="row sp" style="margin-bottom:14px">
+    <div>
+     <div class="lab">Academic Structure</div>
+     <h1>Classes &amp; Sections</h1>
+     <p class="sub">Centrally managed student classes and sections mapped to departments.</p>
+    </div>
+    <button class="btn p" data-a="modal-cls-add">+ Add Class &amp; Section</button>
+   </div>
+
+   <div class="row" style="margin-bottom:16px">
+    <input id="q-cls" placeholder="Search classes…" style="width:260px" aria-label="Search classes">
+    <select id="filt-cls-dept" aria-label="Filter by department">
+     <option value="">All Departments</option>
+     ${depts.map(d=>`<option value="${esc(d.name)}">${esc(d.name)}</option>`).join('')}
+    </select>
+    <select id="filt-cls-sem" aria-label="Filter by semester">
+     <option value="">All Semesters</option>
+     ${[1,2,3,4,5,6,7,8].map(s=>`<option value="${s}">Semester ${s}</option>`).join('')}
+    </select>
+    <span class="sm" style="margin-left:auto">${cls.length} classes</span>
+   </div>
+
+   ${cls.length?`
+   <div class="gw">
+    <table class="l">
+     <thead>
+      <tr>
+       <th>Class Name</th>
+       <th>Program</th>
+       <th>Department</th>
+       <th>Semester</th>
+       <th>Section</th>
+       <th>Students</th>
+       <th>Subjects</th>
+       <th>Actions</th>
+      </tr>
+     </thead>
+     <tbody id="cls-table-body">
+      ${cls.map(c=>`
+       <tr data-dept="${esc(c.department)}" data-sem="${c.semester}">
+        <td><b>${esc(c.name)}</b></td>
+        <td>${esc(c.program_name||c.course_name||'—')}</td>
+        <td>${esc(c.department)}</td>
+        <td>Sem ${c.semester}</td>
+        <td><span class="tag ok">Section ${esc(c.section)}</span></td>
+        <td>${c.students?c.students+' students':'—'}</td>
+        <td>${c.subjects}</td>
+        <td>
+         <div class="row" style="gap:6px">
+          <button class="btn sm" data-a="modal-cls-edit" data-id="${c.id}">Edit</button>
+          <button class="btn sm danger" data-a="cls-del" data-id="${c.id}" data-name="${esc(c.name)}">Delete</button>
+         </div>
+        </td>
+       </tr>
+      `).join('')}
+     </tbody>
+    </table>
+   </div>`:`<div class="empty"><h2>No classes found</h2><p>Click + Add Class &amp; Section above.</p></div>`}
+  </div>`;
+ }
+
+ if(V=='accts'){
+  accts=await api(API+'department-accounts');
+  return `<div>
+   <div class="row sp" style="margin-bottom:14px">
+    <div>
+     <div class="lab">Access &amp; Security</div>
+     <h1>Department Accounts</h1>
+     <p class="sub">Provisioned credentials for department workspace access. No public signup.</p>
+    </div>
+   </div>
+
+   <div class="gw">
+    <table class="l">
+     <thead>
+      <tr>
+       <th>Department</th>
+       <th>Code</th>
+       <th>Category</th>
+       <th>Username</th>
+       <th>Account Status</th>
+       <th>Actions</th>
+      </tr>
+     </thead>
+     <tbody>
+      ${accts.map(a=>`
+       <tr>
+        <td><b>${esc(a.department_name)}</b></td>
+        <td><code>${esc(a.department_code)}</code></td>
+        <td><span class="tag ${a.category_name=='Aided'?'ok':'warn'}">${esc(a.category_name)}</span></td>
+        <td><code><b>${esc(a.username)}</b></code></td>
+        <td><span class="tag ${a.active?'ok':'crit'}">${a.active?'Active':'Inactive'}</span></td>
+        <td>
+         <div class="row" style="gap:6px">
+          <button class="btn sm" data-a="dept-reset-pw" data-id="${a.department_id}" data-code="${esc(a.department_code)}" data-name="${esc(a.department_name)}">Reset Password</button>
+          <button class="btn sm" data-a="acct-toggle-status" data-id="${a.department_id}" data-active="${a.active?0:1}">
+           ${a.active?'Deactivate':'Activate'}
+          </button>
+         </div>
+        </td>
+       </tr>
+      `).join('')}
+     </tbody>
+    </table>
+   </div>
+  </div>`;
+ }
+
+ return '';
+}
+
+// Modal handling
+const M=$('#modal-box'),MC=$('#modal-content');
+function openModal(html){MC.innerHTML=html;M.classList.add('on')}
+function closeModal(){M.classList.remove('on');MC.innerHTML=''}
+
+function showCredentials(title,name,u,p){
+ openModal(`
+  <div style="text-align:center">
+   <div class="lab" style="color:var(--acc)">Credentials Issued</div>
+   <h2>${esc(title)}</h2>
+   <p class="sub">Department: <b>${esc(name)}</b></p>
+   
+   <div class="cred-box">
+    <div>Username: <b>${esc(u)}</b></div>
+    <div>Password: <b>${esc(p)}</b></div>
+   </div>
+
+   <p class="sm" style="margin-bottom:20px">Please copy these credentials now and provide them to the department coordinator. Passwords are never stored in plain text.</p>
+
+   <div class="row" style="justify-content:center;gap:10px">
+    <button class="btn p" id="btn-copy-cred">Copy Credentials</button>
+    <button class="btn" onclick="closeModal()">Close</button>
+   </div>
+  </div>
+ `);
+ $('#btn-copy-cred').addEventListener('click',()=>{
+  navigator.clipboard.writeText(`Tessellate Department Login\nDepartment: ${name}\nUsername: ${u}\nPassword: ${p}\nLogin URL: ${location.origin}/login.html`);
+  toast('Credentials copied to clipboard!',1);
+ });
+}
+
+// Navigation & Actions
+document.addEventListener('click',async ev=>{
+ const t=ev.target.closest('button, [data-a]');
+ if(!t)return;
+ const D=t.dataset;
+
+ try{
+  if(D.v){V=D.v;await draw();scrollTo(0,0)}
+  else if(D.a=='out'){await api(API+'auth/logout',{method:'POST'});location.replace('/registry-login.html')}
+  
+  // Department Actions
+  else if(D.a=='modal-dept-add'){
+   const catOpts=cats.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('');
+   openModal(`
+    <h2>Add New Department</h2>
+    <p class="sub">Creates the department and provisions its login credentials together.</p>
+    <form id="form-dept-add">
+     <div class="form-group">
+      <label>Department Name *</label>
+      <input id="in-dn" placeholder="e.g. Computer Science" required autofocus>
+     </div>
+     <div class="grid2">
+      <div class="form-group">
+       <label>Department Code</label>
+       <input id="in-dc" placeholder="e.g. CS (auto-derived if empty)">
+      </div>
+      <div class="form-group">
+       <label>Institutional Category *</label>
+       <select id="in-dcat">${catOpts}</select>
+      </div>
+     </div>
+     <div class="grid2">
+      <div class="form-group">
+       <label>Login Username</label>
+       <input id="in-du" placeholder="e.g. cs (auto-generated if empty)">
+      </div>
+      <div class="form-group">
+       <label>Initial Password</label>
+       <input id="in-dp" placeholder="Leave empty to auto-generate">
+      </div>
+     </div>
+     <div class="form-group">
+      <label>Description (Optional)</label>
+      <input id="in-ddesc" placeholder="Optional notes or program overview">
+     </div>
+     <div class="row" style="justify-content:flex-end;margin-top:20px">
+      <button type="button" class="btn" onclick="closeModal()">Cancel</button>
+      <button type="submit" class="btn p">Create Department &amp; Account</button>
+     </div>
+    </form>
+   `);
+
+   $('#form-dept-add').addEventListener('submit',async e=>{
+    e.preventDefault();
+    const name=$('#in-dn').value.trim();
+    if(!name)return toast('Please enter the department name.',0);
+    const body={
+     name,
+     code:$('#in-dc').value.trim()||null,
+     category_id:+$('#in-dcat').value,
+     username:$('#in-du').value.trim()||null,
+     password:$('#in-dp').value.trim()||null,
+     description:$('#in-ddesc').value.trim()||null
+    };
+    const r=await api(API+'departments',{method:'POST',body});
+    showCredentials('Department Account Created',r.name,r.username,r.initial_password);
+    loadData();
+   });
+  }
+
+  else if(D.a=='modal-dept-edit'){
+   const d=depts.find(x=>x.id==D.id);
+   if(!d)return;
+   const catOpts=cats.map(c=>`<option value="${c.id}" ${c.id==d.category_id?'selected':''}>${esc(c.name)}</option>`).join('');
+   openModal(`
+    <h2>Edit Department</h2>
+    <p class="sub">Update department information.</p>
+    <form id="form-dept-edit">
+     <div class="form-group">
+      <label>Department Name *</label>
+      <input id="ed-dn" value="${esc(d.name)}" required autofocus>
+     </div>
+     <div class="grid2">
+      <div class="form-group">
+       <label>Department Code *</label>
+       <input id="ed-dc" value="${esc(d.code)}" required>
+      </div>
+      <div class="form-group">
+       <label>Institutional Category</label>
+       <select id="ed-dcat">${catOpts}</select>
+      </div>
+     </div>
+     <div class="form-group">
+      <label>Description</label>
+      <input id="ed-ddesc" value="${esc(d.description||'')}">
+     </div>
+     <div class="form-group">
+      <label>Account Status</label>
+      <select id="ed-dact">
+       <option value="1" ${d.active?'selected':''}>Active</option>
+       <option value="0" ${!d.active?'selected':''}>Inactive</option>
+      </select>
+     </div>
+     <div class="row" style="justify-content:flex-end;margin-top:20px">
+      <button type="button" class="btn" onclick="closeModal()">Cancel</button>
+      <button type="submit" class="btn p">Save Changes</button>
+     </div>
+    </form>
+   `);
+
+   $('#form-dept-edit').addEventListener('submit',async e=>{
+    e.preventDefault();
+    await api(API+'departments/'+d.id,{
+     method:'PUT',
+     body:{
+      name:$('#ed-dn').value.trim(),
+      code:$('#ed-dc').value.trim(),
+      category_id:+$('#ed-dcat').value,
+      description:$('#ed-ddesc').value.trim()||null,
+      active:$('#ed-dact').value==='1'
+     }
+    });
+    closeModal();
+    toast('Department updated.',1);
+    draw();
+   });
+  }
+
+  else if(D.a=='dept-reset-pw'){
+   const did=D.id,dname=D.name;
+   if(!confirm(`Reset the login password for ${dname}? A new secure password will be generated.`))return;
+   const r=await api(API+`departments/${did}/reset-password`,{method:'POST',body:{}});
+   showCredentials('Password Reset Successful',dname,r.username,r.new_password);
+  }
+
+  else if(D.a=='acct-toggle-status'){
+   const did=D.id,act=D.active==='1';
+   await api(API+`departments/${did}/status`,{method:'PUT',body:{active:act}});
+   toast(`Department account ${act?'activated':'deactivated'}.`,1);
+   draw();
+  }
+
+  else if(D.a=='dept-del'){
+   if(!confirm(`Delete department ${D.name}? This can only be done if it has no classes, faculty or scheduled sessions.`))return;
+   await api(API+'departments/'+D.id,{method:'DELETE'});
+   toast('Department deleted.',1);
+   draw();
+  }
+
+  // Faculty Actions
+  else if(D.a=='modal-fac-add'){
+   const deptOpts=depts.map(d=>`<option value="${d.id}">${esc(d.name)}</option>`).join('');
+   openModal(`
+    <h2>Add Faculty Member</h2>
+    <p class="sub">Register a teacher under a unique college-wide identity.</p>
+    <form id="form-fac-add">
+     <div class="form-group">
+      <label>Teacher Full Name *</label>
+      <input id="in-fn" placeholder="e.g. Dr. Anil Kumar" required autofocus>
+     </div>
+     <div class="grid2">
+      <div class="form-group">
+       <label>Faculty ID (Optional)</label>
+       <input id="in-fc" placeholder="e.g. FAC-001 (auto-generated)">
+      </div>
+      <div class="form-group">
+       <label>Home Department *</label>
+       <select id="in-fd">${deptOpts}</select>
+      </div>
+     </div>
+     <div class="grid2">
+      <div class="form-group">
+       <label>Designation</label>
+       <input id="in-fg" placeholder="e.g. Associate Professor">
+      </div>
+      <div class="form-group">
+       <label>Max Weekly Sessions</label>
+       <input id="in-fm" type="number" min="1" max="40" value="18">
+      </div>
+     </div>
+     <div class="grid2">
+      <div class="form-group">
+       <label>Contact Phone (Optional)</label>
+       <input id="in-fph" placeholder="+91 98765 43210">
+      </div>
+      <div class="form-group">
+       <label>Official Email (Optional)</label>
+       <input id="in-fe" type="email" placeholder="teacher@college.edu">
+      </div>
+     </div>
+     <div class="form-group">
+      <label>Specialization / Subject Expertise (Optional)</label>
+      <input id="in-fsp" placeholder="e.g. Machine Learning, Data Analytics">
+     </div>
+     <div class="row" style="justify-content:flex-end;margin-top:20px">
+      <button type="button" class="btn" onclick="closeModal()">Cancel</button>
+      <button type="submit" class="btn p">Register Teacher</button>
+     </div>
+    </form>
+   `);
+
+   $('#form-fac-add').addEventListener('submit',async e=>{
+    e.preventDefault();
+    await api(API+'faculty',{
+     method:'POST',
+     body:{
+      name:$('#in-fn').value.trim(),
+      faculty_code:$('#in-fc').value.trim()||null,
+      home_department_id:+$('#in-fd').value,
+      designation:$('#in-fg').value.trim()||null,
+      max_weekly_sessions:+$('#in-fm').value||18,
+      phone:$('#in-fph').value.trim()||null,
+      email:$('#in-fe').value.trim()||null,
+      specialization:$('#in-fsp').value.trim()||null
+     }
+    });
+    closeModal();
+    toast('Faculty member registered.',1);
+    draw();
+   });
+  }
+
+  else if(D.a=='modal-fac-edit'){
+   const f=fac.find(x=>x.id==D.id);
+   if(!f)return;
+   const deptOpts=depts.map(d=>`<option value="${d.id}" ${d.id==f.home_department_id?'selected':''}>${esc(d.name)}</option>`).join('');
+   const otherDepts=depts.filter(d=>d.id!=f.home_department_id);
+   const assignedIds=new Set(f.assigned_department_ids||[]);
+   
+   openModal(`
+    <h2>Edit Faculty Member</h2>
+    <p class="sub">Update teacher profile and multi-department assignments.</p>
+    <form id="form-fac-edit">
+     <div class="form-group">
+      <label>Teacher Full Name *</label>
+      <input id="ed-fn" value="${esc(f.name)}" required autofocus>
+     </div>
+     <div class="grid2">
+      <div class="form-group">
+       <label>Faculty ID *</label>
+       <input id="ed-fc" value="${esc(f.faculty_code)}" required>
+      </div>
+      <div class="form-group">
+       <label>Home Department *</label>
+       <select id="ed-fd">${deptOpts}</select>
+      </div>
+     </div>
+     <div class="grid2">
+      <div class="form-group">
+       <label>Designation</label>
+       <input id="ed-fg" value="${esc(f.designation||'')}">
+      </div>
+      <div class="form-group">
+       <label>Max Weekly Sessions</label>
+       <input id="ed-fm" type="number" min="1" max="40" value="${f.max_weekly_sessions}">
+      </div>
+     </div>
+     <div class="grid2">
+      <div class="form-group">
+       <label>Contact Phone</label>
+       <input id="ed-fph" value="${esc(f.phone||'')}">
+      </div>
+      <div class="form-group">
+       <label>Official Email</label>
+       <input id="ed-fe" value="${esc(f.email||'')}">
+      </div>
+     </div>
+     <div class="form-group">
+      <label>Specialization / Subject Expertise</label>
+      <input id="ed-fsp" value="${esc(f.specialization||'')}">
+     </div>
+     ${otherDepts.length?`
+      <div class="form-group" style="border:1px solid var(--line);border-radius:7px;padding:12px;background:var(--bg)">
+       <label style="margin-bottom:8px">Additional Assigned Departments (Multi-Department Assignment)</label>
+       <div class="row">
+        ${otherDepts.map(d=>`
+         <label style="font-size:13px;font-weight:normal;cursor:pointer;margin:0 12px 6px 0">
+          <input type="checkbox" class="cb-dept-assign" value="${d.id}" ${assignedIds.has(d.id)?'checked':''}> ${esc(d.name)}
+         </label>
+        `).join('')}
+       </div>
+      </div>
+     `:''}
+     <div class="row" style="justify-content:flex-end;margin-top:20px">
+      <button type="button" class="btn" onclick="closeModal()">Cancel</button>
+      <button type="submit" class="btn p">Save Profile</button>
+     </div>
+    </form>
+   `);
+
+   $('#form-fac-edit').addEventListener('submit',async e=>{
+    e.preventDefault();
+    const assigned=[...document.querySelectorAll('.cb-dept-assign:checked')].map(c=>+c.value);
+    await api(API+'faculty/'+f.id,{
+     method:'PUT',
+     body:{
+      name:$('#ed-fn').value.trim(),
+      faculty_code:$('#ed-fc').value.trim(),
+      home_department_id:+$('#ed-fd').value,
+      designation:$('#ed-fg').value.trim()||null,
+      max_weekly_sessions:+$('#ed-fm').value||18,
+      phone:$('#ed-fph').value.trim()||null,
+      email:$('#ed-fe').value.trim()||null,
+      specialization:$('#ed-fsp').value.trim()||null,
+      assigned_departments:assigned
+     }
+    });
+    closeModal();
+    toast('Faculty details updated.',1);
+    draw();
+   });
+  }
+
+  else if(D.a=='fac-del'){
+   if(!confirm(`Remove ${D.name}? Teachers with active subject allocations cannot be removed.`))return;
+   await api(API+'faculty/'+D.id,{method:'DELETE'});
+   toast('Faculty member removed.',1);
+   draw();
+  }
+
+  // Classes & Sections Actions
+  else if(D.a=='modal-cls-add'){
+   const deptOpts=depts.map(d=>`<option value="${d.id}">${esc(d.name)}</option>`).join('');
+   openModal(`
+    <h2>Add Class &amp; Section</h2>
+    <p class="sub">Register a student cohort and assign it to its department.</p>
+    <form id="form-cls-add">
+     <div class="form-group">
+      <label>Class Name *</label>
+      <input id="in-cn" placeholder="e.g. BSc CS Semester 1" required autofocus>
+     </div>
+     <div class="form-group">
+      <label>Degree / Program Name (Optional)</label>
+      <input id="in-cp" placeholder="e.g. BSc Computer Science">
+     </div>
+     <div class="grid2">
+      <div class="form-group">
+       <label>Department *</label>
+       <select id="in-cd">${deptOpts}</select>
+      </div>
+      <div class="form-group">
+       <label>Semester (1–12) *</label>
+       <input id="in-cs" type="number" min="1" max="12" value="1" required>
+      </div>
+     </div>
+     <div class="grid2">
+      <div class="form-group">
+       <label>Section Name *</label>
+       <input id="in-csec" value="A" required placeholder="e.g. A, B, C">
+      </div>
+      <div class="form-group">
+       <label>Number of Students (Strength)</label>
+       <input id="in-cst" type="number" min="1" max="1000" placeholder="e.g. 45">
+      </div>
+     </div>
+     <div class="row" style="justify-content:flex-end;margin-top:20px">
+      <button type="button" class="btn" onclick="closeModal()">Cancel</button>
+      <button type="submit" class="btn p">Create Class</button>
+     </div>
+    </form>
+   `);
+
+   $('#form-cls-add').addEventListener('submit',async e=>{
+    e.preventDefault();
+    await api(API+'classes',{
+     method:'POST',
+     body:{
+      name:$('#in-cn').value.trim(),
+      program_name:$('#in-cp').value.trim()||null,
+      department_id:+$('#in-cd').value,
+      semester:+$('#in-cs').value,
+      section:$('#in-csec').value.trim()||'A',
+      students:$('#in-cst').value?+$('#in-cst').value:null
+     }
+    });
+    closeModal();
+    toast('Class and section created.',1);
+    draw();
+   });
+  }
+
+  else if(D.a=='modal-cls-edit'){
+   const c=cls.find(x=>x.id==D.id);
+   if(!c)return;
+   openModal(`
+    <h2>Edit Class &amp; Section</h2>
+    <p class="sub">Department: <b>${esc(c.department)}</b></p>
+    <form id="form-cls-edit">
+     <div class="form-group">
+      <label>Class Name *</label>
+      <input id="ed-cn" value="${esc(c.name)}" required autofocus>
+     </div>
+     <div class="form-group">
+      <label>Degree / Program Name</label>
+      <input id="ed-cp" value="${esc(c.program_name||c.course_name||'')}">
+     </div>
+     <div class="grid2">
+      <div class="form-group">
+       <label>Semester (1–12) *</label>
+       <input id="ed-cs" type="number" min="1" max="12" value="${c.semester}" required>
+      </div>
+      <div class="form-group">
+       <label>Section Name *</label>
+       <input id="ed-csec" value="${esc(c.section)}" required>
+      </div>
+     </div>
+     <div class="form-group">
+      <label>Number of Students (Strength)</label>
+      <input id="ed-cst" type="number" min="1" max="1000" value="${c.students||''}">
+     </div>
+     <div class="row" style="justify-content:flex-end;margin-top:20px">
+      <button type="button" class="btn" onclick="closeModal()">Cancel</button>
+      <button type="submit" class="btn p">Save Changes</button>
+     </div>
+    </form>
+   `);
+
+   $('#form-cls-edit').addEventListener('submit',async e=>{
+    e.preventDefault();
+    await api(API+'classes/'+c.id,{
+     method:'PUT',
+     body:{
+      name:$('#ed-cn').value.trim(),
+      program_name:$('#ed-cp').value.trim()||null,
+      department_id:c.department_id,
+      semester:+$('#ed-cs').value,
+      section:$('#ed-csec').value.trim()||'A',
+      students:$('#ed-cst').value?+$('#ed-cst').value:null
+     }
+    });
+    closeModal();
+    toast('Class updated.',1);
+    draw();
+   });
+  }
+
+  else if(D.a=='cls-del'){
+   if(!confirm(`Delete class ${D.name}? Classes with subjects allocated by the department cannot be deleted.`))return;
+   await api(API+'classes/'+D.id,{method:'DELETE'});
+   toast('Class removed.',1);
+   draw();
+  }
+ }catch(err){
+  toast(err.message,0);
+ }
+});
+
+// Search & Filtering listeners
+document.addEventListener('input',ev=>{
+ const q=ev.target.value.toLowerCase();
+ if(ev.target.id=='q-depts'){
+  document.querySelectorAll('#dept-table-body tr').forEach(r=>{
+   r.style.display=r.textContent.toLowerCase().includes(q)?'':'none';
+  });
+ }else if(ev.target.id=='q-fac'){
+  document.querySelectorAll('#fac-table-body tr').forEach(r=>{
+   r.style.display=r.textContent.toLowerCase().includes(q)?'':'none';
+  });
+ }else if(ev.target.id=='q-cls'){
+  document.querySelectorAll('#cls-table-body tr').forEach(r=>{
+   r.style.display=r.textContent.toLowerCase().includes(q)?'':'none';
+  });
+ }
+});
+
+document.addEventListener('change',ev=>{
+ if(ev.target.id=='filt-dept-cat'||ev.target.id=='filt-dept-status'){
+  const cat=$('#filt-dept-cat')?.value;
+  const stat=$('#filt-dept-status')?.value;
+  document.querySelectorAll('#dept-table-body tr').forEach(r=>{
+   const matchCat=!cat||r.dataset.cat===cat;
+   const matchStat=!stat||r.dataset.active===stat;
+   r.style.display=(matchCat&&matchStat)?'':'none';
+  });
+ }else if(ev.target.id=='filt-fac-dept'){
+  const dept=$('#filt-fac-dept').value;
+  document.querySelectorAll('#fac-table-body tr').forEach(r=>{
+   r.style.display=(!dept||r.dataset.dept===dept)?'':'none';
+  });
+ }else if(ev.target.id=='filt-cls-dept'||ev.target.id=='filt-cls-sem'){
+  const dept=$('#filt-cls-dept')?.value;
+  const sem=$('#filt-cls-sem')?.value;
+  document.querySelectorAll('#cls-table-body tr').forEach(r=>{
+   const matchDept=!dept||r.dataset.dept===dept;
+   const matchSem=!sem||r.dataset.sem===sem;
+   r.style.display=(matchDept&&matchSem)?'':'none';
+  });
+ }
+});
+
+// Close modal on Escape
+window.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal()});
+
+// Initialize session
+api(API+'auth/me').then(r=>{me=r;draw()}).catch(()=>location.replace('/registry-login.html'));
 </script></body></html>

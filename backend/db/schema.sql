@@ -9,7 +9,9 @@ CREATE TABLE college (
 CREATE TABLE department (
   id SERIAL PRIMARY KEY,
   code TEXT UNIQUE NOT NULL,                 -- 'DEPT-CS'
-  name TEXT NOT NULL);
+  name TEXT NOT NULL,
+  description TEXT,
+  active BOOLEAN NOT NULL DEFAULT TRUE);
 
 CREATE TABLE academic_year (id SERIAL PRIMARY KEY, label TEXT UNIQUE NOT NULL);   -- '2026-27'
 
@@ -26,8 +28,8 @@ CREATE TABLE department_account (
   id SERIAL PRIMARY KEY,
   department_id INT UNIQUE NOT NULL REFERENCES department(id),
   username TEXT UNIQUE NOT NULL,
-  email TEXT NOT NULL,                        -- registered official address; the only place codes are sent
-  password_hash TEXT NOT NULL,                -- scrypt, never plain text
+  email TEXT,                                 -- optional email; codes are removed
+  password_hash TEXT NOT NULL,                -- scrypt/bcrypt, never plain text
   failed_logins SMALLINT NOT NULL DEFAULT 0,
   locked_until TIMESTAMPTZ,
   password_changed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -58,8 +60,15 @@ CREATE TABLE faculty (
   name TEXT NOT NULL,
   home_department_id INT REFERENCES department(id),
   designation TEXT, email TEXT, profile_url TEXT,
+  phone TEXT, specialization TEXT,
   max_weekly_sessions SMALLINT NOT NULL DEFAULT 18,
   active BOOLEAN NOT NULL DEFAULT TRUE);
+
+CREATE TABLE faculty_department_assignment (
+  faculty_id INT NOT NULL REFERENCES faculty(id) ON DELETE CASCADE,
+  department_id INT NOT NULL REFERENCES department(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (faculty_id, department_id));
 
 CREATE TABLE faculty_availability (          -- periods a teacher can NOT teach (or prefers not to)
   faculty_id INT REFERENCES faculty(id) ON DELETE CASCADE,
@@ -83,6 +92,7 @@ CREATE TABLE class (
   academic_year_id INT NOT NULL REFERENCES academic_year(id),
   semester SMALLINT NOT NULL, section TEXT NOT NULL, name TEXT NOT NULL,
   students SMALLINT, home_room_id INT REFERENCES room(id),
+  program_name TEXT, course_name TEXT,
   UNIQUE (department_id, academic_year_id, semester, section));
 
 CREATE TABLE subject (

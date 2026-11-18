@@ -88,9 +88,14 @@ def send_email(to: str, subject: str, body: str):
     threading.Thread(target=_smtp_send, args=(host, to, subject, body), daemon=True).start()
 
 
-def mask(email: str) -> str:
-    u, d = email.split("@")
-    return u[0] + "***@" + d
+def mask(email: str | None) -> str:
+    if not email:
+        return ""
+    try:
+        u, d = email.split("@")
+        return u[0] + "***@" + d
+    except Exception:
+        return email
 
 
 def code_hash(challenge_id, code):
@@ -294,28 +299,7 @@ class SignupReq(BaseModel):
 
 @router.post("/signup")
 def signup(req: SignupReq, request: Request, conn=Depends(db)):
-    _rate(request.client.host if request.client else "?")
-    name = " ".join(req.department_name.split())
-    email, user = req.email.strip().lower(), req.username.strip().lower()
-    if not 2 <= len(name) <= 60:
-        raise HTTPException(400, "Please enter your department name.")
-    if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
-        raise HTTPException(400, "That email address doesn't look right.")
-    if email.split("@")[1] not in allowed_domains():
-        raise HTTPException(400, "Please use your official college email address (ending in @" + allowed_domains()[0] + ").")
-    if not re.fullmatch(r"[a-z0-9_.-]{2,30}", user):
-        raise HTTPException(400, "Username: use 2-30 lowercase letters, numbers, dot, dash or underscore.")
-    strong_enough(req.password)
-    d = conn.execute("SELECT id FROM department WHERE lower(name)=lower(%s)", (name,)).fetchone()
-    if d and conn.execute("SELECT 1 FROM department_account WHERE department_id=%s", (d["id"],)).fetchone():
-        raise HTTPException(409, "This department already has an account. Use \u201cForgot password\u201d, or ask whoever set it up.")
-    if conn.execute("SELECT 1 FROM department_account WHERE username=%s", (user,)).fetchone():
-        raise HTTPException(409, "That username is already taken. Please choose another.")
-    if conn.execute("SELECT 1 FROM department_account WHERE lower(email)=%s", (email,)).fetchone():
-        raise HTTPException(409, "That email address already belongs to a department account.")
-    did, aid = _create_account(conn, dict(department_name=name, username=user, email=email, password_hash=hash_password(req.password)))
-    conn.commit()
-    return dict(created=True, department=name, username=user)
+    raise HTTPException(403, "Public registration is disabled. Department accounts are issued centrally by the College Registry.")
 
 
 def _create_account(conn, r):

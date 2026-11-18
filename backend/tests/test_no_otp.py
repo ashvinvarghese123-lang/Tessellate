@@ -32,9 +32,9 @@ with psycopg.connect(DSN) as db:
     db.execute("DELETE FROM department_account WHERE username='nootp'"); db.execute("DELETE FROM department WHERE name='No Code Dept'")
 body = dict(department_name="No Code Dept", email="nootp@college.edu", username="nootp", password="Pass-No-Code-26")
 S = TestClient(app)
-ok(S.post("/api/auth/signup", json={**body, "email": "x@gmail.com"}).status_code == 400, "sign-up still only accepts the allowed email domain")
-ok(S.post("/api/auth/signup", json={**body, "department_name": "Computer Science"}).status_code == 409, "an existing department still cannot be taken over")
-r = S.post("/api/auth/signup", json=body); ok(r.status_code == 200 and r.json()["created"] is True, "sign-up creates the account straight away")
+ok(S.post("/api/auth/signup", json=body).status_code == 403, "public sign-up is disabled (returns 403)")
+r = R.post("/api/registry/departments", json={"name": "No Code Dept", "code": "NOCODE", "username": "nootp", "password": body["password"]})
+ok(r.status_code == 200 and r.json().get("created") is True, "Registry creates the account straight away")
 ok(S.post("/api/auth/login", json={"username": "nootp", "password": body["password"]}).json() == {"signed_in": True}, "the new account signs in")
 with psycopg.connect(DSN, autocommit=True) as db:
     db.execute("UPDATE department_account SET locked_until=NULL, failed_logins=0 WHERE username='physics'")
