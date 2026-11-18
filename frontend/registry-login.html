@@ -18,19 +18,21 @@ h1,.mark{font-family:Fraunces,Georgia,serif;font-weight:400;letter-spacing:-.01e
 .grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;max-width:260px;margin:0 0 36px}
 .grid i{display:block;aspect-ratio:1;border:1px solid var(--line);border-radius:3px}.grid i.on{background:var(--accbg);border-color:var(--acc)}
 .side{display:flex;align-items:center;justify-content:center;padding:32px 24px}
-.box{width:100%;max-width:360px}
+.box{width:100%;max-width:380px}
 .lab{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--mute)}
-h1{font-size:30px;margin:6px 0 8px;line-height:1.15}.sub{color:var(--mute);margin:0 0 20px}
-label{display:block;margin:18px 0 6px;font-size:13px;color:var(--mute)}
+h1{font-size:30px;margin:6px 0 8px;line-height:1.15}.sub{color:var(--mute);margin:0 0 16px}
+label{display:block;margin:16px 0 6px;font-size:13px;color:var(--mute)}
 input{width:100%;font:inherit;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:10px 12px;min-height:44px}
 input:focus-visible,.btn:focus-visible,.lk:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 .pw{position:relative}.pw input{padding-right:64px}
 .pw button{all:unset;cursor:pointer;position:absolute;right:6px;top:6px;height:32px;padding:0 10px;font-size:13px;color:var(--mute);border-radius:5px}
-.btn{width:100%;margin-top:24px;font:inherit;font-weight:500;cursor:pointer;background:var(--ink);color:var(--bg);border:1px solid var(--ink);border-radius:7px;min-height:46px}
+.btn{width:100%;margin-top:20px;font:inherit;font-weight:500;cursor:pointer;background:var(--ink);color:var(--bg);border:1px solid var(--ink);border-radius:7px;min-height:46px}
 .btn:disabled{opacity:.55;cursor:wait}
-.lk{all:unset;cursor:pointer;color:var(--mute);font-size:13px;text-decoration:underline;display:inline-block;margin-top:18px;min-height:24px}
-.err{color:var(--crit);font-size:14px;min-height:22px;margin-top:14px}
-.foot{font-size:12.5px;color:var(--mute);margin-top:32px;border-top:1px solid var(--line);padding-top:18px}
+.lk{all:unset;cursor:pointer;color:var(--mute);font-size:13px;text-decoration:underline;display:inline-block;margin-top:16px;min-height:24px}
+.err{color:var(--crit);font-size:14px;min-height:22px;margin-top:12px}
+.cred-card{background:var(--accbg);border:1px solid var(--acc);border-radius:8px;padding:12px 16px;margin:16px 0}
+.cred-card .c-lab{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--acc);font-weight:600;margin-bottom:4px}
+.foot{font-size:12.5px;color:var(--mute);margin-top:28px;border-top:1px solid var(--line);padding-top:16px}
 @media (max-width:820px){.wrap{grid-template-columns:1fr}.brand{padding:22px 24px;border:0;border-bottom:1px solid var(--line)}.brand h2,.brand p,.grid{display:none}.side{align-items:flex-start;padding-top:36px}}
 @media (prefers-reduced-motion:no-preference){.box{animation:in .35s ease}@keyframes in{from{opacity:0;transform:translateY(6px)}}}
 </style></head><body>
@@ -49,12 +51,19 @@ input:focus-visible,.btn:focus-visible,.lk:focus-visible{outline:2px solid var(-
     <div class="lab">College Registry</div>
     <h1>Registry sign in</h1>
     <p class="sub">Manage college departments, faculty records, classes, and login accounts.</p>
+
+    <div class="cred-card">
+     <div class="c-lab">Operator Login Credentials</div>
+     <div>Username: <b>registry</b></div>
+     <div>Password: <b>registry123</b></div>
+    </div>
+
     <label for="u">Registry username</label>
-    <input id="u" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="e.g. registry" required autofocus>
+    <input id="u" autocomplete="username" autocapitalize="none" spellcheck="false" value="registry" required autofocus>
     <label for="p">Password</label>
     <div class="pw">
-     <input id="p" type="password" autocomplete="current-password" placeholder="Enter password" required>
-     <button type="button" id="sh" aria-label="Show password">Show</button>
+     <input id="p" type="text" autocomplete="current-password" value="registry123" required>
+     <button type="button" id="sh" aria-label="Hide password">Hide</button>
     </div>
     <button class="btn" id="go">Sign in</button>
     <div class="err" id="e" role="alert"></div>
@@ -89,10 +98,10 @@ $('#f').addEventListener('submit',async ev=>{
 });
 
 $('#sh').addEventListener('click',()=>{
- const p=$('#p');const show=p.type==='password';
- p.type=show?'text':'password';
- $('#sh').textContent=show?'Hide':'Show';
- $('#sh').setAttribute('aria-label',show?'Hide password':'Show password');
+ const p=$('#p');const isText=p.type==='text';
+ p.type=isText?'password':'text';
+ $('#sh').textContent=isText?'Show':'Hide';
+ $('#sh').setAttribute('aria-label',isText?'Show password':'Hide password');
 });
 
 api('/api/registry/auth/me').then(()=>location.replace('/registry.html')).catch(()=>{});

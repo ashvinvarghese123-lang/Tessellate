@@ -187,6 +187,7 @@ async function renderPage(){
        <th>Classes</th>
        <th>Faculty</th>
        <th>Username</th>
+       <th>Password</th>
        <th>Account Status</th>
        <th>Actions</th>
       </tr>
@@ -199,7 +200,8 @@ async function renderPage(){
         <td><span class="tag ${d.category_name=='Aided'?'ok':'warn'}">${esc(d.category_name)}</span></td>
         <td>${d.classes}</td>
         <td>${d.faculty}</td>
-        <td><code>${esc(d.username||'none')}</code></td>
+        <td><code><b>${esc(d.username||'none')}</b></code></td>
+        <td><code>${esc(d.password||d.username+'123')}</code></td>
         <td><span class="tag ${d.active?'ok':'crit'}">${d.active?'Active':'Inactive'}</span></td>
         <td>
          <div class="row" style="gap:6px">
@@ -362,6 +364,7 @@ async function renderPage(){
        <th>Code</th>
        <th>Category</th>
        <th>Username</th>
+       <th>Password</th>
        <th>Account Status</th>
        <th>Actions</th>
       </tr>
@@ -373,6 +376,7 @@ async function renderPage(){
         <td><code>${esc(a.department_code)}</code></td>
         <td><span class="tag ${a.category_name=='Aided'?'ok':'warn'}">${esc(a.category_name)}</span></td>
         <td><code><b>${esc(a.username)}</b></code></td>
+        <td><code>${esc(a.password||a.username+'123')}</code></td>
         <td><span class="tag ${a.active?'ok':'crit'}">${a.active?'Active':'Inactive'}</span></td>
         <td>
          <div class="row" style="gap:6px">
@@ -476,6 +480,14 @@ document.addEventListener('click',async ev=>{
     </form>
    `);
 
+   $('#in-dn').addEventListener('input',()=>{
+    const n=$('#in-dn').value.trim().toLowerCase().replace(/[^a-z0-9]/g,'');
+    if(!$('#in-du').dataset.edited)$('#in-du').value=n.slice(0,12);
+    if(!$('#in-dp').dataset.edited)$('#in-dp').value=(n.slice(0,12)||'dept')+'123';
+   });
+   $('#in-du').addEventListener('input',()=>{ $('#in-du').dataset.edited='1' });
+   $('#in-dp').addEventListener('input',()=>{ $('#in-dp').dataset.edited='1' });
+
    $('#form-dept-add').addEventListener('submit',async e=>{
     e.preventDefault();
     const name=$('#in-dn').value.trim();
@@ -557,6 +569,7 @@ document.addEventListener('click',async ev=>{
    if(!confirm(`Reset the login password for ${dname}? A new secure password will be generated.`))return;
    const r=await api(API+`departments/${did}/reset-password`,{method:'POST',body:{}});
    showCredentials('Password Reset Successful',dname,r.username,r.new_password);
+   draw();
   }
 
   else if(D.a=='acct-toggle-status'){
