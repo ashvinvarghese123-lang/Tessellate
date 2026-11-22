@@ -216,13 +216,21 @@ def generate(data, time_limit=30, workers=None):
         affected_students = enrolled_stu | cls_stu
 
         is_common = a.get("scope") == "college_wide" or a.get("selection_type") == "STUDENT_SELECTED"
+        ctype = a.get("course_type") or a.get("course_category", "MDC")
         if is_common:
             candidates = []
-            for cs in common_slots:
-                if cs.get("course_type") in (ctype, "Both", None):
+            pinned = a.get("pinned_slots")
+            if pinned:
+                for (p_day, p_start, p_end) in pinned:
                     matched_p = next((p for p, per in enumerate(data["settings"][dept]["periods"])
-                                      if ov(cs["start"], cs["end"], per["start"], per["end"])), 0)
-                    candidates.append((cs["day"], matched_p, cs["start"], cs["end"]))
+                                      if ov(p_start, p_end, per["start"], per["end"])), 0)
+                    candidates.append((p_day, matched_p, p_start, p_end))
+            else:
+                for cs in common_slots:
+                    if cs.get("course_type") in (ctype, "Both", None):
+                        matched_p = next((p for p, per in enumerate(data["settings"][dept]["periods"])
+                                          if ov(cs["start"], cs["end"], per["start"], per["end"])), 0)
+                        candidates.append((cs["day"], matched_p, cs["start"], cs["end"]))
         else:
             candidates = [(d, p, s, e) for d, p, s, e in grid(data, dept) if (d, p) not in free]
             # Avoid placing department-selected offerings inside common periods if normal periods suffice
@@ -497,10 +505,10 @@ def validate_move(data, entry, day, period, start, end):
     # Scope check
     is_common = entry.get("scope") == "college_wide" or entry.get("selection_type") == "STUDENT_SELECTED"
     if is_common:
-        ctype = entry.get("course_type", "MDC")
+        ctype = entry.get("course_type") or entry.get("course_category", "MDC")
         cslots = data.get("common_slots", [])
         if not any(cs["day"] == day and cs["start"] == start and cs["end"] == end and cs.get("course_type") in (ctype, "Both", None) for cs in cslots):
-            return False, f"College-wide student-selected {ctype} courses must use a configured common time slot."
+            return False, f"College-wide {ctype} courses must use a configured common time slot."
     # Student conflict checks
     stu_ids = set(entry.get("enrolled_students", []))
     cls_students = set(data.get("class_students", {}).get(c_id, [])) if c_id is not None else set()

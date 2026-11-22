@@ -1,495 +1,753 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Tessellate</title>
+<title>Tessellate · Department Workspace</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400&family=Instrument+Sans:wght@400;500;600&display=swap">
 <style>
-:root{--bg:#f6f4ef;--panel:#fbfaf7;--ink:#1c1c1a;--mute:#7a7872;--line:#e4e1d9;--acc:#4d6a63;--accbg:#e6ece9;--lab:#ebe7dc;--warn:#9a6a1f;--crit:#a23b34;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#161615;--panel:#1c1c1a;--ink:#ece9e1;--mute:#97948c;--line:#2e2d2a;--acc:#8fb3a9;--accbg:#233230;--lab:#262521;--warn:#d9a54e;--crit:#e2837c}}
-:root[data-theme="dark"]{--bg:#161615;--panel:#1c1c1a;--ink:#ece9e1;--mute:#97948c;--line:#2e2d2a;--acc:#8fb3a9;--accbg:#233230;--lab:#262521;--warn:#d9a54e;--crit:#e2837c}
+:root{--bg:#f6f4ef;--panel:#fbfaf7;--ink:#1c1c1a;--mute:#7a7872;--line:#e4e1d9;--acc:#4d6a63;--accbg:#e6ece9;--lab:#ebe7dc;--warn:#9a6a1f;--crit:#a23b34;--mdc:#1f7a63;--minor:#2a5da8;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#161615;--panel:#1c1c1a;--ink:#ece9e1;--mute:#97948c;--line:#2e2d2a;--acc:#8fb3a9;--accbg:#233230;--lab:#262521;--warn:#d9a54e;--crit:#e2837c;--mdc:#52b89d;--minor:#6ea0e6}}
+:root[data-theme="dark"]{--bg:#161615;--panel:#1c1c1a;--ink:#ece9e1;--mute:#97948c;--line:#2e2d2a;--acc:#8fb3a9;--accbg:#233230;--lab:#262521;--warn:#d9a54e;--crit:#e2837c;--mdc:#52b89d;--minor:#6ea0e6}
 html{scroll-padding-top:env(safe-area-inset-top,0px);height:100%}*{box-sizing:border-box}
 body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:15px/1.5 'Instrument Sans',system-ui,sans-serif}
 h1,h2,.logo{font-family:Fraunces,Georgia,serif;font-weight:400;letter-spacing:-.01em}
-h1{font-size:34px;margin:4px 0 6px;line-height:1.1}h2{font-size:20px;margin:30px 0 10px}
+h1{font-size:32px;margin:4px 0 6px;line-height:1.15}h2{font-size:20px;margin:28px 0 12px}
 .app{display:flex;min-height:100%}
-nav{width:208px;padding:26px 16px;border-right:1px solid var(--line);position:sticky;top:0;height:100vh;flex:none;display:flex;flex-direction:column;gap:2px}
-.logo{font-size:21px;margin:0 10px 18px}
-nav select{margin:0 0 18px;width:100%;font-size:13px}
-nav button{all:unset;cursor:pointer;padding:8px 10px;border-radius:6px;color:var(--mute);min-height:40px;display:flex;align-items:center;justify-content:space-between}
-nav button:hover{color:var(--ink)}nav button[aria-current=page]{color:var(--ink);background:var(--accbg)}
-nav .n{font-size:12px;border:1px solid var(--line);border-radius:10px;padding:0 7px}
-main{flex:1;padding:36px 44px 90px;min-width:0;max-width:1180px}
-.lab{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--mute)}
-.sub{color:var(--mute);margin:0 0 20px}.sm{font-size:13px;color:var(--mute)}
+nav{width:224px;padding:26px 16px;border-right:1px solid var(--line);position:sticky;top:0;height:100vh;flex:none;display:flex;flex-direction:column;gap:3px;overflow-y:auto}
+.logo{font-size:22px;margin:0 10px 14px}
+nav button{all:unset;cursor:pointer;padding:9px 12px;border-radius:7px;color:var(--mute);min-height:38px;display:flex;align-items:center;justify-content:space-between;font-size:13.5px;font-weight:500}
+nav button:hover{color:var(--ink);background:rgba(0,0,0,.03)}nav button[aria-current=page]{color:var(--ink);background:var(--accbg);font-weight:600}
+main{flex:1;padding:36px 44px 90px;min-width:0;max-width:1200px}
+.lab{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--mute);font-weight:600}
+.sub{color:var(--mute);margin:0 0 20px;font-size:14px}.sm{font-size:13px;color:var(--mute)}
 .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.sp{justify-content:space-between}
-.btn{font:inherit;cursor:pointer;border:1px solid var(--line);background:transparent;color:var(--ink);padding:9px 16px;border-radius:7px;min-height:40px}
-.btn:hover{border-color:var(--mute)}.btn.p{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.btn{font:inherit;cursor:pointer;border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:9px 16px;border-radius:7px;min-height:40px;display:inline-flex;align-items:center;justify-content:center;font-size:14px;font-weight:500;transition:all .15s}
+.btn:hover{border-color:var(--mute);background:var(--bg)}.btn.p{background:var(--ink);color:var(--bg);border-color:var(--ink)}.btn.p:hover{opacity:.9}
+.btn.sm{min-height:32px;padding:5px 10px;font-size:12.5px}
 :focus-visible{outline:2px solid var(--acc);outline-offset:2px}
-select,input{font:inherit;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:8px 10px;min-height:40px}
-.stats{display:flex;flex-wrap:wrap;border-top:1px solid var(--line);border-bottom:1px solid var(--line);margin:18px 0 10px}
-.stats div{flex:1 1 100px;padding:14px 0}.stats b{display:block;font:400 27px Fraunces,serif}
-.cols{display:grid;grid-template-columns:1fr 1fr;gap:44px}
-.kv{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--line)}
-.bar{height:5px;background:var(--line);border-radius:3px;margin-top:6px;overflow:hidden}.bar i{display:block;height:100%;background:var(--acc)}.bar.hi i{background:var(--warn)}.bar.ov i{background:var(--crit)}
-.item{padding:10px 0;border-bottom:1px solid var(--line)}
-.tag{display:inline-block;font-size:12px;font-weight:600;border:1px solid currentColor;border-radius:4px;padding:0 6px;margin-right:8px}
-.tag.c{color:var(--crit)}.tag.w{color:var(--warn)}.tag.i,.tag.s{color:var(--mute)}.tag.ok{color:var(--acc)}
-.seg{display:inline-flex;border:1px solid var(--line);border-radius:7px;overflow:hidden}
-.seg button{all:unset;cursor:pointer;padding:8px 14px;min-height:40px;box-sizing:border-box;color:var(--mute)}.seg button[aria-pressed=true]{background:var(--ink);color:var(--bg)}
-.gw{overflow-x:auto;margin-top:16px}
-table.g{border-collapse:collapse;width:100%;min-width:640px;table-layout:fixed}
-.g th{font-weight:500;color:var(--mute);font-size:13px;text-align:left;padding:8px;border-bottom:1px solid var(--line)}
-.g td{border:1px solid var(--line);padding:0;height:76px;vertical-align:top;background:var(--panel)}
-.g td.t{width:60px;border:0;background:none;color:var(--mute);font-size:12px;padding:8px 8px 0 0;text-align:right}
-.g td.br{height:24px;background:repeating-linear-gradient(135deg,transparent 0 6px,var(--line) 6px 7px);color:var(--mute);font-size:11px;text-align:center;vertical-align:middle;letter-spacing:.08em}
-.c{padding:8px 10px;height:100%;border-left:3px solid var(--acc)}.c[draggable=true]{cursor:grab}.c.lb{background:var(--lab);border-left-color:var(--mute)}
-.c b{display:block;font-size:12.5px;letter-spacing:.03em;text-transform:uppercase}.c span{display:block;font-size:12.5px;color:var(--mute)}
-td.over{outline:2px dashed var(--acc);outline-offset:-3px}.fr{color:var(--line);font-size:12px;padding:8px 10px}
-.bz{width:100%;height:100%;min-height:76px;font:inherit;font-size:12px;color:var(--warn);text-align:left;padding:8px 10px;background:repeating-linear-gradient(135deg,transparent 0 5px,var(--lab) 5px 6px);border:0;cursor:pointer}
+select,input,textarea{font:inherit;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:8px 12px;min-height:40px}
+.stats{display:flex;flex-wrap:wrap;border-top:1px solid var(--line);border-bottom:1px solid var(--line);margin:18px 0 20px}
+.stats div{flex:1 1 120px;padding:16px 12px 16px 0;border-right:1px solid var(--line)}.stats div:last-child{border-right:0}
+.stats b{display:block;font:400 30px Fraunces,serif}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:36px}
+.card{border:1px solid var(--line);background:var(--panel);border-radius:9px;padding:20px;margin-bottom:18px}
+.item{padding:12px 0;border-bottom:1px solid var(--line)}.item:last-child{border-bottom:0}
+.tag{display:inline-flex;align-items:center;font-size:11.5px;font-weight:600;border:1px solid currentColor;border-radius:5px;padding:2px 7px;letter-spacing:.02em}
+.tag.c{color:var(--crit);background:rgba(162,59,52,.08)}.tag.w{color:var(--warn);background:rgba(154,106,31,.08)}.tag.ok{color:var(--acc);background:rgba(77,106,99,.08)}
+.tag.mdc{color:var(--mdc);border-color:var(--mdc);background:rgba(31,122,99,.08)}
+.tag.minor{color:var(--minor);border-color:var(--minor);background:rgba(42,93,168,.08)}
+.tag.reg{color:var(--mute);border-color:var(--line);background:rgba(0,0,0,.04)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:7px;overflow:hidden;background:var(--panel)}
+.seg button{all:unset;cursor:pointer;padding:8px 14px;min-height:38px;color:var(--mute);font-size:13px;font-weight:500}.seg button[aria-pressed=true]{background:var(--ink);color:var(--bg);font-weight:600}
+.gw{overflow-x:auto;margin-top:16px;border:1px solid var(--line);border-radius:8px}
+table.g{border-collapse:collapse;width:100%;min-width:680px;table-layout:fixed}
+.g th{font-weight:600;color:var(--mute);font-size:12.5px;text-align:left;padding:10px;border-bottom:1px solid var(--line);background:var(--bg)}
+.g td{border:1px solid var(--line);padding:0;height:84px;vertical-align:top;background:var(--panel)}
+.g td.t{width:70px;border:0;background:var(--bg);color:var(--mute);font-size:12px;padding:10px 8px 0 0;text-align:right;font-weight:500}
+.g td.br{height:28px;background:repeating-linear-gradient(135deg,transparent 0 6px,var(--line) 6px 7px);color:var(--mute);font-size:11px;text-align:center;vertical-align:middle;letter-spacing:.08em;font-weight:600}
+.c{padding:8px 10px;height:100%;border-left:3px solid var(--acc);display:flex;flex-direction:column;justify-content:space-between;background:var(--panel)}
+.c[draggable=true]{cursor:grab}.c.c-mdc{border-left-color:var(--mdc);background:rgba(31,122,99,.04)}.c.c-minor{border-left-color:var(--minor);background:rgba(42,93,168,.04)}
+.c b{display:block;font-size:13px;font-weight:600}.c span{display:block;font-size:12px;color:var(--mute)}
+td.over{outline:2px dashed var(--acc);outline-offset:-3px}.fr{color:var(--mute);opacity:.6;font-size:12px;padding:8px 10px}
+.bz{width:100%;height:100%;min-height:84px;font:inherit;font-size:12px;color:var(--warn);text-align:left;padding:8px 10px;background:repeating-linear-gradient(135deg,transparent 0 5px,var(--lab) 5px 6px);border:0;cursor:pointer}
 .bz.off{color:var(--mute);cursor:default}
-table.l{width:100%;border-collapse:collapse}.l th{text-align:left;font-weight:500;color:var(--mute);font-size:13px;padding:8px 8px 8px 0;border-bottom:1px solid var(--line)}.l td{padding:10px 8px 10px 0;border-bottom:1px solid var(--line)}
-.dl .it{display:flex;gap:16px;padding:14px 0;border-bottom:1px solid var(--line)}.dl .it time{width:56px;color:var(--mute);flex:none}.dl .it.fz{color:var(--mute)}
-.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:12px 18px;border-radius:8px;max-width:92vw;z-index:9;display:none}
-.ov{position:fixed;inset:0;background:var(--bg);display:none;align-items:center;justify-content:center;z-index:20;padding:24px}.ov.on{display:flex}
-.ov ul{list-style:none;padding:0;margin:20px 0 0;min-height:190px;color:var(--mute)}.ov li{padding:3px 0;animation:f .4s}.ov li:last-child{color:var(--ink)}
-@keyframes f{from{opacity:0}}@media (prefers-reduced-motion:reduce){.ov li{animation:none}}
-.note{border:1px solid var(--line);padding:14px 16px;border-radius:8px;margin:14px 0;background:var(--panel)}
-.empty{text-align:center;padding:60px 10px;color:var(--mute)}.empty h2{color:var(--ink);margin-top:0}
-@media (max-width:820px){.app{flex-direction:column}nav{width:100%;height:auto;position:sticky;top:0;flex-direction:row;overflow-x:auto;padding:10px 12px;border-right:0;border-bottom:1px solid var(--line);background:var(--bg);z-index:5;align-items:center}.logo{display:none}nav select{width:auto;min-width:150px;margin:0 8px 0 0}nav button{white-space:nowrap}nav .n{display:none}main{padding:22px 16px 90px}.cols{grid-template-columns:1fr;gap:20px}h1{font-size:28px}}
+table.l{width:100%;border-collapse:collapse}.l th{text-align:left;font-weight:600;color:var(--mute);font-size:13px;padding:10px 10px 10px 0;border-bottom:1px solid var(--line)}.l td{padding:12px 10px 12px 0;border-bottom:1px solid var(--line);font-size:14px}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:12px 20px;border-radius:8px;max-width:92vw;z-index:99;display:none;box-shadow:0 4px 16px rgba(0,0,0,.15);font-size:14px}
+.ov{position:fixed;inset:0;background:rgba(22,22,21,.7);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;z-index:100;padding:24px}.ov.on{display:flex}
+.ov .box{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:32px;max-width:460px;width:100%;box-shadow:0 8px 30px rgba(0,0,0,.2)}
+.ov ul{list-style:none;padding:0;margin:18px 0 0;min-height:160px;color:var(--mute);font-size:14px}.ov li{padding:4px 0}
+.empty{text-align:center;padding:50px 16px;color:var(--mute)}.empty h2{color:var(--ink);margin-top:0}
+.bar{height:6px;background:var(--line);border-radius:3px;margin-top:6px;overflow:hidden}.bar i{display:block;height:100%;background:var(--acc)}.bar.hi i{background:var(--warn)}.bar.ov i{background:var(--crit)}
+.tg{width:100%;min-height:44px;border:0;background:var(--panel);color:var(--mute);font:inherit;font-size:12.5px;cursor:pointer;border-radius:4px}.tg:hover{color:var(--ink)}.tg.on{background:repeating-linear-gradient(135deg,transparent 0 5px,var(--lab) 5px 6px);color:var(--warn);font-weight:600}
+.chk{display:inline-flex;gap:8px;align-items:center;padding:8px 12px;border:1px solid var(--line);border-radius:7px;min-height:40px;cursor:pointer;background:var(--panel);font-size:13.5px}
+@media (max-width:860px){.app{flex-direction:column}nav{width:100%;height:auto;position:sticky;top:0;flex-direction:row;overflow-x:auto;padding:10px;border-right:0;border-bottom:1px solid var(--line);background:var(--bg);z-index:20}.logo{display:none}main{padding:20px 16px 80px}.cols{grid-template-columns:1fr;gap:20px}h1{font-size:26px}}
 @media print{nav,.noprint{display:none!important}main{padding:0}}
-
-.login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
-.login form,.login .box{width:100%;max-width:360px}
-.login .logo{font-size:30px;margin:0 0 4px}
-.login label{display:block;margin:16px 0 6px;font-size:13px;color:var(--mute)}
-.login input{width:100%}.login .btn{width:100%;margin-top:22px}
-.login .lk{all:unset;cursor:pointer;color:var(--mute);font-size:13px;display:inline-block;margin-top:16px;text-decoration:underline;min-height:24px}
-.code{letter-spacing:.5em;font-size:22px;text-align:center}
-.err{color:var(--crit);font-size:14px;margin-top:12px;min-height:20px}
-.tg{width:100%;min-height:40px;border:0;background:var(--panel);color:var(--mute);font:inherit;font-size:12px;cursor:pointer}.tg:hover{color:var(--ink)}.tg.on{background:repeating-linear-gradient(135deg,transparent 0 5px,var(--lab) 5px 6px);color:var(--warn)}
-.chk{display:inline-flex;gap:6px;align-items:center;padding:6px 10px;border:1px solid var(--line);border-radius:6px;min-height:40px;cursor:pointer}.gapnote td{padding:2px 8px}
 </style></head><body>
 <div id="root"></div><div class="toast" id="toast" role="status"></div>
-<div class="ov" id="ov" role="dialog" aria-label="Working"><div style="max-width:420px;width:100%"><div class="lab">Preparing timetable</div><h1 id="ovt">Timetable</h1><ul id="steps" aria-live="polite"></ul></div></div>
+<div class="ov" id="ov" role="dialog" aria-label="Processing"><div class="box"><div class="lab">Automated Timetable Generation</div><h1 id="ovt" style="font-size:24px">Tessellate Engine</h1><ul id="steps" aria-live="polite"></ul></div></div>
 <script>
 const DAYS=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'],tmn=t=>+t.slice(0,2)*60+ +t.slice(3,5);
-const roomsOn=()=>!!(me&&me.features&&me.features.rooms);
 const STD=[['09:00','10:00'],['10:00','11:00'],['11:15','12:15'],['12:15','13:15'],['14:00','15:00'],['15:00','16:00']];
-const $=s=>document.querySelector(s),R=$('#root');
-const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const $=s=>document.querySelector(s),R=$('#root'),esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 async function api(p,o={}){const r=await fetch(p,{credentials:'same-origin',headers:{'content-type':'application/json'},...o,body:o.body?JSON.stringify(o.body):undefined});
  let j={};try{j=await r.json()}catch(e){}
- if(!r.ok){if(r.status==401&&me){location.replace('/login.html')}throw new Error(typeof j.detail=='string'?j.detail:'Something went wrong. Please try again.')}return j}
+ if(!r.ok){if(r.status==401&&me){location.replace('/login.html')}throw new Error(typeof j.detail=='string'?j.detail:'Something went wrong.')}return j}
 function toast(t,ok){const e=$('#toast');e.textContent=(ok?'✓ ':'⚠ ')+t;e.style.display='block';clearTimeout(toast.h);toast.h=setTimeout(()=>e.style.display='none',5000)}
-let me=null,screen='login',V='dash',ch=null,hint='',cool=0,S={mode:'class',sel:null,dy:0,fav:null,rav:null,rt:'all',gen:null,stuOff:null};
-const NAV=[['dash','Dashboard'],['tt','Timetable'],['cl','Classes'],['su','Subjects'],['courses','Courses & Offerings'],['students','Students & Enrollment'],['cslots','Common Slots'],['fa','Faculty'],['ro','Rooms'],['co','Conflicts'],['ru','Rules'],['se','Settings']];
-function loginHtml(){
- if(screen=='login')return `<div class="login"><form id="f1"><div class="logo">Tessellate</div><p class="sub">College Timetable &amp; Resource Synchronization</p>
- <label for="u">Department username</label><input id="u" autocomplete="username" autocapitalize="none" required>
- <label for="p">Password</label><input id="p" type="password" autocomplete="current-password" required>
- <button class="btn p">Continue</button><div class="err" id="e" role="alert"></div><button type="button" class="lk" data-go="forgot">Forgot password?</button></form></div>`;
- if(screen=='code')return `<div class="login"><form id="f2"><div class="lab">Verification required</div><h1 style="font-size:28px">Check your email</h1><p class="sub">A verification code has been sent to your registered department email, ${esc(hint)}.</p>
- <label for="c">Verification code</label><input id="c" class="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required>
- <button class="btn p">Verify</button><div class="err" id="e" role="alert"></div><button type="button" class="lk" id="rs" data-go="resend">${cool>0?'Resend code in '+cool+'s':'Resend code'}</button></form></div>`;
- return `<div class="login"><form id="f3"><div class="lab">Reset password</div><h1 style="font-size:28px">Reset by email</h1><p class="sub">We send a reset code to the registered department email.</p>
- <label for="u">Department username</label><input id="u" autocapitalize="none" required><button type="button" class="btn" data-go="sendreset">Send reset code</button>
- <label for="t">Reset code from the email</label><input id="t"><label for="n">New password (10+ characters, letters and numbers)</label><input id="n" type="password" autocomplete="new-password">
- <button class="btn p">Set new password</button><div class="err" id="e" role="alert"></div><button type="button" class="lk" data-go="login">Back to sign in</button></form></div>`}
+
+let me=null,V='dash',S={sel:null,dy:0,fav:null,fe:null,un:new Set(),gen:null,alt:null,rcfg:null,rdefs:null,rstale:false,ttMode:'class'};
+const NAV=[
+  ['dash','Overview'],
+  ['su','Subjects'],
+  ['ta','Teacher Assignments'],
+  ['tav','Teacher Availability'],
+  ['ru','Scheduling Rules'],
+  ['mdc','MDC & Minor Template'],
+  ['gen','Generate Timetable'],
+  ['tt','Timetable'],
+  ['co','Conflict Center']
+];
+
 function shell(inner){
  const cat=me&&me.department&&me.department.category;
- const catBadge=cat?`<span class="tag ${cat=='Aided'?'ok':'w'}" style="font-size:10px;padding:1px 6px" title="Organizational classification · Equal scheduling priority">${esc(cat)}</span>`:'';
- return `<div class="app"><nav aria-label="Main"><div class="logo">Tessellate</div><div class="sm" style="margin:0 10px 14px;display:flex;align-items:center;justify-content:space-between"><span>${esc(me.department.name)}</span>${catBadge}</div>${NAV.filter(([k])=>k!='ro'||roomsOn()).map(([k,l])=>`<button data-v="${k}" ${V==k?'aria-current="page"':''}>${l}</button>`).join('')}</nav><main>${inner}</main></div>`
+ const catBadge=cat?`<span class="tag ${cat=='Aided'?'ok':'w'}" title="Institutional category · Equal scheduling priority">${esc(cat)}</span>`:'';
+ return `<div class="app">
+ <nav aria-label="Department navigation">
+  <div class="logo">Tessellate</div>
+  <div class="sm" style="margin:0 10px 14px;display:flex;align-items:center;justify-content:space-between">
+   <span style="font-weight:600;color:var(--ink)">${esc(me.department.name)}</span>${catBadge}
+  </div>
+  ${NAV.map(([k,l])=>`<button data-v="${k}" ${V==k?'aria-current="page"':''}>${l}</button>`).join('')}
+  <div style="margin-top:auto;padding-top:18px;border-top:1px solid var(--line);font-size:12px;color:var(--mute)">
+   <div style="margin-bottom:6px">Signed in as <b>${esc(me.username)}</b></div>
+   <div class="row" style="gap:8px">
+    <button class="btn sm" data-a="pw">Password</button>
+    <button class="btn sm" data-a="out">Sign out</button>
+   </div>
+  </div>
+ </nav>
+ <main>${inner}</main>
+ </div>`;
 }
-const head=(l,t,s,a)=>`<div class="row sp" style="align-items:flex-end"><div><div class="lab">${l}</div><h1>${t}</h1><p class="sub">${s}</p></div>${a||''}</div>`;
-const tab=(h,rows)=>`<table class="l"><thead><tr>${h.map(x=>`<th>${x}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
-const STL={draft:'Draft',under_review:'Under review',approved:'Approved',published:'Published',frozen:'Frozen'},NXT={draft:['Submit for review','under_review'],under_review:['Approve','approved'],approved:['Publish','published'],published:['Freeze','frozen'],frozen:['Unfreeze','published']};
-const gen=`<button class="btn p noprint" data-a="gen">Generate timetable</button>`;
+
+const head=(l,t,s,a)=>`<div class="row sp" style="align-items:flex-end;margin-bottom:20px"><div><div class="lab">${l}</div><h1>${t}</h1><p class="sub" style="margin-bottom:0">${s}</p></div>${a||''}</div>`;
+const tab=(h,rows)=>`<div class="gw"><table class="l"><thead><tr>${h.map(x=>`<th>${x}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+const catBadge=c=>c=='MDC'?'<span class="tag mdc">MDC</span>':c=='Minor'?'<span class="tag minor">Minor</span>':'<span class="tag reg">Regular</span>';
+
 async function redraw(){const y=scrollY;try{$('main').innerHTML=await page()}catch(e){toast(e.message)}scrollTo(0,y)}
 async function draw(){
  if(!me){location.replace('/login.html');return}
  R.innerHTML=shell('<p class="sub">Loading…</p>');
  try{$('main').innerHTML=await page()}catch(e){$('main').innerHTML=`<div class="empty"><h2>We couldn’t load this page</h2><p>${esc(e.message)}</p></div>`}}
+
 async function page(){
- if(V=='dash'){const d=await api('/api/dashboard'),st=d.status.length==1?d.status[0]:null;
-  if(!d.classes)return head('Welcome back',esc(d.department.name)+' Department','Academic year 2026–27')+`<div class="empty"><h2>Let’s set up your department</h2><p>Start by adding your classes. Then add subjects and generate.</p><button class="btn p" data-v="cl">Add your first class</button></div>`;
-  if(!d.sessions)return head('Welcome back',esc(d.department.name)+' Department','Academic year 2026–27')+`<div class="empty"><h2>No timetable yet</h2><p>Your department hasn’t generated a timetable yet.</p>${gen}</div>`;
-  return head('Welcome back',esc(d.department.name)+' Department','Academic year 2026–27 · Status: '+(st?STL[st]:'Mixed'),st?`<button class="btn p noprint" data-a="st" data-s="${NXT[st][1]}">${NXT[st][0]}</button>`:'')+
-  `<div class="stats">${[['Classes',d.classes],['Subjects',d.subjects],['Faculty',d.faculty],['Weekly sessions',d.sessions]].map(([a,b])=>`<div><b>${b}</b><span class="sm">${a}</span></div>`).join('')}</div><p class="sub">Teachers and rooms are shared across the college and checked every time you generate or edit.</p>`+gen}
- if(V=='tt')return tt();
- if(V=='ru')return ru();
- if(V=='courses')return coursesPage();
- if(V=='students')return studentsPage();
- if(V=='cslots')return cslotsPage();
- if(V=='cl'){const c=await api('/api/classes');return head('Structure','Classes',esc(me.department.name))+`<div class="note noprint"><div class="row"><label>Class name<br><input id="kn" placeholder="e.g. BSc Chemistry · Sem 1 · A"></label><label>Semester<br><select id="ks">${[1,2,3,4,5,6,7,8].map(n=>`<option>${n}</option>`).join('')}</select></label><label>Section<br><input id="kc" value="A" maxlength="3" style="width:70px"></label><label>Students<br><input id="kt" type="number" min="1" style="width:90px"></label><label><br><button class="btn p" data-a="addclass">Add class</button></label></div></div>`+(c.length?tab(['Class','Semester','Section','Students'],c.map(x=>[esc(x.name),x.semester,x.section,x.students??''])):'<div class="empty"><h2>No classes yet</h2><p>Add your first class above, then add its subjects.</p></div>')}
- if(V=='su')return su();
- if(V=='fa'){const f=await api('/api/faculty'),av=S.fav?await api(`/api/faculty/${S.fav}/availability`):null;
-  const fv=S.fd?f.filter(x=>dOf(x)==S.fd):f,ed=S.fe&&S.fe!='new'?f.find(x=>x.id==S.fe&&x.editable):null;
-  let panel='';if(S.fe=='new'||ed){const a=ed?await api(`/api/faculty/${ed.id}/base-availability`):[];S.un=new Set(a.filter(c=>c.state=='unavailable').map(c=>c.day+','+c.period));panel=facForm(ed,a)}
-  return head('Shared','Faculty','One record per person, used by every department',`<button class="btn p noprint" data-a="newfac">Add faculty</button>`)+panel+`<div class="row noprint" style="margin-bottom:12px"><label class="sm">Department&nbsp;<select id="fd">${deptOpts(f,S.fd||'')}</select></label><span class="sm">${fv.length} of ${f.length} faculty</span></div>`+
-  tab(['ID','Name','Home department','Sessions','Actions'],fv.map(x=>[x.faculty_code,esc(x.name),esc(x.department),`${x.sessions} / ${x.max_weekly_sessions}`,`<div class="row"><button class="btn" data-fav="${x.id}">Availability</button>${x.editable?`<button class="btn" data-fe="${x.id}">Edit</button>`:`<span class="sm">Managed by ${esc(dOf(x))}</span>`}</div>`]))+(av&&!panel?'<h2>'+esc(f.find(x=>x.id==S.fav).name)+'</h2>'+avGrid(av):'')}
- if(V=='ro'){const r=await api('/api/rooms'),show=S.rt=='lab'?r.filter(x=>x.room_type!='Classroom'):r,av=S.rav?await api(`/api/rooms/${S.rav}/availability`):null;
-  return head('Shared','Rooms &amp; laboratories','One list for the whole college')+`<div class="seg noprint" role="group">${[['all','All'],['lab','Laboratories']].map(([k,l])=>`<button data-rt="${k}" aria-pressed="${S.rt==k}">${l}</button>`).join('')}</div>`+tab(['Name','Type','Capacity','Availability'],show.map(x=>[esc(x.name),x.room_type,x.capacity,`<button class="btn" data-rav="${x.id}">View</button>`]))+(av?'<h2>'+esc(r.find(x=>x.id==S.rav).name)+'</h2>'+avGrid(av):'')}
- if(V=='co'){const r=await api('/api/conflicts'),items=(S.gen&&S.gen.issues)||r.items;
-  const alt=S.alt?(S.alt.status=='proposal'?`<div class="note"><b>A better college-wide arrangement exists.</b><p>${esc(S.alt.message)}</p>${S.alt.affected_departments.map(x=>`<div class="item">${esc(x.department)}: ${x.sessions_changed} sessions would change</div>`).join('')}</div>`:`<div class="note"><b>${esc(S.alt.message)}</b></div>`):'';
-  return head('Review','Conflicts &amp; Diagnostics',items.length?'What needs fixing':'Nothing to fix')+
-  (items.length?items.map(x=>{
-    const isStu=x.issue.includes('attending')||x.issue.includes('Student')||x.issue.includes('student');
-    const isCap=x.issue.includes('capacity')||x.issue.includes('exceeds');
-    const tagClass=isStu?'c':isCap?'w':'c';
-    const tagLabel=isStu?'Student Clash':isCap?'Section Capacity':'Issue';
-    return `<div class="item"><span class="tag ${tagClass}">${tagLabel}</span><b>${esc(x.issue)}</b><div style="margin-top:4px">Fix: ${esc(x.fix)}</div></div>`;
-  }).join(''):`<div class="empty"><h2>✓ No conflicts</h2><p>${r.generated?'Your timetable has no problems. All teacher, room, and student schedules are valid.':'Generate your timetable to see if anything needs fixing.'}</p></div>`)+
-  (items.some(x=>x.alt)?`<div class="row noprint" style="margin-top:14px"><button class="btn" data-a="alt">Look for a better college-wide arrangement</button></div>`:'')+alt}
- if(V=='se'){const h=await api('/api/audit');return head('Account',esc(me.department.name),'Signed in as '+esc(me.username)+' · '+esc(me.email_hint))+
-  `<div class="row noprint"><button class="btn" data-a="pw">Change password</button><button class="btn" data-a="outall">Sign out of all devices</button><button class="btn" data-a="out">Sign out</button></div><h2>Recent changes</h2>`+(h.length?tab(['When','What','Details'],h.map(x=>[new Date(x.at).toLocaleString(),esc(x.action.replace('_',' ')),esc(x.reason||(x.new_value&&x.new_value.when)||'')])):'<p class="sub">No changes recorded yet.</p>')}}
-async function coursesPage(){
- const [crs, offs, fac, rms] = await Promise.all([
-  api('/api/courses?all=1'),
-  api('/api/offerings/all'),
-  api('/api/faculty'),
-  roomsOn()?api('/api/rooms'):[]
- ]);
- if(!S.newCourseType) S.newCourseType = 'Regular';
- if(!S.newCourseSel) S.newCourseSel = 'STUDENT_SELECTED';
-
- const typeBadge = t => t=='MDC'?'<span class="tag c">MDC</span>':t=='Minor'?'<span class="tag w">Minor</span>':'<span class="tag ok">Regular</span>';
- const selBadge = (st, ct) => ct=='Regular' ? '<span class="tag ok">Regular (Department)</span>' :
-   st=='DEPARTMENT_SELECTED' ? '<span class="tag i">Department-Selected (Internal)</span>' : '<span class="tag c">Student-Selected (College-wide)</span>';
- const scopeBadge = s => s=='college_wide'?'<span class="tag c">College-wide</span>':'<span class="tag i">Department-specific</span>';
-
- return head('Curriculum','Courses &amp; Offerings','Define Course categories (Regular, MDC, Minor), selection methods (Student-Selected vs Department-Selected), and launch active Offerings.')+
- `<div class="note noprint"><h2 style="margin-top:0">Add New Course</h2>
-  <div class="row">
-   <label>Course code<br><input id="cc_code" placeholder="e.g. MDC-CS-01" style="width:140px"></label>
-   <label>Course name<br><input id="cc_name" placeholder="e.g. Data Analytics" style="width:260px"></label>
-   <label>Course Category<br><select id="cc_type" data-a="cctypeselect"><option value="Regular" ${S.newCourseType=='Regular'?'selected':''}>Regular</option><option value="MDC" ${S.newCourseType=='MDC'?'selected':''}>MDC</option><option value="Minor" ${S.newCourseType=='Minor'?'selected':''}>Minor</option></select></label>
-   <label>Description<br><input id="cc_desc" placeholder="Course outline / description"></label>
-   <label><br><button class="btn p" data-a="addcourse">Create Course</button></label>
-  </div>
-  ${(S.newCourseType=='MDC'||S.newCourseType=='Minor')?`
-  <div style="margin-top:14px;padding:14px;background:var(--bg);border:1px solid var(--line);border-radius:8px">
-   <div style="font-weight:600;margin-bottom:8px">How is this ${S.newCourseType} course selected?</div>
-   <div class="cols" style="gap:14px">
-    <div class="item" data-a="seltype" data-st="STUDENT_SELECTED" style="cursor:pointer;flex:1;padding:12px;border:2px solid ${S.newCourseSel!='DEPARTMENT_SELECTED'?'var(--accent)':'var(--line)'};border-radius:6px;background:var(--panel)">
-     <div class="row sp"><b style="color:${S.newCourseSel!='DEPARTMENT_SELECTED'?'var(--accent)':'inherit'}">Student-Selected (College-Wide)</b><span class="tag c sm">Common Slot</span></div>
-     <p class="sm" style="margin:6px 0 0">Students from different departments can select this course. It will follow the common college-wide MDC/Minor timetable.</p>
-    </div>
-    <div class="item" data-a="seltype" data-st="DEPARTMENT_SELECTED" style="cursor:pointer;flex:1;padding:12px;border:2px solid ${S.newCourseSel=='DEPARTMENT_SELECTED'?'var(--accent)':'var(--line)'};border-radius:6px;background:var(--panel)">
-     <div class="row sp"><b style="color:${S.newCourseSel=='DEPARTMENT_SELECTED'?'var(--accent)':'inherit'}">Department-Selected (Department-Specific)</b><span class="tag i sm">Dept Grid</span></div>
-     <p class="sm" style="margin:6px 0 0">This course is selected and managed within your own department. It will follow your department's regular timetable.</p>
-    </div>
-   </div>
-  </div>`:''}
- </div>
- <h2>Department &amp; College Courses</h2>`+
-  (crs.length?tab(['Code','Name','Category','Course Selection Type','Offering Department','Institutional Classification'],crs.map(c=>[
-   `<b>${esc(c.course_code)}</b>`,
-   esc(c.course_name),
-   typeBadge(c.course_type),
-   selBadge(c.selection_type, c.course_type),
-   esc(c.department_name),
-   `<span class="tag sm ${c.category_name=='Aided'?'ok':'w'}">${esc(c.category_name)}</span>`
-  ])):'<p class="sub">No courses defined yet.</p>')+
-  `<div class="note noprint" style="margin-top:30px"><h2 style="margin-top:0">Create Course Offering</h2>
-   <p class="sm">An offering is an actual instance of that course conducted during an academic year and semester. Selection type is inherited from the course definition.</p>
-   <div class="row">
-    <label>Course<br><select id="co_cid">${crs.map(c=>`<option value="${c.id}">${esc(c.course_code)} · ${esc(c.course_name)} (${c.course_type}${c.selection_type==='DEPARTMENT_SELECTED'?' · Dept':' · Common'})</option>`).join('')}</select></label>
-    <label>Offering Code<br><input id="co_code" placeholder="e.g. MDC1-2026-SEM1" style="width:160px"></label>
-    <label>Semester<br><select id="co_sem">${[1,2,3,4,5,6,7,8].map(n=>`<option>${n}</option>`).join('')}</select></label>
-    <label>Weekly Sessions<br><input id="co_sess" type="number" min="1" max="10" value="2" style="width:80px"></label>
-    <label>Max Enrollment<br><input id="co_cap" type="number" min="5" max="300" value="60" style="width:90px"></label>
-    <label>Teacher<br><select id="co_fac">${facOpts(fac,me.department.name)}</select></label>
-    ${roomsOn()?`<label>Room<br><select id="co_room"><option value="">Any Classroom</option>${rms.map(r=>`<option value="${r.id}">${esc(r.name)} (${r.room_type})</option>`).join('')}</select></label>`:''}
-    <label><br><button class="btn p" data-a="addoffering">Launch Offering</button></label>
-   </div></div>
-   <h2>Active Course Offerings</h2>`+
-   (offs.length?tab(['Code','Course','Category','Selection Type','Sessions','Teacher','Sections','Enrolled / Cap','Actions'],offs.map(o=>[
-    `<b>${esc(o.offering_code)}</b>`,
-    esc(o.course_name),
-    typeBadge(o.course_type),
-    selBadge(o.selection_type, o.course_type),
-    o.required_sessions,
-    esc(o.teacher||'Unassigned'),
-    (o.sections&&o.sections.length)?o.sections.map(s=>`<span class="tag sm">${esc(s.section_name)} (${s.capacity})</span>`).join(' '):'<span class="sm">Single section</span>',
-    `<b>${o.enrolled_count||0}</b> / ${o.max_enrollment}`,
-    `<div class="row"><button class="btn sm" data-a="newsec" data-oid="${o.id}">+ Section</button><button class="btn sm" data-a="offtt" data-oid="${o.id}">Schedule</button>${o.offering_department_id==me.department.id?`<button class="btn sm" data-a="deloff" data-oid="${o.id}">Remove</button>`:''}</div>`
-   ])):'<p class="sub">No course offerings created yet.</p>');
+ if(V=='dash') return viewOverview();
+ if(V=='su') return viewSubjects();
+ if(V=='ta') return viewTeacherAssignments();
+ if(V=='tav') return viewTeacherAvailability();
+ if(V=='ru') return viewSchedulingRules();
+ if(V=='mdc') return viewMdcTemplate();
+ if(V=='gen') return viewGenerateTimetable();
+ if(V=='tt') return viewTimetable();
+ if(V=='co') return viewConflictCenter();
+ return viewOverview();
 }
 
-async function studentsPage(){
- const [students, offs, classes] = await Promise.all([
-  api('/api/students'),
-  api('/api/offerings/all'),
-  api('/api/classes')
+/* 1. OVERVIEW VIEW */
+async function viewOverview(){
+ const [d, allocs, fac, conf] = await Promise.all([
+  api('/api/dashboard'),
+  api('/api/allocations'),
+  api('/api/faculty'),
+  api('/api/conflicts')
  ]);
- if(!S.stuOff && offs.length) S.stuOff = offs[0].id;
- const curOff = offs.find(o=>o.id==S.stuOff);
- let enrData = {enrolled:[], by_department:{}, total_enrolled:0};
- if(curOff) {
-  try { enrData = await api(`/api/offerings/${curOff.id}/enrollments`); } catch(e){}
- }
- const deptCounts = Object.entries(enrData.by_department||{}).map(([d,n])=>`<b>${esc(d)}:</b> ${n}`).join(' &nbsp;·&nbsp; ');
-
- return head('Students &amp; Enrollment','Cross-Department Enrollment','College-wide student identity and course offering selections.')+
- `<div class="note noprint"><h2 style="margin-top:0">Select Course Offering to Manage Enrollment</h2>
-  <div class="row">
-   <label>Course Offering<br><select id="stu_off_sel">${offs.map(o=>`<option value="${o.id}" ${o.id==S.stuOff?'selected':''}>${esc(o.offering_code)} · ${esc(o.course_name)} (${esc(o.offering_department)} · ${o.selection_type==='DEPARTMENT_SELECTED'?'Dept-Selected':'Student-Selected'})</option>`).join('')}</select></label>
-  </div>
-  ${curOff?`
-  <div style="margin-top:14px">
-   <div class="row sp">
-    <div><b>Capacity:</b> ${enrData.total_enrolled} / ${curOff.max_enrollment} students enrolled</div>
-    <div class="sm">${curOff.selection_type==='DEPARTMENT_SELECTED'?'<span class="tag i">Department-Selected</span> Restricted to '+esc(curOff.offering_department)+' students':'<span class="tag c">Student-Selected</span> College-wide enrollment pool'}</div>
+ const assignedTeachers = new Set(allocs.map(a=>a.faculty_id)).size;
+ const issuesCount = conf.items?conf.items.length:0;
+ const cat = me.department.category;
+ 
+ return head('Department Workspace', `${esc(me.department.name)} Department`, `Institutional Category: ${esc(cat)} · Guaranteed Equal Scheduling Priority`,
+  `<button class="btn p noprint" data-v="gen">Generate Timetable</button>`)+
+ `<div class="stats">
+   <div><b>${allocs.length}</b><span class="sm">Subjects Offered</span></div>
+   <div><b>${assignedTeachers}</b><span class="sm">Assigned Teachers</span></div>
+   <div><b>${d.sessions||0}</b><span class="sm">Scheduled Sessions</span></div>
+   <div><b style="color:${issuesCount>0?'var(--crit)':'var(--acc)'}">${issuesCount===0?'0 Clashes':issuesCount+' Issues'}</b><span class="sm">Conflict Status</span></div>
+ </div>
+ <div class="cols">
+  <div>
+   <h2>Quick Actions</h2>
+   <div class="card">
+    <p class="sm" style="margin-top:0">Essential steps for generating a conflict-free department timetable:</p>
+    <div class="item row sp">
+     <div><b>1. Subject Management</b><div class="sm">Add regular, MDC and Minor subjects offered this semester.</div></div>
+     <button class="btn sm" data-v="su">Manage Subjects</button>
+    </div>
+    <div class="item row sp">
+     <div><b>2. Teacher Assignments</b><div class="sm">Assign teachers and review cross-department workloads.</div></div>
+     <button class="btn sm" data-v="ta">View Teachers</button>
+    </div>
+    <div class="item row sp">
+     <div><b>3. MDC &amp; Minor Template</b><div class="sm">Place MDC and Minor offerings into college-wide common slots.</div></div>
+     <button class="btn sm" data-v="mdc">Common Template</button>
+    </div>
+    <div class="item row sp">
+     <div><b>4. Generate Timetable</b><div class="sm">Solve teacher constraints and produce a valid schedule.</div></div>
+     <button class="btn sm p" data-v="gen">Generate</button>
+    </div>
    </div>
-   <div class="bar ${enrData.total_enrolled>=curOff.max_enrollment?'ov':''}" style="margin:8px 0 14px"><i style="width:${Math.min(100,Math.round((enrData.total_enrolled/curOff.max_enrollment)*100))}%"></i></div>
-   ${deptCounts?`<div class="item sm" style="padding:4px 0"><b>Enrolled by home department:</b> ${deptCounts}</div>`:''}
-   <div class="cols" style="margin-top:14px;gap:20px">
+  </div>
+  <div>
+   <h2>Coordination &amp; Synchronization Status</h2>
+   <div class="card">
+    <div class="item">
+     <div class="row sp"><b>Teacher Availability</b><span class="tag ok sm">Synchronized</span></div>
+     <p class="sm" style="margin:4px 0 0">All ${fac.length} college faculty records are checked college-wide. Teachers can never be assigned simultaneously across departments.</p>
+    </div>
+    <div class="item">
+     <div class="row sp"><b>MDC &amp; Minor Slots</b><span class="tag mdc sm">Common Template</span></div>
+     <p class="sm" style="margin:4px 0 0">MDC and Minor subjects strictly respect college-wide synchronized time slots to prevent student schedule collisions.</p>
+    </div>
+    <div class="item">
+     <div class="row sp"><b>Cross-Department Isolation</b><span class="tag ok sm">Enforced</span></div>
+     <p class="sm" style="margin:4px 0 0">Generating or updating your timetable will never silently overwrite or modify another department's existing schedule.</p>
+    </div>
+   </div>
+  </div>
+ </div>`;
+}
+
+/* 2. SUBJECTS VIEW */
+async function viewSubjects(){
+ const [allocs, classes, faculty] = await Promise.all([
+  api('/api/allocations'),
+  api('/api/classes'),
+  api('/api/faculty')
+ ]);
+ 
+ const form = `<div class="card noprint">
+  <h2 style="margin-top:0">Add Department Subject</h2>
+  <div class="row" style="gap:14px">
+   <label style="flex:1 1 200px">Subject Name<br><input id="s_name" placeholder="e.g. Data Structures" style="width:100%"></label>
+   <label style="flex:1 1 120px">Subject Code<br><input id="s_code" placeholder="e.g. CS-201" style="width:100%"></label>
+   <label style="flex:1 1 140px">Course Category<br>
+    <select id="s_cat" style="width:100%">
+     <option value="Regular">Regular</option>
+     <option value="MDC">MDC</option>
+     <option value="Minor">Minor</option>
+    </select>
+   </label>
+   <label style="flex:1 1 160px">Class (from Registry)<br>
+    <select id="s_cls" style="width:100%">
+     ${classes.length?classes.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join(''):'<option value="">No classes configured in Registry</option>'}
+    </select>
+   </label>
+   <label style="flex:1 1 180px">Assigned Teacher<br>
+    <select id="s_fac" style="width:100%">
+     ${faculty.map(f=>`<option value="${f.id}">${esc(f.name)} (${f.faculty_code} · ${esc(f.department)})</option>`).join('')}
+    </select>
+   </label>
+   <label style="flex:0 0 100px">Sessions/Wk<br><input id="s_sess" type="number" min="1" max="10" value="3" style="width:100%"></label>
+   <label style="flex:0 0 110px">Duration<br>
+    <select id="s_dur" style="width:100%">
+     <option value="60">60 min</option>
+     <option value="45">45 min</option>
+     <option value="90">90 min</option>
+    </select>
+   </label>
+   <label style="align-self:flex-end"><button class="btn p" data-a="addsub">Add Subject</button></label>
+  </div>
+  <div class="row" style="margin-top:14px;gap:12px;font-size:12.5px;color:var(--mute)">
+   <div><span class="tag reg">Regular</span> Scheduled within department's regular timetable.</div>
+   <div><span class="tag mdc">MDC</span> Assigned to college-wide MDC common time slots.</div>
+   <div><span class="tag minor">Minor</span> Assigned to college-wide Minor common time slots.</div>
+  </div>
+ </div>`;
+
+ const rows = allocs.map(a=>[
+  `<b>${esc(a.subject_code||'—')}</b>`,
+  esc(a.subject),
+  catBadge(a.course_category),
+  esc(a.class_name),
+  `${esc(a.teacher)} <span class="sm">(${a.faculty_code})</span>`,
+  `${a.sessions_per_week} sess/wk`,
+  `${a.duration||60} min`,
+  `<b>${a.placed}</b> / ${a.sessions_per_week} placed`,
+  `<div class="row" style="gap:6px">
+     <button class="btn sm" data-a="delsub" data-id="${a.id}">Delete</button>
+   </div>`
+ ]);
+
+ return head('Curriculum', 'Subject Management', 'Each department adds and manages the subjects it offers. Categorize as Regular, MDC, or Minor.')+
+  form+
+  (allocs.length?tab(['Code','Subject Name','Category','Class','Assigned Teacher','Sessions','Duration','Status','Actions'], rows):
+   `<div class="empty"><h2>No subjects defined yet</h2><p>Use the form above to add your first subject offering.</p></div>`);
+}
+
+/* 3. TEACHER ASSIGNMENTS VIEW */
+async function viewTeacherAssignments(){
+ const [faculty, allocs] = await Promise.all([
+  api('/api/faculty'),
+  api('/api/allocations')
+ ]);
+ 
+ const rows = faculty.map(f=>{
+  const mySubs = allocs.filter(a=>a.faculty_id==f.id);
+  const mySubText = mySubs.length?mySubs.map(a=>`${esc(a.subject)} (${a.sessions_per_week}s)`).join(', '):'<span class="sm">None</span>';
+  const otherDepts = (f.allocations_by_dept||[]).filter(x=>x.department!=me.department.name);
+  const otherText = otherDepts.length?otherDepts.map(x=>`<b>${esc(x.department)}:</b> ${x.sessions}s`).join(' · '):'<span class="sm">No other depts</span>';
+  const pct = Math.min(100, Math.round((f.sessions / f.max_weekly_sessions) * 100));
+  const barClass = pct >= 100 ? 'ov' : pct >= 80 ? 'hi' : '';
+  
+  return [
+   `<b>${esc(f.name)}</b> <span class="sm">(${f.faculty_code})</span>`,
+   esc(f.department),
+   esc(f.designation||'Faculty'),
+   mySubText,
+   otherText,
+   `<div><b>${f.sessions}</b> / ${f.max_weekly_sessions} sessions<div class="bar ${barClass}"><i style="width:${pct}%"></i></div></div>`,
+   `<div class="row"><button class="btn sm" data-v="tav" data-fid="${f.id}">View Availability</button></div>`
+  ];
+ });
+
+ return head('Faculty Management', 'Teacher Assignments &amp; Workload', 'College-wide teacher registry. Teachers are shared across departments and never double-booked.')+
+  `<div class="card" style="margin-bottom:20px">
+    <div class="row sp">
+     <div><b>Centralized Teacher Coordination Rule</b><div class="sm">Each teacher has one global identity across the college. When another department assigns a teacher, that period becomes occupied college-wide.</div></div>
+     <span class="tag ok">Cross-College Sync Active</span>
+    </div>
+   </div>`+
+  tab(['Teacher Name','Home Department','Designation',`Assigned in ${esc(me.department.name)}`,'Other Dept Commitments','Total College Load','Actions'], rows);
+}
+
+/* 4. TEACHER AVAILABILITY VIEW */
+async function viewTeacherAvailability(){
+ const faculty = await api('/api/faculty');
+ if(!S.fav && faculty.length) S.fav = faculty[0].id;
+ const curFac = faculty.find(f=>f.id==S.fav) || faculty[0];
+ const av = curFac ? await api(`/api/faculty/${curFac.id}/availability`) : [];
+ const base = curFac ? await api(`/api/faculty/${curFac.id}/base-availability`) : [];
+ S.un = new Set(base.filter(c=>c.state=='unavailable').map(c=>c.day+','+c.period));
+
+ const g = gridRows(av);
+ const cell = (d, p) => {
+  const c = av.find(x=>x.day==d && x.period==p);
+  if(c && c.state=='busy') {
+   return `<div class="bz off" title="${esc(c.reason)}">Busy (Teaching)</div>`;
+  }
+  const on = S.un.has(d+','+p);
+  return `<button type="button" class="tg ${on?'on':''}" data-un="${d},${p}" aria-pressed="${on}">${on?'Unavailable':'Available'}</button>`;
+ };
+
+ let gridHtml = `<div class="gw"><table class="g" style="min-width:600px"><thead><tr><th></th>${g.days.map(d=>`<th>${DAYS[d].slice(0,3)}</th>`).join('')}</tr></thead><tbody>`;
+ for(const p of g.pers){
+  gridHtml += `<tr><td class="t">${g.lab(p)}</td>${g.days.map(d=>`<td style="height:50px">${cell(d,p)}</td>`).join('')}</tr>`;
+ }
+ gridHtml += `</tbody></table></div>`;
+
+ return head('Faculty Constraints', 'Teacher Availability', 'Define when teachers are available or unavailable. The scheduler strictly respects these rules.')+
+  `<div class="card noprint">
+    <div class="row sp">
+     <div class="row" style="gap:12px">
+      <label><b>Select Teacher:</b><br>
+       <select id="fav_sel" style="min-width:260px">
+        ${faculty.map(f=>`<option value="${f.id}" ${f.id==curFac.id?'selected':''}>${esc(f.name)} (${f.faculty_code} · ${esc(f.department)})</option>`).join('')}
+       </select>
+      </label>
+      <div style="align-self:flex-end">
+       <span class="sm">Home Department: <b>${esc(curFac.department)}</b> · Scheduled: <b>${curFac.sessions}</b> / ${curFac.max_weekly_sessions} sessions</span>
+      </div>
+     </div>
+     <div style="align-self:flex-end">
+      <button class="btn p" data-a="savetav">Save Availability Changes</button>
+     </div>
+    </div>
+   </div>
+   <div class="card" style="margin-top:14px">
+    <p class="sm" style="margin:0 0 10px">Click any slot to toggle between <b>Available</b> and <b>Unavailable</b>. Slots marked <b>Busy (Teaching)</b> are locked by active scheduled classes.</p>
+    ${gridHtml}
+   </div>`;
+}
+
+function gridRows(a){
+ const days=[...new Set(a.map(x=>x.day))].sort((x,y)=>x-y);
+ const pers=[...new Set(a.map(x=>x.period))].sort((x,y)=>x-y);
+ return {days, pers, lab:p=>{const c=a.find(x=>x.period==p); return c?c.start:''}};
+}
+
+/* 5. SCHEDULING RULES VIEW */
+async function viewSchedulingRules(){
+ if(!S.rcfg){
+  const r = await api('/api/settings');
+  S.rcfg = JSON.parse(JSON.stringify(r.config));
+  S.rdefs = r.rule_defs;
+  S.rstale = r.stale;
+ }
+ const c = S.rcfg, D = S.rdefs, MODE={off:'Off',prefer:'Prefer when possible',require:'Always required'};
+ const days = `<div class="row">${[0,1,2,3,4,5,6].map(d=>`<label class="chk"><input type="checkbox" data-rd="${d}" ${c.days.includes(d)?'checked':''}> ${DAYS[d].slice(0,3)}</label>`).join('')}</div>`;
+ 
+ let per = '';
+ c.periods.forEach((p,i)=>{
+  const prev = c.periods[i-1];
+  if(prev && tmn(p.start) > tmn(prev.end)) per += `<tr class="gapnote"><td></td><td colspan="3" class="sm">Break · ${tmn(p.start)-tmn(prev.end)} min</td></tr>`;
+  per += `<tr><td>${i+1}</td><td><input type="time" data-pt="${i}:start" value="${p.start}"></td><td><input type="time" data-pt="${i}:end" value="${p.end}"></td><td><button class="btn sm" data-a="rmper" data-i="${i}" ${c.periods.length<2?'disabled':''}>Remove</button></td></tr>`;
+ });
+
+ const rules = Object.entries(D).map(([k,df])=>{
+  const r = c.rules[k]||{mode:'off'};
+  return `<div class="item"><div class="row sp"><div style="max-width:560px"><b>${esc(df.title)}</b><div class="sm">${esc(df.help)}</div></div><div class="row"><select data-rm="${k}" aria-label="${esc(df.title)}">${df.modes.map(m=>`<option value="${m}" ${r.mode==m?'selected':''}>${MODE[m]}</option>`).join('')}</select>${df.param?`<label class="sm">${esc(df.param.label)}&nbsp;<input type="number" data-rp="${k}" min="${df.param.min}" max="${df.param.max}" value="${r[df.param.key]??df.param.default}" style="width:70px" ${r.mode=='off'?'disabled':''}></label>`:''}</div></div></div>`;
+ }).join('');
+
+ const free = `<div class="gw"><table class="g" style="min-width:440px"><thead><tr><th></th>${c.days.map(d=>`<th>${DAYS[d].slice(0,3)}</th>`).join('')}</tr></thead><tbody>${c.periods.map((p,i)=>`<tr><td class="t">${p.start}</td>${c.days.map(d=>{const on=c.free.some(f=>f[0]==d&&f[1]==i);return `<td style="height:40px"><button type="button" class="tg ${on?'on':''}" data-free="${d},${i}" aria-pressed="${on}">${on?'Kept free':'Use'}</button></td>`}).join('')}</tr>`).join('')}</tbody></table></div>`;
+
+ return head('Department Policy', 'Scheduling Rules', 'Configure working days, period hours, breaks, and optimization rules for your department.', `<button class="btn p noprint" data-a="saverules">Save Rules</button>`)+
+  (S.rstale?`<div class="card" style="border-color:var(--warn)"><b>Your timing settings changed.</b> Save and generate again to apply them to your schedule.</div>`:'')+
+  `<div class="card">
+    <h2 style="margin-top:0">Working Days</h2>${days}
+    <h2>Period Timings &amp; Breaks</h2>
+    <div class="gw"><table class="l"><thead><tr><th>#</th><th>Start Time</th><th>End Time</th><th></th></tr></thead><tbody>${per}</tbody></table></div>
+    <div class="row noprint" style="margin-top:10px"><button class="btn sm" data-a="addper">Add Period</button><button class="btn sm" data-a="preset">Use Standard 6 Periods</button></div>
+    <h2>Department Scheduling Constraints</h2>${rules}
+    <h2>Reserved Free Periods</h2>
+    <p class="sm">Mark periods that none of your department's regular subjects should occupy (e.g. departmental seminar or common break).</p>
+    ${free}
+    <div class="row noprint" style="margin-top:20px"><button class="btn p" data-a="saverules">Save Rules</button></div>
+   </div>`;
+}
+
+/* 6. MDC & MINOR COMMON TIME-SLOT TEMPLATE VIEW */
+async function viewMdcTemplate(){
+ const [slotData, allocs] = await Promise.all([
+  api('/api/common-slots/assignments'),
+  api('/api/allocations')
+ ]);
+ 
+ const mdcMinorSubjects = allocs.filter(a=>a.course_category=='MDC'||a.course_category=='Minor');
+ 
+ let gridRowsHtml = '';
+ for(const s of slotData){
+  const myAss = s.my_assignments || [];
+  const otherAss = s.other_assignments || [];
+  
+  const myCard = myAss.length ? myAss.map(a=>`
+   <div style="padding:8px 12px;background:var(--bg);border:1px solid var(--line);border-radius:6px;margin-bottom:6px">
+    <div class="row sp"><b>${esc(a.subject_name)}</b> ${catBadge(a.course_category)}</div>
+    <div class="sm">${esc(a.teacher_name)} (${a.faculty_code})</div>
+    <button class="btn sm" data-a="unassignslot" data-id="${a.id}" style="margin-top:6px">Remove from Slot</button>
+   </div>
+  `).join('') : `
+   <div class="row" style="gap:8px">
+    <select id="slot_sub_${s.id}" style="font-size:12.5px;padding:4px 8px;min-height:34px">
+     <option value="">Select offering to place…</option>
+     ${mdcMinorSubjects.filter(a=>s.applicable_course_type=='Both'||a.course_category==s.applicable_course_type).map(a=>`<option value="${a.subject_id}">${esc(a.subject)} (${a.course_category} · ${esc(a.teacher)})</option>`).join('')}
+    </select>
+    <button class="btn sm p" data-a="assignslot" data-sid="${s.id}">Place in Slot</button>
+   </div>
+  `;
+  
+  const otherList = otherAss.length ? otherAss.map(o=>`
+   <span class="tag ${o.course_category=='MDC'?'mdc':'minor'} sm" title="Teacher: ${esc(o.teacher_name)} (${o.faculty_code})">${esc(o.department_name)}: ${esc(o.subject_name)}</span>
+  `).join(' ') : '<span class="sm">No other department offerings in this slot</span>';
+  
+  gridRowsHtml += `
+   <tr>
+    <td><b>${s.day_name}</b></td>
+    <td><b>${s.start} – ${s.end}</b></td>
+    <td><span class="tag ${s.applicable_course_type=='MDC'?'mdc':s.applicable_course_type=='Minor'?'minor':'ok'}">${s.applicable_course_type}</span></td>
+    <td>${myCard}</td>
+    <td>${otherList}</td>
+   </tr>
+  `;
+ }
+
+ return head('Common Scheduling Template', 'MDC &amp; Minor Slot Template', 'Visual college-wide scheduling template. Place your MDC and Minor offerings into reserved common slots.')+
+  `<div class="card">
+    <div class="row sp">
+     <div>
+      <b>College-Wide Common Slot Template Rules</b>
+      <p class="sm" style="margin:4px 0 0">1. All MDC offerings must follow MDC common slots.<br>2. All Minor offerings must follow Minor common slots.<br>3. Multiple departments can offer different subjects during the same common period.<br>4. The same teacher cannot teach in two offerings at the same time.</p>
+     </div>
+     <span class="tag ok">Fixed Template Active</span>
+    </div>
+   </div>
+   <h2>Reserved Common Time Slots</h2>
+   ${slotData.length?`<div class="gw"><table class="l"><thead><tr><th>Day</th><th>Time</th><th>Slot Type</th><th>${esc(me.department.name)} Offerings</th><th>Simultaneous Other Department Offerings</th></tr></thead><tbody>${gridRowsHtml}</tbody></table></div>`:
+    '<div class="empty"><h2>No common slots configured</h2><p>College Registry operators can configure common slots for MDC and Minor courses.</p></div>'}`;
+}
+
+/* 7. GENERATE TIMETABLE VIEW */
+async function viewGenerateTimetable(){
+ const [allocs, fac, rules, conf] = await Promise.all([
+  api('/api/allocations'),
+  api('/api/faculty'),
+  api('/api/settings'),
+  api('/api/conflicts')
+ ]);
+ 
+ const unassigned = allocs.filter(a=>!a.faculty_id);
+ const hasSubjects = allocs.length > 0;
+ const issues = (S.gen && S.gen.issues) || conf.items || [];
+ 
+ return head('Solver Engine', 'Generate Timetable', 'Run the automated constraint-based scheduler to create a conflict-free department timetable.')+
+  `<div class="cols">
     <div>
-     <h3>Enroll Department Students</h3>
-     <div class="row">
-      <select id="stu_to_enr" style="min-width:220px">${students.map(s=>`<option value="${s.id}">${esc(s.register_number)} · ${esc(s.name)} (${esc(s.class_name||'Unassigned')})</option>`).join('')}</select>
-      ${(curOff.sections&&curOff.sections.length)?`<select id="stu_enr_sec"><option value="">No specific section</option>${curOff.sections.map(s=>`<option value="${s.id}">Section ${esc(s.section_name)} (Cap ${s.capacity})</option>`).join('')}</select>`:''}
-      <button class="btn p" data-a="enrollstudent">Enroll</button>
+     <h2>Readiness Checklist</h2>
+     <div class="card">
+      <div class="item row sp">
+       <div><b>Department Subjects</b><div class="sm">${allocs.length} subjects configured</div></div>
+       <span class="tag ${hasSubjects?'ok':'w'}">${hasSubjects?'✓ Ready':'⚠ Add Subjects'}</span>
+      </div>
+      <div class="item row sp">
+       <div><b>Teacher Allocations</b><div class="sm">${unassigned.length===0?'All subjects assigned to teachers':unassigned.length+' unassigned subjects'}</div></div>
+       <span class="tag ${unassigned.length===0?'ok':'c'}">${unassigned.length===0?'✓ Ready':'⚠ Incomplete'}</span>
+      </div>
+      <div class="item row sp">
+       <div><b>Scheduling Rules</b><div class="sm">${rules.config.days.length} working days, ${rules.config.periods.length} periods/day</div></div>
+       <span class="tag ok">✓ Configured</span>
+      </div>
+      <div class="item row sp">
+       <div><b>Cross-Department Synchronization</b><div class="sm">Real-time teacher availability synced with college</div></div>
+       <span class="tag ok">✓ Synced</span>
+      </div>
+     </div>
+     <div class="card" style="margin-top:20px;text-align:center;padding:32px 20px">
+      <h2 style="margin-top:0">Ready to Generate?</h2>
+      <p class="sm" style="max-width:440px;margin:0 auto 20px">The solver checks all teacher allocations across every department to guarantee zero double-booking.</p>
+      <button class="btn p" data-a="gen" style="font-size:16px;padding:12px 28px;min-height:48px">Generate Department Timetable</button>
      </div>
     </div>
     <div>
-     <h3>Bulk Enroll by Register Numbers (CSV / Text)</h3>
-     <p class="sm">Paste comma- or line-separated student register numbers:</p>
-     <textarea id="stu_bulk" rows="2" style="width:100%;font:inherit;padding:6px 10px;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:6px" placeholder="REG-CS-001, REG-CS-002&#10;REG-MATH-001"></textarea>
-     <div class="row" style="margin-top:6px"><button class="btn" data-a="bulkenroll">Bulk Enroll</button></div>
+     <h2>Generation Results &amp; Status</h2>
+     <div class="card">
+      ${S.gen ? (S.gen.status=='ok' ? `
+       <div style="text-align:center;padding:20px 0">
+        <span class="tag ok" style="font-size:14px;padding:4px 10px">✓ Timetable Generated</span>
+        <h2 style="margin:14px 0 6px">Valid &amp; Conflict-Free Schedule</h2>
+        <p class="sm">Total placed sessions: <b>${S.gen.sessions}</b> · Quality score: <b>${S.gen.quality}%</b></p>
+        <div class="row" style="justify-content:center;margin-top:16px;gap:10px">
+         <button class="btn p" data-v="tt">Open Timetable</button>
+         <button class="btn" data-v="co">Review Conflict Center</button>
+        </div>
+       </div>
+      ` : `
+       <div style="padding:10px 0">
+        <span class="tag c" style="font-size:14px;padding:4px 10px">⚠ Constraints Could Not Fit</span>
+        <h2 style="margin:14px 0 6px">Scheduling Bottleneck Detected</h2>
+        <p class="sm">${esc(S.gen.message||'Could not fit all sessions.')}</p>
+        ${(S.gen.issues||[]).map(i=>`<div class="item"><span class="tag c">Constraint</span> <b>${esc(i.issue)}</b><div class="sm" style="margin-top:4px">Fix: ${esc(i.fix)}</div></div>`).join('')}
+        <button class="btn p" data-v="co" style="margin-top:16px">Go to Conflict Center</button>
+       </div>
+      `) : `
+       <div class="empty" style="padding:30px 10px">
+        <h2>No generation run yet this session</h2>
+        <p class="sm">Click the generate button to solve your schedule.</p>
+       </div>
+      `}
+     </div>
     </div>
-   </div>
-  </div>`:''}
- </div>
- <h2>Enrolled Students in Selected Offering</h2>`+
- (enrData.enrolled.length?tab(['Register No','Name','Home Department','Class','Section','Actions'],enrData.enrolled.map(e=>[
-   `<b>${esc(e.register_number)}</b>`,
-   esc(e.name),
-   esc(e.home_department),
-   esc(e.class_name||'Unassigned'),
-   e.section_name?`<span class="tag sm">${esc(e.section_name)}</span>`:'—',
-   `<button class="btn sm" data-a="unenroll" data-oid="${curOff.id}" data-sid="${e.student_id}">Remove</button>`
- ])):'<p class="sub">No students enrolled in this offering yet.</p>')+
- `<div class="note noprint" style="margin-top:30px"><h2 style="margin-top:0">Add Student to Department</h2>
-  <div class="row">
-   <label>Register Number<br><input id="st_reg" placeholder="e.g. REG-CS-005" style="width:140px"></label>
-   <label>Student Name<br><input id="st_name" placeholder="Full name" style="width:220px"></label>
-   <label>Semester<br><select id="st_sem">${[1,2,3,4,5,6,7,8].map(n=>`<option>${n}</option>`).join('')}</select></label>
-   <label>Class<br><select id="st_cls"><option value="">None / Elective only</option>${classes.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select></label>
-   <label><br><button class="btn p" data-a="addstudent">Add Student</button></label>
-  </div>
- </div>
- <h2>Department Students</h2>`+
- (students.length?tab(['Register No','Name','Semester','Class','Unified Schedule'],students.map(s=>[
-   `<b>${esc(s.register_number)}</b>`,
-   esc(s.name),
-   s.semester,
-   esc(s.class_name||'Unassigned'),
-   `<button class="btn sm" data-a="viewstudenttt" data-sid="${s.id}">View Timetable</button>`
- ])):'<p class="sub">No students registered in this department yet.</p>');
+   </div>`;
 }
 
-async function cslotsPage(){
- const slots = await api('/api/common-slots');
- return head('Policy &amp; Synchronization','College-Wide Fixed Time Slots','Designated fixed periods for college-wide MDC and Minor course offerings.')+
- `<div class="note"><div class="row sp"><div style="max-width:680px"><b>Common Slot Adherence Rule</b><div class="sm">When an offering is marked College-Wide, it follows these configured common slot rules. Every department respects these reserved periods to prevent student timetable collisions.</div></div><div class="tag ok">Active Policy</div></div></div>`+
- (slots.length?tab(['Day','Start','End','Applicable Course Type','Slot Name','Semester'],slots.map(s=>[
-   DAYS[s.day],
-   `<b>${s.start}</b>`,
-   `<b>${s.end}</b>`,
-   s.applicable_course_type=='MDC'?'<span class="tag c">MDC</span>':s.applicable_course_type=='Minor'?'<span class="tag w">Minor</span>':'<span class="tag ok">Both</span>',
-   esc(s.name),
-   s.semester
- ])):'<div class="empty"><h2>No common slots configured</h2><p>Contact the College Registry to configure college-wide MDC and Minor slots.</p></div>');
-}
-
-function renderStudentTimetable(st, entries, studentList){
- const ds = [0, 1, 2, 3, 4];
- const typeBadge = t => t=='MDC'?'<span class="tag c" style="font-size:10px;padding:1px 4px">MDC</span>':t=='Minor'?'<span class="tag w" style="font-size:10px;padding:1px 4px">Minor</span>':'<span class="tag ok" style="font-size:10px;padding:1px 4px">Regular</span>';
+/* 8. TIMETABLE VIEW */
+async function viewTimetable(){
+ const [classes, faculty, st] = await Promise.all([
+  api('/api/classes'),
+  api('/api/faculty'),
+  api('/api/settings')
+ ]);
+ const cfg = st.config;
+ const mode = S.ttMode || 'class';
+ let ents = mode=='class' ? classes.map(c=>[c.id, c.name]) : faculty.map(f=>[f.id, `${f.name} (${f.faculty_code})`]);
  
- const times = [...new Set(entries.map(e=>e.start+' - '+e.end))].sort();
- let rows = times.length ? times.map(t=>({s:t.split(' - ')[0], e:t.split(' - ')[1]})) : STD.map(([a,b])=>({s:a,e:b}));
-
+ if(!ents.some(e=>e[0]==S.sel)) S.sel = ents.length ? ents[0][0] : null;
+ const url = mode=='class' ? `/api/timetable/${S.sel}` : `/api/faculty/${S.sel}/timetable`;
+ const rows = S.sel ? await api(url) : [];
+ 
+ const prs = cfg.periods.map((p,i)=>({s:p.start, e:p.end, p:i}));
+ const seen = new Set(), other = [];
+ rows.forEach(r=>{const k=r.start+'-'+r.end; if(!seen.has(k)){seen.add(k); other.push({s:r.start, e:r.end, p:-1})}});
+ const known = new Set(prs.map(r=>r.s+'-'+r.e));
+ let rws = mode=='class' ? prs.concat(other.filter(o=>!known.has(o.s+'-'+o.e))) : (other.length?other:prs);
+ rws = rws.sort((a,b)=>a.s<b.s?-1:a.s>b.s?1:0);
+ const days = [...new Set(cfg.days.concat(rows.map(r=>r.day)))].sort((a,b)=>a-b);
+ 
  const cell = (d, r) => {
-  const e = entries.find(x => x.day == d && x.start == r.s);
-  if(!e) return '<div class="fr">Free</div>';
-  return `<div class="c ${e.course_type!='Regular'?'lb':''}" tabindex="0">
-    <div style="display:flex;justify-content:space-between;align-items:center"><b>${esc(e.subject)}</b>${typeBadge(e.course_type)}</div>
-    <span>${esc(e.teacher||'')} · ${esc(e.department||'')}</span>
-    ${e.room?`<span>${esc(e.room)}</span>`:''}
+  const e = rows.find(x=>x.day==d && x.start==r.s && x.end==r.e);
+  if(!e) return '<div class="fr">'+((cfg.free||[]).some(f=>f[0]==d&&f[1]==r.p)?'Kept free':'Free')+'</div>';
+  const isMdc = e.course_type=='MDC';
+  const isMinor = e.course_type=='Minor';
+  const cardClass = isMdc ? 'c-mdc' : isMinor ? 'c-minor' : '';
+  return `<div class="c ${cardClass}" ${mode=='class'?`draggable="true" data-id="${e.id}"`:''} tabindex="0">
+   <div class="row sp"><b>${esc(e.subject)}</b>${isMdc?'<span class="tag mdc sm">MDC</span>':isMinor?'<span class="tag minor sm">Minor</span>':''}</div>
+   <span>${esc(mode=='class'?e.teacher:e.class_name)}</span>
   </div>`;
  };
 
- let g=`<div class="gw"><table class="g"><thead><tr><th></th>${ds.map(d=>`<th>${DAYS[d]}</th>`).join('')}</tr></thead><tbody>`;
- for(const r of rows){
-  g+=`<tr><td class="t">${r.s}<br>${r.e}</td>${ds.map(d=>`<td>${cell(d,r)}</td>`).join('')}</tr>`;
+ let gridHtml = `<div class="gw"><table class="g"><thead><tr><th></th>${days.map(d=>`<th>${DAYS[d]}</th>`).join('')}</tr></thead><tbody>`;
+ let prev = null;
+ for(const r of rws){
+  if(prev && tmn(r.s)-tmn(prev.e)>=5) gridHtml += `<tr><td class="t"></td><td class="br" colspan="${days.length}">BREAK · ${tmn(r.s)-tmn(prev.e)} MIN</td></tr>`;
+  gridHtml += `<tr><td class="t">${r.s}<br>${r.e}</td>${days.map(d=>`<td ${r.p>=0&&mode=='class'?`data-d="${d}" data-p="${r.p}"`:''}>${cell(d,r)}</td>`).join('')}</tr>`;
+  prev = r;
  }
- g+='</tbody></table></div>';
+ gridHtml += `</tbody></table></div>`;
 
- return head('Unified Student Schedule', `${esc(st.name||'Student')} (${esc(st.register_number||'')})`, `Home Department: ${esc(st.home_department||'')} · Class: ${esc(st.class_name||'Unassigned')} · Category: ${esc(st.category_name||'')}`)+
- `<div class="row noprint" style="margin-bottom:14px">
-   <div class="seg" role="group" aria-label="View">${[['class','Class'],['teacher','Teacher']].concat(roomsOn()?[['room','Room / lab']]:[]).concat([['student','Student schedule'],['common','Common courses']]).map(([k,l])=>`<button data-m="${k}" aria-pressed="${S.mode==k}">${l}</button>`).join('')}</div>
-   <select id="sel" aria-label="Select student">${studentList.map(([i,n])=>`<option value="${i}" ${i==S.sel?'selected':''}>${esc(n)}</option>`).join('')}</select>
-   <button class="btn" data-a="print">Print</button>
-  </div>`+
-  `<div class="note"><div class="row sp"><div><b>Combines Regular Class Lectures &amp; Enrolled MDC/Minor Courses</b><div class="sm">${entries.length} scheduled session(s) this week. Hard constraint: guaranteed zero overlapping classes.</div></div><div class="tag ok">Unified Schedule</div></div></div>`+
-  g;
+ return head('Schedule Review', 'Department Timetable', mode=='class'?'Drag a session to another period to move it. Cross-college teacher availability is checked instantly.':'Shared college faculty timetable view.',
+  `<div class="row"><button class="btn" data-a="print">Print</button><button class="btn p" data-v="gen">Generate</button></div>`)+
+  `<div class="row noprint" style="margin-bottom:14px;gap:12px">
+    <div class="seg" role="group" aria-label="View mode">
+     <button data-ttmode="class" aria-pressed="${mode=='class'}">View by Class</button>
+     <button data-ttmode="teacher" aria-pressed="${mode=='teacher'}">View by Teacher</button>
+    </div>
+    <select id="tt_sel" style="min-width:240px">
+     ${ents.map(([i,n])=>`<option value="${i}" ${i==S.sel?'selected':''}>${esc(n)}</option>`).join('')}
+    </select>
+   </div>
+   ${gridHtml}`;
 }
 
-function renderCommonTimetable(list){
- const typeBadge = t => t=='MDC'?'<span class="tag c">MDC</span>':t=='Minor'?'<span class="tag w">Minor</span>':'<span class="tag ok">Regular</span>';
- return head('College-Wide Schedule', 'Common MDC &amp; Minor Offerings', 'College-wide schedule across all Aided and Self-Financing departments.')+
- `<div class="row noprint" style="margin-bottom:14px">
-   <div class="seg" role="group" aria-label="View">${[['class','Class'],['teacher','Teacher']].concat(roomsOn()?[['room','Room / lab']]:[]).concat([['student','Student schedule'],['common','Common courses']]).map(([k,l])=>`<button data-m="${k}" aria-pressed="${S.mode==k}">${l}</button>`).join('')}</div>
-   <button class="btn" data-a="print">Print</button>
-  </div>`+
- (list.length?tab(['Day','Time','Subject','Type','Offering Department','Category','Teacher','Room','Enrolled'],list.map(e=>[
-   DAYS[e.day],
-   `<b>${e.start}–${e.end}</b>`,
-   `<b>${esc(e.subject)}</b> (${esc(e.offering_code)})`,
-   typeBadge(e.course_type),
-   esc(e.department),
-   `<span class="tag sm ${e.category=='Aided'?'ok':'w'}">${esc(e.category)}</span>`,
-   esc(e.teacher||'Unassigned'),
-   esc(e.room||'Classroom'),
-   `<b>${e.enrolled_count||0}</b> students`
- ])):'<div class="empty"><h2>No common courses scheduled</h2><p>Generate timetables for departments offering college-wide MDC and Minor courses.</p></div>');
+/* 9. CONFLICT CENTER VIEW */
+async function viewConflictCenter(){
+ const conf = await api('/api/conflicts');
+ const items = (S.gen && S.gen.issues) || conf.items || [];
+ 
+ return head('Diagnostics', 'Conflict Detection Center', 'College-wide teacher conflict verification. Zero double-booking guarantee.')+
+  `<div class="card" style="margin-bottom:20px">
+    <div class="row sp">
+     <div>
+      <b>Teacher-Centric Conflict Diagnostics</b>
+      <div class="sm">Verifies: Simultaneous assignments across departments, unavailable period violations, and workload limits.</div>
+     </div>
+     <span class="tag ${items.length===0?'ok':'c'}">${items.length===0?'All Clear ✓':items.length+' Active Conflict(s)'}</span>
+    </div>
+   </div>
+   <h2>Detected Conflicts &amp; Actionable Solutions</h2>`+
+  (items.length ? items.map(x=>`
+   <div class="card" style="border-left:4px solid var(--crit)">
+    <div class="row sp">
+     <span class="tag c">Teacher Conflict</span>
+     <span class="sm">Affects schedule generation</span>
+    </div>
+    <h2 style="font-size:16px;margin:8px 0 4px">${esc(x.issue)}</h2>
+    <div style="font-size:13.5px;color:var(--mute);margin-top:6px"><b>Recommended Fix:</b> ${esc(x.fix)}</div>
+   </div>
+  `).join('') : `
+   <div class="empty">
+    <h2>✓ No teacher scheduling conflicts</h2>
+    <p>All teacher allocations and MDC/Minor offerings are completely synchronized and conflict-free across the college.</p>
+   </div>
+  `);
 }
 
-function facForm(ed,a){const v=ed||{},cell=(d,p)=>{const c=a.find(x=>x.day==d&&x.period==p);if(c&&c.state=='busy')return `<div class="bz off" style="min-height:40px" title="${esc(c.reason)}">Teaching</div>`;const on=S.un.has(d+','+p);return `<button type="button" class="tg ${on?'on':''}" data-un="${d},${p}" aria-pressed="${on}">${on?'Unavailable':'Available'}</button>`};
- return `<div class="note"><h2 style="margin-top:0">${ed?'Edit '+esc(ed.name):'Add faculty'}</h2><p class="sm">${ed?esc(ed.faculty_code)+' · changes apply to every department that uses this teacher.':'New teachers are shared with all departments and get a college-wide ID.'}</p>
- <div class="row"><label>Name<br><input id="fn" value="${esc(v.name||'')}"></label><label>Designation<br><input id="fg" value="${esc(v.designation||'')}" placeholder="e.g. Assistant Professor"></label><label>Official email<br><input id="fx" type="email" value="${esc(v.email||'')}"></label><label>Max sessions per week<br><input id="fm" type="number" min="1" max="40" value="${v.max_weekly_sessions||18}" style="width:90px"></label></div>
- ${ed?`<h2>Periods this teacher cannot teach</h2><p class="sm">Select a period to mark it unavailable. Periods already scheduled are shown as Teaching and can't be changed here.</p><div class="gw"><table class="g" style="min-width:520px"><thead><tr><th></th>${gridRows(a).days.map(d=>`<th>${DAYS[d].slice(0,3)}</th>`).join('')}</tr></thead><tbody>${gridRows(a).pers.map(p=>`<tr><td class="t">${gridRows(a).lab(p)}</td>${gridRows(a).days.map(d=>`<td style="height:40px">${cell(d,p)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`:''}
- <div class="row" style="margin-top:16px"><button class="btn p" data-a="savefac">${ed?'Save changes':'Add teacher'}</button><button class="btn" data-a="cancelfac">Cancel</button>${ed?`<button class="btn" data-a="rmfac" style="margin-left:auto">Remove teacher</button>`:''}</div></div>`}
-function gridRows(a){const days=[...new Set(a.map(x=>x.day))].sort((x,y)=>x-y),pers=[...new Set(a.map(x=>x.period))].sort((x,y)=>x-y);return {days,pers,lab:p=>{const c=a.find(x=>x.period==p);return c?c.start:''}}}
-function avGrid(a){const g=gridRows(a);let h=`<div class="gw"><table class="g" style="min-width:520px"><thead><tr><th></th>${g.days.map(d=>`<th>${DAYS[d].slice(0,3)}</th>`).join('')}</tr></thead><tbody>`;
- for(const p of g.pers)h+=`<tr><td class="t">${g.lab(p)}</td>${g.days.map(d=>{const c=a.find(x=>x.day==d&&x.period==p);return `<td style="height:44px">${!c||c.state=='available'?'<div class="fr">Available</div>':`<button class="bz ${c.state=='busy'?'':'off'}" style="min-height:44px" data-why="${esc(c.reason)}">${c.state=='busy'?'Busy':'Unavailable'}</button>`}</td>`}).join('')}</tr>`;
- return h+'</tbody></table></div><div id="why" class="sm" style="margin-top:8px" aria-live="polite">Select a busy slot to see why.</div>'}
-async function tt(){const [cs,st]=await Promise.all([api('/api/classes'),api('/api/settings')]);const cfg=st.config;let ents=[];
- if(S.mode=='class')ents=cs.map(c=>[c.id,c.name]);
- else if(S.mode=='teacher')ents=(await api('/api/faculty')).map(f=>[f.id,f.name]);
- else if(S.mode=='room')ents=(await api('/api/rooms')).map(r=>[r.id,r.name]);
- else if(S.mode=='student')ents=(await api('/api/students')).map(s=>[s.id,`${s.register_number} · ${s.name} (${s.home_department||''})`]);
- else if(S.mode=='common')ents=[['all','All College-Wide Offerings']];
+function run(fn){
+ const ov=$('#ov'),ul=$('#steps'),st=['Checking faculty availability…','Checking shared college allocations…','Synchronizing MDC & Minor slots…','Solving timetable constraints…','Finalizing schedule…'];
+ $('#ovt').textContent=me.department.name; ul.innerHTML=''; ov.classList.add('on');
+ let i=0; const iv=setInterval(()=>{if(i<st.length)ul.insertAdjacentHTML('beforeend',`<li>${st[i++]}</li>`)},350);
+ fn().then(r=>{
+  clearInterval(iv);
+  ul.insertAdjacentHTML('beforeend', r.status=='ok'?`<li>✓ Timetable ready · no clashes</li>`:'<li>We couldn’t fit every session</li>');
+  setTimeout(()=>{ov.classList.remove('on'); S.gen=r; if(r.status!='ok') V='co'; else V='tt'; draw()},1000);
+ }).catch(e=>{
+  clearInterval(iv); ov.classList.remove('on'); toast(e.message);
+ });
+}
 
- if(S.mode=='student'){
-  if(!ents.some(e=>e[0]==S.sel))S.sel=ents.length?ents[0][0]:null;
-  const res=S.sel?await api(`/api/students/${S.sel}/timetable`):{student:{},entries:[]};
-  return renderStudentTimetable(res.student||{},res.entries||[],ents);
- }
- if(S.mode=='common'){
-  const list=await api('/api/timetables/common-courses');
-  return renderCommonTimetable(list);
- }
+/* EVENT HANDLERS */
+document.addEventListener('click', async ev=>{
+ const t=ev.target.closest('button, [data-a]'); if(!t) return;
+ const D=t.dataset;
+ try{
+  if(D.v){V=D.v; S.fav=D.fid||S.fav; draw()}
+  else if(D.ttmode){S.ttMode=D.ttmode; S.sel=null; draw()}
+  else if(D.a=='addsub'){
+   const name=$('#s_name').value.trim(); if(!name) return toast('Please enter a subject name.');
+   const code=$('#s_code').value.trim();
+   const cat=$('#s_cat').value;
+   const cid=+$('#s_cls').value; if(!cid) return toast('Please select a class.');
+   const fid=+$('#s_fac').value;
+   const sess=+$('#s_sess').value;
+   const dur=+$('#s_dur').value;
+   await api('/api/allocations',{method:'POST',body:{class_id:cid,subject:name,code:code,course_category:cat,faculty_id:fid,sessions:sess,duration:dur}});
+   toast('Subject added successfully.',1); redraw();
+  }
+  else if(D.a=='delsub'){
+   if(!confirm('Delete this subject offering?')) return;
+   await api('/api/allocations/'+D.id, {method:'DELETE'});
+   toast('Subject deleted.',1); redraw();
+  }
+  else if(D.un){
+   if(S.un.has(D.un)) S.un.delete(D.un); else S.un.add(D.un);
+   const on=S.un.has(D.un); t.classList.toggle('on',on); t.setAttribute('aria-pressed',on); t.textContent=on?'Unavailable':'Available';
+  }
+  else if(D.a=='savetav'){
+   await api('/api/faculty/'+S.fav+'/unavailable',{method:'PUT',body:{slots:[...S.un].map(k=>k.split(',').map(Number))}});
+   toast('Teacher availability saved.',1); redraw();
+  }
+  else if(D.a=='saverules'){
+   const c=S.rcfg, rules={};
+   for(const [k,df] of Object.entries(S.rdefs)){
+    const r=c.rules[k]||{mode:'off'};
+    rules[k]={mode:r.mode};
+    if(df.param) rules[k][df.param.key]=+(r[df.param.key]??df.param.default);
+   }
+   const r=await api('/api/settings',{method:'PUT',body:{days:c.days,periods:c.periods,rules,free:c.free}});
+   S.rcfg=JSON.parse(JSON.stringify(r.config)); S.rstale=r.stale;
+   toast('Rules saved. Generate timetable to apply them.',1); redraw();
+  }
+  else if(D.a=='assignslot'){
+   const sid=+D.sid; const subSel=$('#slot_sub_'+sid); if(!subSel || !subSel.value) return toast('Please select an offering first.');
+   await api('/api/common-slots/assign',{method:'POST',body:{common_slot_id:sid,subject_id:+subSel.value}});
+   toast('Assigned to common slot.',1); redraw();
+  }
+  else if(D.a=='unassignslot'){
+   await api('/api/common-slots/assign/'+D.id, {method:'DELETE'});
+   toast('Removed from common slot.',1); redraw();
+  }
+  else if(D.a=='gen'){run(()=>api('/api/generate',{method:'POST',body:{}}))}
+  else if(D.a=='print'){print()}
+  else if(D.a=='out'){await api('/api/auth/logout',{method:'POST'}); location.replace('/login.html')}
+  else if(D.a=='pw'){
+   const c=prompt('Current password:'); if(!c) return;
+   const n=prompt('New password (min 6 characters):'); if(!n) return;
+   await api('/api/auth/change-password',{method:'POST',body:{current:c,new:n}});
+   toast('Password updated.',1);
+  }
+  else if(D.free){
+   const [d,p]=D.free.split(',').map(Number), c=S.rcfg, i=c.free.findIndex(f=>f[0]==d&&f[1]==p);
+   if(i>=0) c.free.splice(i,1); else c.free.push([d,p]);
+   const on=i<0; t.classList.toggle('on',on); t.setAttribute('aria-pressed',on); t.textContent=on?'Kept free':'Use';
+  }
+  else if(D.a=='rmper'){
+   const c=S.rcfg; c.periods.splice(+D.i,1); c.free=c.free.filter(f=>f[1]<c.periods.length); redraw();
+  }
+  else if(D.a=='addper'){
+   const c=S.rcfg, l=c.periods[c.periods.length-1], st=l?tmn(l.end)+15:540, en=st+60;
+   if(en>1439||c.periods.length>=12) return toast('No room for another period today.');
+   const f=n=>String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0');
+   c.periods.push({start:f(st),end:f(en)}); redraw();
+  }
+  else if(D.a=='preset'){
+   S.rcfg.periods=STD.map(([a,b])=>({start:a,end:b})); S.rcfg.free=S.rcfg.free.filter(f=>f[1]<6); redraw();
+  }
+ }catch(e){toast(e.message)}
+});
 
- if(!ents.some(e=>e[0]==S.sel))S.sel=ents.length?ents[0][0]:null;
- const url=S.mode=='class'?`/api/timetable/${S.sel}`:S.mode=='teacher'?`/api/faculty/${S.sel}/timetable`:`/api/rooms/${S.sel}/timetable`;
- const rows=await api(url);S.rows=rows;
- const prs=cfg.periods.map((p,i)=>({s:p.start,e:p.end,p:i})),seen=new Set(),other=[];
- rows.forEach(r=>{const k=r.start+'-'+r.end;if(!seen.has(k)){seen.add(k);other.push({s:r.start,e:r.end,p:-1})}});
- const known=new Set(prs.map(r=>r.s+'-'+r.e));
- let rws=S.mode=='class'?prs.concat(other.filter(o=>!known.has(o.s+'-'+o.e))):(other.length?other:prs);
- rws=rws.sort((a,b)=>a.s<b.s?-1:a.s>b.s?1:0);
- const days=[...new Set(cfg.days.concat(rows.map(r=>r.day)))].sort((a,b)=>a-b),narrow=innerWidth<820,ds=narrow?[days.includes(S.dy)?S.dy:days[0]]:days;
- const cell=(d,r)=>{const e=rows.find(x=>x.day==d&&x.start==r.s&&x.end==r.e);if(!e)return '<div class="fr">'+((cfg.free||[]).some(f=>f[0]==d&&f[1]==r.p)?'Kept free':'Free')+'</div>';
-  return `<div class="c ${e.lab?'lb':''}" ${S.mode=='class'?`draggable="true" data-id="${e.id}"`:''} tabindex="0"><b>${esc(e.subject)}</b><span>${esc(S.mode=='class'?e.teacher:e.class_name)}</span>${roomsOn()?`<span>${esc(S.mode=='room'?e.teacher:e.room)}</span>`:''}</div>`};
- let g=`<div class="gw"><table class="g"><thead><tr><th></th>${ds.map(d=>`<th>${DAYS[d]}</th>`).join('')}</tr></thead><tbody>`,prev=null;
- for(const r of rws){if(prev&&tmn(r.s)-tmn(prev.e)>=5)g+=`<tr><td class="t"></td><td class="br" colspan="${ds.length}">BREAK · ${tmn(r.s)-tmn(prev.e)} MIN</td></tr>`;
-  g+=`<tr><td class="t">${r.s}<br>${r.e}</td>${ds.map(d=>`<td ${r.p>=0&&S.mode=='class'?`data-d="${d}" data-p="${r.p}"`:''}>${cell(d,r)}</td>`).join('')}</tr>`;prev=r}
- return head('Timetable',esc((ents.find(e=>e[0]==S.sel)||[])[1]),S.mode=='class'?'Drag a session to another period. Every change is checked against the whole college and your rules.':'Shared view across all departments. Read only.',gen)+
- (st.stale?`<div class="note"><b>Your period times or days changed.</b> Generate the timetable again to apply them.</div>`:'')+
- `<div class="row noprint"><div class="seg" role="group" aria-label="View">${[['class','Class'],['teacher','Teacher']].concat(roomsOn()?[['room','Room / lab']]:[]).concat([['student','Student schedule'],['common','Common courses']]).map(([k,l])=>`<button data-m="${k}" aria-pressed="${S.mode==k}">${l}</button>`).join('')}</div><select id="sel" aria-label="Select">${ents.map(([i,n])=>`<option value="${i}" ${i==S.sel?'selected':''}>${esc(n)}</option>`).join('')}</select><button class="btn" data-a="print">Print</button><button class="btn" data-v="ru">Timing &amp; rules</button></div>`+
- (narrow?`<div class="seg noprint" style="margin-top:12px">${days.map(i=>`<button data-dy="${i}" aria-pressed="${ds[0]==i}">${DAYS[i].slice(0,3)}</button>`).join('')}</div>`:'')+g+'</tbody></table></div>'}
-async function ru(){if(!S.rcfg){const r=await api('/api/settings');S.rcfg=JSON.parse(JSON.stringify(r.config));S.rdefs=r.rule_defs;S.rstale=r.stale}
- const c=S.rcfg,D=S.rdefs,MODE={off:'Off',prefer:'Prefer when possible',require:'Always required'};
- const days=`<div class="row">${[0,1,2,3,4,5,6].map(d=>`<label class="chk"><input type="checkbox" data-rd="${d}" ${c.days.includes(d)?'checked':''}> ${DAYS[d].slice(0,3)}</label>`).join('')}</div>`;
- let per='';c.periods.forEach((p,i)=>{const prev=c.periods[i-1];if(prev&&tmn(p.start)>tmn(prev.end))per+=`<tr class="gapnote"><td></td><td colspan="3" class="sm">Break · ${tmn(p.start)-tmn(prev.end)} min</td></tr>`;
-  per+=`<tr><td>${i+1}</td><td><input type="time" data-pt="${i}:start" value="${p.start}"></td><td><input type="time" data-pt="${i}:end" value="${p.end}"></td><td><button class="btn" data-a="rmper" data-i="${i}" ${c.periods.length<2?'disabled':''}>Remove</button></td></tr>`});
- const rules=Object.entries(D).map(([k,df])=>{const r=c.rules[k]||{mode:'off'};return `<div class="item"><div class="row sp"><div style="max-width:560px"><b>${esc(df.title)}</b><div class="sm">${esc(df.help)}</div></div><div class="row"><select data-rm="${k}" aria-label="${esc(df.title)}">${df.modes.map(m=>`<option value="${m}" ${r.mode==m?'selected':''}>${MODE[m]}</option>`).join('')}</select>${df.param?`<label class="sm">${esc(df.param.label)}&nbsp;<input type="number" data-rp="${k}" min="${df.param.min}" max="${df.param.max}" value="${r[df.param.key]??df.param.default}" style="width:70px" ${r.mode=='off'?'disabled':''}></label>`:''}</div></div></div>`}).join('');
- const free=`<div class="gw"><table class="g" style="min-width:420px"><thead><tr><th></th>${c.days.map(d=>`<th>${DAYS[d].slice(0,3)}</th>`).join('')}</tr></thead><tbody>${c.periods.map((p,i)=>`<tr><td class="t">${p.start}</td>${c.days.map(d=>{const on=c.free.some(f=>f[0]==d&&f[1]==i);return `<td style="height:40px"><button type="button" class="tg ${on?'on':''}" data-free="${d},${i}" aria-pressed="${on}">${on?'Kept free':'Use'}</button></td>`}).join('')}</tr>`).join('')}</tbody></table></div>`;
- return head('Timetable rules','How your timetable looks','You decide the working days, period times, breaks and rules. Clash checks are always on: no double-booking, every required session placed, teacher availability.',`<button class="btn p noprint" data-a="saverules">Save</button>`)+
- (S.rstale?`<div class="note"><b>Your timing changed after the last timetable was made.</b> Save, then generate again to apply it. <button class="btn" data-a="gen" style="margin-left:10px">Generate timetable</button></div>`:'')+
- `<h2>Working days</h2>${days}<h2>Periods and breaks</h2><p class="sm">Each row is one teaching period. A gap between two periods is a break.</p><div class="gw"><table class="l"><thead><tr><th>#</th><th>Start</th><th>End</th><th></th></tr></thead><tbody>${per}</tbody></table></div><div class="row noprint" style="margin-top:10px"><button class="btn" data-a="addper">Add period</button><button class="btn" data-a="preset">Use 6 standard periods</button></div>
- <h2>Rules</h2><p class="sm">Choose which rules your timetable should follow. “Always required” can make a timetable impossible; “Prefer when possible” never does.</p>${rules}<div class="row noprint" style="margin-top:12px"><button class="btn" data-a="clearrules">Turn all rules off</button></div>
- <h2>Keep these periods free</h2><p class="sm">Select periods that none of your classes should use, for example a free hour for everyone.</p>${free}<div class="row noprint" style="margin-top:20px"><button class="btn p" data-a="saverules">Save</button></div>`}
-const dOf=x=>x.department||'Unassigned',depts=f=>[...new Set(f.map(dOf))].sort();
-const deptOpts=(f,sel)=>`<option value="">All departments</option>`+depts(f).map(d=>`<option ${d==sel?'selected':''}>${esc(d)}</option>`).join('');
-const facOpts=(f,d)=>f.filter(x=>!d||dOf(x)==d).sort((a,b)=>a.name.localeCompare(b.name)).map(x=>`<option value="${x.id}">${esc(x.name)} · ${x.faculty_code}${d?'':' · '+esc(dOf(x))}</option>`).join('')||'<option value="">No faculty in this department</option>';
-async function su(){const [a,c,f]=await Promise.all([api('/api/allocations'),api('/api/classes'),api('/api/faculty')]);S.fl=f;
- return head('Curriculum','Subjects','Class → subject → sessions per week → faculty',gen)+
- `<div class="note"><div class="row"><label>Class<br><select id="bc">${c.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('')}</select></label><label>Subject<br><input id="bs" placeholder="e.g. Python"></label>
- ${roomsOn()?`<label>Type<br><select id="bl"><option value="">Lecture</option><option>Computer lab</option><option>Laboratory</option></select></label>`:''}<label>Sessions per week<br><select id="bn">${[1,2,3,4,5,6].map(n=>`<option ${n==3?'selected':''}>${n}</option>`).join('')}</select></label>
- <label>Faculty department<br><select id="bd">${deptOpts(f,S.bd||'')}</select></label><label>Faculty<br><select id="bt">${facOpts(f,S.bd||'')}</select></label><label><br><button class="btn p" data-a="add">Add subject</button></label></div></div>`+
- tab(['Class','Subject','Faculty','Placed'],a.map(x=>[esc(x.class_name),esc(x.subject),esc(x.teacher),`${x.placed} / ${x.sessions_per_week}`]))}
-function run(fn){const ov=$('#ov'),ul=$('#steps'),st=['Checking faculty availability…','Checking shared resources…','Resolving cross-department conflicts…','Balancing workloads…','Optimizing rooms…','Finalizing schedule…'];
- $('#ovt').textContent=me.department.name;ul.innerHTML='';ov.classList.add('on');let i=0;const iv=setInterval(()=>{if(i<st.length)ul.insertAdjacentHTML('beforeend',`<li>${st[i++]}</li>`)},350);
- fn().then(r=>{clearInterval(iv);ul.insertAdjacentHTML('beforeend',r.status=='ok'?`<li>✓ Timetable ready · no clashes · ${r.rules_used?r.quality+'% on your '+r.rules_used+' rule(s)':'no rules chosen yet'}</li>`:'<li>We couldn’t fit every session</li>');setTimeout(()=>{ov.classList.remove('on');S.gen=r.status=='ok'?null:r;if(r.status!='ok')V='co';draw()},1100)}).catch(e=>{clearInterval(iv);ov.classList.remove('on');toast(e.message)})}
-const err=m=>{const e=$('#e');if(e)e.textContent=m};
-function tick(){cool=30;const t=setInterval(()=>{cool--;const b=$('#rs');if(b)b.textContent=cool>0?'Resend code in '+cool+'s':'Resend code';if(cool<=0)clearInterval(t)},1000)}
-document.addEventListener('submit',async ev=>{ev.preventDefault();const id=ev.target.id;
- try{if(id=='f1'){const r=await api('/api/auth/login',{method:'POST',body:{username:$('#u').value,password:$('#p').value}});if(r.signed_in){me=await api('/api/auth/me');V='dash';return draw()}ch=r.challenge_id;hint=r.email_hint;screen='code';tick();draw()}
- else if(id=='f2'){const r=await api('/api/auth/verify',{method:'POST',body:{challenge_id:ch,code:$('#c').value}});me=await api('/api/auth/me');V='dash';draw()}
- else if(id=='f3'){await api('/api/auth/reset',{method:'POST',body:{token:$('#t').value,new_password:$('#n').value}});screen='login';draw();toast('Password updated. Please sign in.',1)}}
- catch(e){err(e.message)}});
-document.addEventListener('click',async ev=>{const t=ev.target.closest('button, [data-a]');if(!t)return;const D=t.dataset;
- try{if(D.go=='forgot'||D.go=='login'){screen=D.go;draw()}
- else if(D.go=='resend'){if(cool>0)return;await api('/api/auth/resend',{method:'POST',body:{challenge_id:ch}});tick();toast('A new code has been sent.',1)}
- else if(D.go=='sendreset'){const r=await api('/api/auth/forgot',{method:'POST',body:{username:$('#u').value}});err(r.message)}
- else if(D.v){V=D.v;S.gen=null;S.alt=null;S.rcfg=null;draw()}else if(D.m){S.mode=D.m;S.sel=null;draw()}else if(D.dy){S.dy=+D.dy;draw()}
- else if(D.un){if(S.un.has(D.un))S.un.delete(D.un);else S.un.add(D.un);const on=S.un.has(D.un);t.classList.toggle('on',on);t.setAttribute('aria-pressed',on);t.textContent=on?'Unavailable':'Available'}
- else if(D.fe){S.fe=+D.fe;S.fav=null;draw()}
- else if(D.a=='newfac'){S.fe='new';S.fav=null;draw()}
- else if(D.a=='cancelfac'){S.fe=null;draw()}
- else if(D.a=='savefac'){const body={name:$('#fn').value,designation:$('#fg').value||null,email:$('#fx').value||null,max_weekly_sessions:+$('#fm').value};
-  if(S.fe=='new'){const r=await api('/api/faculty',{method:'POST',body});S.fe=r.id;toast('Teacher added as '+r.faculty_code+'. You can set unavailable periods now.',1)}
-  else{await api('/api/faculty/'+S.fe,{method:'PUT',body});await api('/api/faculty/'+S.fe+'/unavailable',{method:'PUT',body:{slots:[...S.un].map(k=>k.split(',').map(Number))}});toast('Changes saved.',1);S.fe=null}draw()}
- else if(D.a=='rmfac'){const n=$('#fn').value;if(!confirm('Remove '+n+' from the faculty list? This can only be done if they have no subjects.'))return;await api('/api/faculty/'+S.fe,{method:'DELETE'});S.fe=null;toast('Teacher removed.',1);draw()} else if(D.fav){S.fav=D.fav;draw()}else if(D.rav){S.rav=D.rav;draw()}else if(D.rt){S.rt=D.rt;draw()}
- else if(D.why!==undefined){$('#why').textContent=D.why}
- else if(D.a=='gen')run(()=>api('/api/generate',{method:'POST',body:{}}));
- else if(D.a=='alt'){S.alt=await api('/api/alternatives',{method:'POST'});draw()}
- else if(D.a=='st'){await api('/api/status',{method:'PUT',body:{status:D.s}});toast('Status updated.',1);draw()}
- else if(D.a=='add'){const b=$('#bs').value.trim();if(!b)return toast('Enter a subject name first.');await api('/api/allocations',{method:'POST',body:{class_id:+$('#bc').value,subject:b,faculty_id:+$('#bt').value,sessions:+$('#bn').value,lab:($('#bl')&&$('#bl').value)||null}});toast('Subject added. Generate to schedule it.',1);draw()}
- else if(D.a=='seltype'){S.newCourseSel=D.st;redraw()}
-  else if(D.a=='addcourse'){const code=$('#cc_code').value.trim().toUpperCase(), name=$('#cc_name').value.trim(); if(!code||!name)return toast('Course code and name required.'); const ctype=$('#cc_type').value; const selType=ctype=='Regular'?null:(S.newCourseSel||'STUDENT_SELECTED'); await api('/api/courses',{method:'POST',body:{course_code:code,course_name:name,course_type:ctype,selection_type:selType,description:$('#cc_desc').value||null}}); toast('Course created.',1); redraw()}
- else if(D.a=='addoffering'){const code=$('#co_code').value.trim().toUpperCase(); if(!code)return toast('Offering code required.'); await api('/api/offerings',{method:'POST',body:{course_id:+$('#co_cid').value,offering_code:code,semester:+$('#co_sem').value,required_sessions:+$('#co_sess').value,max_enrollment:+$('#co_cap').value,faculty_id:+$('#co_fac').value||null,room_id:+$('#co_room')?.value||null}}); toast('Offering launched.',1); redraw()}
- else if(D.a=='deloff'){if(!confirm('Delete this course offering?'))return; await api('/api/offerings/'+D.oid,{method:'DELETE'}); toast('Offering removed.',1); redraw()}
- else if(D.a=='newsec'){const sname=prompt('Section name (e.g. B):'); if(!sname)return; const cap=+prompt('Section capacity:', '60')||60; await api('/api/offerings/'+D.oid+'/sections',{method:'POST',body:{section_name:sname,capacity:cap}}); toast('Section added.',1); redraw()}
- else if(D.a=='offtt'){const tt=await api('/api/offerings/'+D.oid+'/timetable'); alert('Scheduled Sessions:\n'+(tt.map(s=>DAYS[s.day]+' '+s.start+'-'+s.end+' · '+(s.room||'Classroom')+' · '+(s.teacher||'Teacher')).join('\n')||'No sessions scheduled yet. Click Generate timetable to schedule.'));}
- else if(D.a=='addstudent'){const reg=$('#st_reg').value.trim().toUpperCase(), sname=$('#st_name').value.trim(); if(!reg||!sname)return toast('Register number and name required.'); await api('/api/students',{method:'POST',body:{register_number:reg,name:sname,semester:+$('#st_sem').value,class_id:+$('#st_cls').value||null}}); toast('Student added.',1); redraw()}
- else if(D.a=='enrollstudent'){const sid=+$('#stu_to_enr').value, secId=+$('#stu_enr_sec')?.value||null; await api('/api/offerings/'+S.stuOff+'/enroll',{method:'POST',body:{student_ids:[sid],section_id:secId}}); toast('Student enrolled.',1); redraw()}
- else if(D.a=='bulkenroll'){const raw=$('#stu_bulk').value.trim(); if(!raw)return toast('Paste register numbers first.'); const res=await api('/api/offerings/'+S.stuOff+'/bulk-enroll',{method:'POST',body:{register_numbers:raw}}); toast('Enrolled '+res.enrolled+' students (Total: '+res.total+').',1); redraw()}
- else if(D.a=='unenroll'){await api('/api/offerings/'+D.oid+'/enroll/'+D.sid,{method:'DELETE'}); toast('Student removed.',1); redraw()}
- else if(D.a=='viewstudenttt'){S.mode='student'; S.sel=+D.sid; V='tt'; draw()}
- else if(D.a=='addclass'){const n=$('#kn').value.trim();if(!n)return toast('Enter a class name first.');await api('/api/classes',{method:'POST',body:{name:n,semester:+$('#ks').value,section:$('#kc').value||'A',students:$('#kt').value?+$('#kt').value:null}});toast('Class added.',1);draw()}
- else if(D.a=='rmper'){const c=S.rcfg;c.periods.splice(+D.i,1);c.free=c.free.filter(f=>f[1]<c.periods.length);redraw()}
- else if(D.a=='addper'){const c=S.rcfg,l=c.periods[c.periods.length-1],st=l?tmn(l.end)+15:540,en=st+60;if(en>1439||c.periods.length>=12)return toast('No room for another period today.');const f=n=>String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0');c.periods.push({start:f(st),end:f(en)});redraw()}
- else if(D.a=='preset'){S.rcfg.periods=STD.map(([a,b])=>({start:a,end:b}));S.rcfg.free=S.rcfg.free.filter(f=>f[1]<6);redraw()}
- else if(D.a=='clearrules'){for(const k in S.rcfg.rules)S.rcfg.rules[k].mode='off';redraw()}
- else if(D.a=='saverules'){const c=S.rcfg,rules={};for(const [k,df] of Object.entries(S.rdefs)){const r=c.rules[k]||{mode:'off'};rules[k]={mode:r.mode};if(df.param)rules[k][df.param.key]=+(r[df.param.key]??df.param.default)}
-  const r=await api('/api/settings',{method:'PUT',body:{days:c.days,periods:c.periods,rules,free:c.free}});S.rcfg=JSON.parse(JSON.stringify(r.config));S.rstale=r.stale;toast('Saved. Generate your timetable to use these rules.',1);redraw()}
- else if(D.free){const [d,p]=D.free.split(',').map(Number),c=S.rcfg,i=c.free.findIndex(f=>f[0]==d&&f[1]==p);if(i>=0)c.free.splice(i,1);else c.free.push([d,p]);const on=i<0;t.classList.toggle('on',on);t.setAttribute('aria-pressed',on);t.textContent=on?'Kept free':'Use'}
- else if(D.a=='print')print();
- else if(D.a=='out'||D.a=='outall'){await api(D.a=='out'?'/api/auth/logout':'/api/auth/logout-all',{method:'POST'});location.replace('/login.html')}
- else if(D.a=='pw'){const c=prompt('Current password');if(!c)return;const n=prompt('New password (10+ characters, letters and numbers)');if(!n)return;await api('/api/auth/change-password',{method:'POST',body:{current:c,new:n}});toast('Password changed. Other devices were signed out.',1)}}
- catch(e){toast(e.message)}});
-document.addEventListener('change',ev=>{const t=ev.target,D=t.dataset;
- if(t.id=='cc_type'){S.newCourseType=t.value;return redraw()}
- if(D.rd!==undefined){const c=S.rcfg,d=+D.rd;if(t.checked)c.days=[...new Set(c.days.concat(d))].sort();else{if(c.days.length<2){t.checked=true;return toast('Keep at least one working day.')}c.days=c.days.filter(x=>x!=d);c.free=c.free.filter(f=>f[0]!=d)}return redraw()}
- if(D.pt){const [i,k]=D.pt.split(':');if(t.value){S.rcfg.periods[+i][k]=t.value;redraw()}return}
- if(D.rm){S.rcfg.rules[D.rm]=Object.assign(S.rcfg.rules[D.rm]||{},{mode:t.value});return redraw()}
- if(D.rp){S.rcfg.rules[D.rp]=Object.assign(S.rcfg.rules[D.rp]||{mode:'prefer'},{[S.rdefs[D.rp].param.key]:+t.value});return}
- if(t.id=='sel'){S.sel=t.value;draw()}
- else if(t.id=='stu_off_sel'){S.stuOff=+t.value;redraw()}
- else if(t.id=='bd'){S.bd=t.value;$('#bt').innerHTML=facOpts(S.fl||[],S.bd)}
- else if(t.id=='fd'){S.fd=t.value;S.fav=null;draw()}});
+document.addEventListener('change', ev=>{
+ const t=ev.target, D=t.dataset;
+ if(t.id=='fav_sel'){S.fav=+t.value; redraw()}
+ else if(t.id=='tt_sel'){S.sel=t.value; draw()}
+ else if(D.rd!==undefined){
+  const c=S.rcfg, d=+D.rd;
+  if(t.checked) c.days=[...new Set(c.days.concat(d))].sort();
+  else {
+   if(c.days.length<2){t.checked=true; return toast('Keep at least one working day.')}
+   c.days=c.days.filter(x=>x!=d); c.free=c.free.filter(f=>f[0]!=d);
+  }
+  redraw();
+ }
+ else if(D.pt){
+  const [i,k]=D.pt.split(':'); if(t.value){S.rcfg.periods[+i][k]=t.value; redraw()}
+ }
+ else if(D.rm){
+  S.rcfg.rules[D.rm]=Object.assign(S.rcfg.rules[D.rm]||{},{mode:t.value}); redraw();
+ }
+ else if(D.rp){
+  S.rcfg.rules[D.rp]=Object.assign(S.rcfg.rules[D.rp]||{mode:'prefer'},{[S.rdefs[D.rp].param.key]:+t.value});
+ }
+});
+
 let drag=null;
 document.addEventListener('dragstart',e=>{const c=e.target.closest('[data-id]');if(c)drag=c.dataset.id});
 document.addEventListener('dragover',e=>{const td=e.target.closest('td[data-d]');if(td&&drag){e.preventDefault();td.classList.add('over')}});
 document.addEventListener('dragleave',e=>e.target.closest&&e.target.closest('td')?.classList.remove('over'));
-document.addEventListener('drop',async e=>{const td=e.target.closest('td[data-d]');if(!td||!drag)return;e.preventDefault();const id=drag;drag=null;const body={day:+td.dataset.d,period:+td.dataset.p};
- try{try{await api(`/api/entries/${id}/move`,{method:'POST',body});toast('Change made.',1)}
-  catch(er){if(!/Request change/.test(er.message))throw er;const reason=prompt('This timetable is published. Why is the change needed?');if(!reason)return;await api(`/api/entries/${id}/request-change`,{method:'POST',body:{...body,reason}});toast('Change made and recorded.',1)}
-  draw()}catch(er){toast(er.message);draw()}});
-addEventListener('resize',()=>{if(me&&V=='tt'){clearTimeout(addEventListener.h);addEventListener.h=setTimeout(draw,200)}});
-api('/api/auth/me').then(r=>{me=r;draw()}).catch(()=>location.replace('/login.html'));
+document.addEventListener('drop',async e=>{
+ const td=e.target.closest('td[data-d]'); if(!td||!drag) return;
+ e.preventDefault(); const id=drag; drag=null;
+ const body={day:+td.dataset.d, period:+td.dataset.p};
+ try{
+  await api(`/api/entries/${id}/move`,{method:'POST',body});
+  toast('Session moved.',1); draw();
+ }catch(er){
+  toast(er.message); draw();
+ }
+});
+
+api('/api/auth/me').then(r=>{me=r; draw()}).catch(()=>location.replace('/login.html'));
 </script></body></html>

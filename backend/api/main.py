@@ -156,9 +156,28 @@ def build_input(conn, d, class_id=None, joint=False):
     where, args = ("", ()) if joint else ("WHERE c.department_id=%s" + (" AND c.id=%s" if class_id else ""), (d["id"],) + ((class_id,) if class_id else ()))
     classes = {c["id"]: dict(name=c["name"], department=c["code"]) for c in conn.execute(
         "SELECT c.id, c.name, dp.code FROM class c JOIN department dp ON dp.id=c.department_id " + where, args)}
+
+    pinned_rows = conn.execute("""
+        SELECT csa.subject_id, csa.course_offering_id, cs.day, cs.start_min, cs.end_min
+        FROM common_slot_assignment csa
+        JOIN common_time_slot cs ON cs.id=csa.common_slot_id
+        WHERE cs.status='active'
+    """).fetchall()
+    pinned_map = defaultdict(list)
+    pinned_off_map = defaultdict(list)
+    for pr in pinned_rows:
+        if pr["subject_id"]:
+            pinned_map[pr["subject_id"]].append((pr["day"], pr["start_min"], pr["end_min"]))
+        if pr["course_offering_id"]:
+            pinned_off_map[pr["course_offering_id"]].append((pr["day"], pr["start_min"], pr["end_min"]))
+
     allocs = [dict(**{"class": a["class_id"]}, subject=a["subject"], teacher=a["faculty_id"], sessions=a["sessions_per_week"],
-                   room_type=a["required_room_type"], id=a["id"], department=a["code"], kind="regular")
-              for a in conn.execute("""SELECT a.*, s.name subject, s.required_room_type, dp.code FROM teacher_allocation a
+                   room_type=a["required_room_type"], id=a["id"], department=a["code"], kind="regular",
+                   course_category=a.get("course_category") or "Regular",
+                   **(dict(scope="college_wide", selection_type="STUDENT_SELECTED", course_type=a["course_category"])
+                      if a.get("course_category") in ("MDC", "Minor") else {}),
+                   pinned_slots=pinned_map.get(a["subject_id"], []))
+              for a in conn.execute("""SELECT a.*, s.name subject, s.required_room_type, coalesce(s.course_category, 'Regular') course_category, dp.code FROM teacher_allocation a
                   JOIN subject s ON s.id=a.subject_id JOIN class c ON c.id=a.class_id JOIN department dp ON dp.id=c.department_id """ + where, args)]
 
     offering_ids = set()
@@ -198,6 +217,7 @@ def build_input(conn, d, class_id=None, joint=False):
                         kind="offering",
                         capacity=sec["capacity"],
                         id=f"off-{co['id']}-{sec['id']}",
+                        pinned_slots=pinned_off_map.get(co["id"], []),
                         **{"class": None}
                     ))
             else:
@@ -218,6 +238,7 @@ def build_input(conn, d, class_id=None, joint=False):
                     kind="offering",
                     capacity=co["max_enrollment"],
                     id=f"off-{co['id']}",
+                    pinned_slots=pinned_off_map.get(co["id"], []),
                     **{"class": None}
                 ))
 
@@ -493,10 +514,34 @@ def view(conn, col, rid):
 
 @app.get("/api/faculty")
 def faculty(conn=Depends(db), d=Depends(current_department)):
-    return conn.execute("""SELECT f.id, f.faculty_code, f.name, dp.name department, f.designation, f.email, f.max_weekly_sessions,
+    rows = conn.execute("""SELECT f.id, f.faculty_code, f.name, dp.name department, f.designation, f.email, f.max_weekly_sessions,
         (f.home_department_id = %s) AS editable,
         (SELECT count(*) FROM timetable_entry e WHERE e.faculty_id=f.id) AS sessions
         FROM faculty f LEFT JOIN department dp ON dp.id=f.home_department_id WHERE f.active ORDER BY f.faculty_code""", (d["id"],)).fetchall()
+    
+    allocs = conn.execute("""
+        SELECT a.faculty_id, dp.name dept_name, sum(a.sessions_per_week) total_sessions,
+               array_agg(s.name) subjects
+        FROM teacher_allocation a
+        JOIN subject s ON s.id=a.subject_id
+        JOIN class c ON c.id=a.class_id
+        JOIN department dp ON dp.id=c.department_id
+        GROUP BY a.faculty_id, dp.name
+    """).fetchall()
+    alloc_map = defaultdict(list)
+    my_sub_map = defaultdict(list)
+    for al in allocs:
+        alloc_map[al["faculty_id"]].append(dict(department=al["dept_name"], sessions=int(al["total_sessions"] or 0), subjects=al["subjects"] or []))
+        if al["dept_name"] == d["name"]:
+            my_sub_map[al["faculty_id"]].extend(al["subjects"] or [])
+
+    out = []
+    for r in rows:
+        item = dict(r)
+        item["allocations_by_dept"] = alloc_map[r["id"]]
+        item["my_department_subjects"] = my_sub_map[r["id"]]
+        out.append(item)
+    return out
 
 
 class FacReq(BaseModel):
@@ -667,6 +712,18 @@ class AllocReq(BaseModel):
     faculty_id: int
     sessions: int
     lab: str | None = None   # 'Computer lab' | 'Laboratory' | None
+    code: str | None = None
+    course_category: str | None = "Regular"   # 'Regular', 'MDC', 'Minor'
+    duration: int | None = 60
+
+
+class AllocUpdateReq(BaseModel):
+    subject: str | None = None
+    code: str | None = None
+    faculty_id: int | None = None
+    sessions: int | None = None
+    course_category: str | None = None
+    duration: int | None = None
 
 
 @app.post("/api/allocations")
@@ -676,23 +733,189 @@ def add_allocation(req: AllocReq, conn=Depends(db), d=Depends(current_department
         raise HTTPException(400, "Weekly sessions should be between 1 and 30.")
     lab = req.lab if USE_ROOMS else None      # lab types need rooms; ignored while rooms are off
     rt = lab or "Classroom"
-    sid = conn.execute("INSERT INTO subject (name, department_id, kind, required_room_type) VALUES (%s,%s,%s,%s) RETURNING id",
-                       (req.subject.strip(), d["id"], "Lab" if lab else "Lecture", rt)).fetchone()["id"]
+    cat = req.course_category if req.course_category in ("Regular", "MDC", "Minor") else "Regular"
+    dur = req.duration or 60
+    code = (req.code or "").strip().upper() or None
+    sid = conn.execute("""INSERT INTO subject (name, code, department_id, kind, required_room_type, course_category, duration_min)
+                          VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING id""",
+                       (req.subject.strip(), code, d["id"], "Lab" if lab else "Lecture", rt, cat, dur)).fetchone()["id"]
     try:
-        conn.execute("INSERT INTO teacher_allocation (class_id, subject_id, faculty_id, sessions_per_week) VALUES (%s,%s,%s,%s)",
-                     (req.class_id, sid, req.faculty_id, req.sessions))
+        aid = conn.execute("""INSERT INTO teacher_allocation (class_id, subject_id, faculty_id, sessions_per_week, duration_min)
+                        VALUES (%s,%s,%s,%s,%s) RETURNING id""",
+                     (req.class_id, sid, req.faculty_id, req.sessions, dur)).fetchone()["id"]
     except psycopg.errors.ForeignKeyViolation:
         raise HTTPException(400, "Please choose a faculty member from the list.")
     note(conn, d["id"], "add_subject", new=req.model_dump())
-    return dict(ok=True)
+    return dict(ok=True, id=aid, subject_id=sid)
 
 
 @app.get("/api/allocations")
 def allocations(conn=Depends(db), d=Depends(current_department)):
-    return conn.execute("""SELECT a.id, c.name class_name, s.name subject, f.name teacher, f.faculty_code, a.sessions_per_week,
+    return conn.execute("""SELECT a.id, a.class_id, a.subject_id, a.faculty_id, c.name class_name,
+        s.name subject, s.code subject_code,
+        coalesce(s.course_category, 'Regular') course_category,
+        coalesce(a.duration_min, s.duration_min, 60) duration,
+        f.name teacher, f.faculty_code, a.sessions_per_week,
         (SELECT count(*) FROM timetable_entry e WHERE e.allocation_id=a.id) placed FROM teacher_allocation a
         JOIN class c ON c.id=a.class_id JOIN subject s ON s.id=a.subject_id JOIN faculty f ON f.id=a.faculty_id
         WHERE c.department_id=%s ORDER BY c.id, a.id""", (d["id"],)).fetchall()
+
+
+@app.put("/api/allocations/{aid}")
+def update_allocation(aid: int, req: AllocUpdateReq, conn=Depends(db), d=Depends(current_department)):
+    alloc = conn.execute("""SELECT a.*, s.id as subject_id, c.department_id FROM teacher_allocation a
+        JOIN subject s ON s.id=a.subject_id
+        JOIN class c ON c.id=a.class_id WHERE a.id=%s""", (aid,)).fetchone()
+    if not alloc or alloc["department_id"] != d["id"]:
+        raise HTTPException(404, "Subject allocation not found.")
+    if req.faculty_id is not None:
+        fac = conn.execute("SELECT id FROM faculty WHERE id=%s AND active", (req.faculty_id,)).fetchone()
+        if not fac:
+            raise HTTPException(400, "Please choose a valid faculty member.")
+        conn.execute("UPDATE teacher_allocation SET faculty_id=%s WHERE id=%s", (req.faculty_id, aid))
+    if req.sessions is not None:
+        if not 1 <= req.sessions <= 30:
+            raise HTTPException(400, "Weekly sessions should be between 1 and 30.")
+        conn.execute("UPDATE teacher_allocation SET sessions_per_week=%s WHERE id=%s", (req.sessions, aid))
+    if req.duration is not None:
+        conn.execute("UPDATE teacher_allocation SET duration_min=%s WHERE id=%s", (req.duration, aid))
+        conn.execute("UPDATE subject SET duration_min=%s WHERE id=%s", (req.duration, alloc["subject_id"]))
+    if req.subject is not None and req.subject.strip():
+        conn.execute("UPDATE subject SET name=%s WHERE id=%s", (req.subject.strip(), alloc["subject_id"]))
+    if req.code is not None:
+        conn.execute("UPDATE subject SET code=%s WHERE id=%s", (req.code.strip().upper() or None, alloc["subject_id"]))
+    if req.course_category is not None and req.course_category in ("Regular", "MDC", "Minor"):
+        conn.execute("UPDATE subject SET course_category=%s WHERE id=%s", (req.course_category, alloc["subject_id"]))
+    note(conn, d["id"], "update_subject", new=req.model_dump())
+    return dict(ok=True)
+
+
+@app.delete("/api/allocations/{aid}")
+def delete_allocation(aid: int, conn=Depends(db), d=Depends(current_department)):
+    alloc = conn.execute("""SELECT a.*, s.id as subject_id, c.department_id FROM teacher_allocation a
+        JOIN subject s ON s.id=a.subject_id
+        JOIN class c ON c.id=a.class_id WHERE a.id=%s""", (aid,)).fetchone()
+    if not alloc or alloc["department_id"] != d["id"]:
+        raise HTTPException(404, "Subject allocation not found.")
+    conn.execute("DELETE FROM timetable_entry WHERE allocation_id=%s", (aid,))
+    conn.execute("DELETE FROM common_slot_assignment WHERE subject_id=%s", (alloc["subject_id"],))
+    conn.execute("DELETE FROM teacher_allocation WHERE id=%s", (aid,))
+    other = conn.execute("SELECT count(*) n FROM teacher_allocation WHERE subject_id=%s", (alloc["subject_id"],)).fetchone()["n"]
+    if other == 0:
+        conn.execute("DELETE FROM subject WHERE id=%s", (alloc["subject_id"],))
+    note(conn, d["id"], "delete_subject", new=dict(allocation_id=aid))
+    return dict(ok=True)
+
+
+@app.get("/api/common-slots/assignments")
+def get_slot_assignments(conn=Depends(db), d=Depends(current_department)):
+    slots = conn.execute("""SELECT id, day, start_min, end_min, applicable_course_type, name, semester
+                           FROM common_time_slot WHERE status='active' ORDER BY day, start_min""").fetchall()
+    assigns = conn.execute("""
+        SELECT csa.id, csa.common_slot_id, csa.department_id, dp.name dept_name, dp.code dept_code,
+               csa.subject_id, s.name subject_name, s.code subject_code, s.course_category,
+               csa.faculty_id, f.name teacher_name, f.faculty_code
+        FROM common_slot_assignment csa
+        JOIN department dp ON dp.id=csa.department_id
+        LEFT JOIN subject s ON s.id=csa.subject_id
+        LEFT JOIN faculty f ON f.id=csa.faculty_id
+    """).fetchall()
+
+    dept_assigns = defaultdict(list)
+    other_assigns = defaultdict(list)
+    for a in assigns:
+        item = dict(id=a["id"], subject_id=a["subject_id"], subject_name=a["subject_name"],
+                    subject_code=a["subject_code"], course_category=a["course_category"],
+                    faculty_id=a["faculty_id"], teacher_name=a["teacher_name"], faculty_code=a["faculty_code"],
+                    department_name=a["dept_name"], department_code=a["dept_code"])
+        if a["department_id"] == d["id"]:
+            dept_assigns[a["common_slot_id"]].append(item)
+        else:
+            other_assigns[a["common_slot_id"]].append(item)
+
+    out = []
+    for s in slots:
+        out.append(dict(
+            id=s["id"],
+            day=s["day"],
+            day_name=DAYS[s["day"]],
+            start=hm(s["start_min"]),
+            end=hm(s["end_min"]),
+            start_min=s["start_min"],
+            end_min=s["end_min"],
+            applicable_course_type=s["applicable_course_type"],
+            name=s["name"],
+            semester=s["semester"],
+            my_assignments=dept_assigns[s["id"]],
+            other_assignments=other_assigns[s["id"]]
+        ))
+    return out
+
+
+class SlotAssignReq(BaseModel):
+    common_slot_id: int
+    subject_id: int
+    faculty_id: int | None = None
+
+
+@app.post("/api/common-slots/assign")
+def assign_subject_to_slot(req: SlotAssignReq, conn=Depends(db), d=Depends(current_department)):
+    slot = conn.execute("SELECT * FROM common_time_slot WHERE id=%s AND status='active'", (req.common_slot_id,)).fetchone()
+    if not slot:
+        raise HTTPException(404, "Common slot not found or inactive.")
+    
+    subj = conn.execute("SELECT s.*, ta.faculty_id FROM subject s LEFT JOIN teacher_allocation ta ON ta.subject_id=s.id WHERE s.id=%s AND s.department_id=%s", (req.subject_id, d["id"])).fetchone()
+    if not subj:
+        raise HTTPException(404, "Subject not found in your department.")
+    
+    cat = subj.get("course_category") or "Regular"
+    if cat not in ("MDC", "Minor"):
+        raise HTTPException(400, f"Only MDC or Minor subjects can be placed into common slots. '{subj['name']}' is a {cat} subject.")
+    
+    if slot["applicable_course_type"] != "Both" and slot["applicable_course_type"] != cat:
+        raise HTTPException(400, f"This slot is designated for {slot['applicable_course_type']} subjects, but '{subj['name']}' is {cat}.")
+    
+    fid = req.faculty_id or subj.get("faculty_id")
+    if fid:
+        conflict = conn.execute("""
+            SELECT csa.id, dp.name dept_name, s.name sub_name
+            FROM common_slot_assignment csa
+            JOIN department dp ON dp.id=csa.department_id
+            LEFT JOIN subject s ON s.id=csa.subject_id
+            WHERE csa.common_slot_id=%s AND csa.faculty_id=%s AND csa.department_id != %s
+        """, (req.common_slot_id, fid, d["id"])).fetchone()
+        if conflict:
+            tname = conn.execute("SELECT name FROM faculty WHERE id=%s", (fid,)).fetchone()["name"]
+            raise HTTPException(400, f"Teacher conflict: {tname} is already assigned at this time to {conflict['dept_name']} ({conflict['sub_name']}).")
+        
+        unav = conn.execute("""
+            SELECT fa.id FROM faculty_availability fa
+            JOIN time_slot ts ON ts.id=fa.time_slot_id
+            WHERE fa.faculty_id=%s AND fa.kind='unavailable' AND ts.day=%s
+              AND ts.starts < %s AND ts.ends > %s
+        """, (fid, slot["day"], hm(slot["end_min"]), hm(slot["start_min"]))).fetchone()
+        if unav:
+            tname = conn.execute("SELECT name FROM faculty WHERE id=%s", (fid,)).fetchone()["name"]
+            raise HTTPException(400, f"Teacher {tname} is marked as unavailable during this period ({DAYS[slot['day']]} {hm(slot['start_min'])}-{hm(slot['end_min'])}).")
+
+    conn.execute("""
+        INSERT INTO common_slot_assignment (department_id, common_slot_id, subject_id, faculty_id)
+        VALUES (%s, %s, %s, %s)
+        ON CONFLICT (department_id, common_slot_id, subject_id)
+        DO UPDATE SET faculty_id=EXCLUDED.faculty_id
+    """, (d["id"], req.common_slot_id, req.subject_id, fid))
+    note(conn, d["id"], "assign_common_slot", new=dict(slot_id=req.common_slot_id, subject_id=req.subject_id, faculty_id=fid))
+    return dict(ok=True)
+
+
+@app.delete("/api/common-slots/assign/{assign_id}")
+def delete_slot_assignment(assign_id: int, conn=Depends(db), d=Depends(current_department)):
+    csa = conn.execute("SELECT * FROM common_slot_assignment WHERE id=%s AND department_id=%s", (assign_id, d["id"])).fetchone()
+    if not csa:
+        raise HTTPException(404, "Assignment not found.")
+    conn.execute("DELETE FROM common_slot_assignment WHERE id=%s", (assign_id,))
+    note(conn, d["id"], "unassign_common_slot", new=dict(assignment_id=assign_id))
+    return dict(ok=True)
 
 
 # ---------- timetable settings: each department decides how its timetable looks ----------
