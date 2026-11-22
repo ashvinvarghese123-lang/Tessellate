@@ -57,7 +57,8 @@ table.l{width:100%;border-collapse:collapse}.l th{text-align:left;font-weight:60
 .ov ul{list-style:none;padding:0;margin:18px 0 0;min-height:160px;color:var(--mute);font-size:14px}.ov li{padding:4px 0}
 .empty{text-align:center;padding:50px 16px;color:var(--mute)}.empty h2{color:var(--ink);margin-top:0}
 .bar{height:6px;background:var(--line);border-radius:3px;margin-top:6px;overflow:hidden}.bar i{display:block;height:100%;background:var(--acc)}.bar.hi i{background:var(--warn)}.bar.ov i{background:var(--crit)}
-.tg{width:100%;min-height:44px;border:0;background:var(--panel);color:var(--mute);font:inherit;font-size:12.5px;cursor:pointer;border-radius:4px}.tg:hover{color:var(--ink)}.tg.on{background:repeating-linear-gradient(135deg,transparent 0 5px,var(--lab) 5px 6px);color:var(--warn);font-weight:600}
+.tg{width:100%;min-height:44px;border:0;background:var(--panel);color:var(--mute);font:inherit;font-size:12.5px;cursor:pointer;border-radius:4px;display:flex;align-items:center;justify-content:center;text-align:center;padding:4px 6px}.tg:hover{color:var(--ink)}
+.tg.on{background:repeating-linear-gradient(135deg,transparent 0 5px,var(--lab) 5px 6px);color:var(--warn);font-weight:600}
 .chk{display:inline-flex;gap:8px;align-items:center;padding:8px 12px;border:1px solid var(--line);border-radius:7px;min-height:40px;cursor:pointer;background:var(--panel);font-size:13.5px}
 @media (max-width:860px){.app{flex-direction:column}nav{width:100%;height:auto;position:sticky;top:0;flex-direction:row;overflow-x:auto;padding:10px;border-right:0;border-bottom:1px solid var(--line);background:var(--bg);z-index:20}.logo{display:none}main{padding:20px 16px 80px}.cols{grid-template-columns:1fr;gap:20px}h1{font-size:26px}}
 @media print{nav,.noprint{display:none!important}main{padding:0}}
@@ -165,7 +166,7 @@ async function viewOverview(){
      <button class="btn sm" data-v="ta">View Teachers</button>
     </div>
     <div class="item row sp">
-     <div><b>3. MDC &amp; Minor Template</b><div class="sm">Place MDC and Minor offerings into college-wide common slots.</div></div>
+     <div><b>3. MDC &amp; Minor Template</b><div class="sm">Fix agreed MDC and Minor periods directly on your schedule.</div></div>
      <button class="btn sm" data-v="mdc">Common Template</button>
     </div>
     <div class="item row sp">
@@ -182,8 +183,8 @@ async function viewOverview(){
      <p class="sm" style="margin:4px 0 0">All ${fac.length} college faculty records are checked college-wide. Teachers can never be assigned simultaneously across departments.</p>
     </div>
     <div class="item">
-     <div class="row sp"><b>MDC &amp; Minor Slots</b><span class="tag mdc sm">Common Template</span></div>
-     <p class="sm" style="margin:4px 0 0">MDC and Minor subjects strictly respect college-wide synchronized time slots to prevent student schedule collisions.</p>
+     <div class="row sp"><b>MDC &amp; Minor Slots</b><span class="tag mdc sm">Department Configured</span></div>
+     <p class="sm" style="margin:4px 0 0">Departments discuss common periods among themselves and fix them directly on their schedule, just like fixing free periods.</p>
     </div>
     <div class="item">
      <div class="row sp"><b>Cross-Department Isolation</b><span class="tag ok sm">Enforced</span></div>
@@ -236,8 +237,8 @@ async function viewSubjects(){
   </div>
   <div class="row" style="margin-top:14px;gap:12px;font-size:12.5px;color:var(--mute)">
    <div><span class="tag reg">Regular</span> Scheduled within department's regular timetable.</div>
-   <div><span class="tag mdc">MDC</span> Assigned to college-wide MDC common time slots.</div>
-   <div><span class="tag minor">Minor</span> Assigned to college-wide Minor common time slots.</div>
+   <div><span class="tag mdc">MDC</span> Assigned to agreed MDC common periods.</div>
+   <div><span class="tag minor">Minor</span> Assigned to agreed Minor common periods.</div>
   </div>
  </div>`;
 
@@ -360,7 +361,11 @@ async function viewSchedulingRules(){
   S.rdefs = r.rule_defs;
   S.rstale = r.stale;
  }
- const c = S.rcfg, D = S.rdefs, MODE={off:'Off',prefer:'Prefer when possible',require:'Always required'};
+ const c = S.rcfg;
+ c.free = c.free || [];
+ c.mdc_slots = c.mdc_slots || [];
+ c.minor_slots = c.minor_slots || [];
+ const D = S.rdefs, MODE={off:'Off',prefer:'Prefer when possible',require:'Always required'};
  const days = `<div class="row">${[0,1,2,3,4,5,6].map(d=>`<label class="chk"><input type="checkbox" data-rd="${d}" ${c.days.includes(d)?'checked':''}> ${DAYS[d].slice(0,3)}</label>`).join('')}</div>`;
  
  let per = '';
@@ -377,7 +382,11 @@ async function viewSchedulingRules(){
 
  const free = `<div class="gw"><table class="g" style="min-width:440px"><thead><tr><th></th>${c.days.map(d=>`<th>${DAYS[d].slice(0,3)}</th>`).join('')}</tr></thead><tbody>${c.periods.map((p,i)=>`<tr><td class="t">${p.start}</td>${c.days.map(d=>{const on=c.free.some(f=>f[0]==d&&f[1]==i);return `<td style="height:40px"><button type="button" class="tg ${on?'on':''}" data-free="${d},${i}" aria-pressed="${on}">${on?'Kept free':'Use'}</button></td>`}).join('')}</tr>`).join('')}</tbody></table></div>`;
 
- return head('Department Policy', 'Scheduling Rules', 'Configure working days, period hours, breaks, and optimization rules for your department.', `<button class="btn p noprint" data-a="saverules">Save Rules</button>`)+
+ const mdcGrid = `<div class="gw"><table class="g" style="min-width:440px"><thead><tr><th></th>${c.days.map(d=>`<th>${DAYS[d].slice(0,3)}</th>`).join('')}</tr></thead><tbody>${c.periods.map((p,i)=>`<tr><td class="t">${p.start}</td>${c.days.map(d=>{const on=c.mdc_slots.some(f=>f[0]==d&&f[1]==i);return `<td style="height:40px"><button type="button" class="tg ${on?'on':''}" style="${on?'background:rgba(31,122,99,.15);color:var(--mdc);border:1px solid var(--mdc);font-weight:600':''}" data-mdc="${d},${i}" aria-pressed="${on}">${on?'MDC Slot':'Regular'}</button></td>`}).join('')}</tr>`).join('')}</tbody></table></div>`;
+
+ const minorGrid = `<div class="gw"><table class="g" style="min-width:440px"><thead><tr><th></th>${c.days.map(d=>`<th>${DAYS[d].slice(0,3)}</th>`).join('')}</tr></thead><tbody>${c.periods.map((p,i)=>`<tr><td class="t">${p.start}</td>${c.days.map(d=>{const on=c.minor_slots.some(f=>f[0]==d&&f[1]==i);return `<td style="height:40px"><button type="button" class="tg ${on?'on':''}" style="${on?'background:rgba(42,93,168,.15);color:var(--minor);border:1px solid var(--minor);font-weight:600':''}" data-minor="${d},${i}" aria-pressed="${on}">${on?'Minor Slot':'Regular'}</button></td>`}).join('')}</tr>`).join('')}</tbody></table></div>`;
+
+ return head('Department Policy', 'Scheduling Rules', 'Configure working days, period hours, breaks, optimization rules, and reserved periods.', `<button class="btn p noprint" data-a="saverules">Save Rules</button>`)+
   (S.rstale?`<div class="card" style="border-color:var(--warn)"><b>Your timing settings changed.</b> Save and generate again to apply them to your schedule.</div>`:'')+
   `<div class="card">
     <h2 style="margin-top:0">Working Days</h2>${days}
@@ -388,68 +397,133 @@ async function viewSchedulingRules(){
     <h2>Reserved Free Periods</h2>
     <p class="sm">Mark periods that none of your department's regular subjects should occupy (e.g. departmental seminar or common break).</p>
     ${free}
-    <div class="row noprint" style="margin-top:20px"><button class="btn p" data-a="saverules">Save Rules</button></div>
+    <h2>MDC Common Periods (Department Fixed)</h2>
+    <p class="sm">Periods agreed in discussion with other departments for MDC courses. Regular subjects will avoid these periods.</p>
+    ${mdcGrid}
+    <h2>Minor Common Periods (Department Fixed)</h2>
+    <p class="sm">Periods agreed in discussion with other departments for Minor courses. Regular subjects will avoid these periods.</p>
+    ${minorGrid}
+    <div class="row noprint" style="margin-top:24px"><button class="btn p" data-a="saverules">Save Rules</button></div>
    </div>`;
 }
 
 /* 6. MDC & MINOR COMMON TIME-SLOT TEMPLATE VIEW */
 async function viewMdcTemplate(){
- const [slotData, allocs] = await Promise.all([
-  api('/api/common-slots/assignments'),
+ const [overview, allocs] = await Promise.all([
+  api('/api/department/slots-overview'),
   api('/api/allocations')
  ]);
  
- const mdcMinorSubjects = allocs.filter(a=>a.course_category=='MDC'||a.course_category=='Minor');
+ S.rcfg = JSON.parse(JSON.stringify(overview.config));
+ const c = S.rcfg;
+ c.free = c.free || [];
+ c.mdc_slots = c.mdc_slots || [];
+ c.minor_slots = c.minor_slots || [];
  
- let gridRowsHtml = '';
- for(const s of slotData){
-  const myAss = s.my_assignments || [];
-  const otherAss = s.other_assignments || [];
+ const mdcSubjects = allocs.filter(a=>a.course_category=='MDC');
+ const minorSubjects = allocs.filter(a=>a.course_category=='Minor');
+ const totalMdcReq = mdcSubjects.reduce((s,a)=>s+a.sessions_per_week, 0);
+ const totalMinorReq = minorSubjects.reduce((s,a)=>s+a.sessions_per_week, 0);
+ 
+ const cell = (d, i) => {
+  const isMdc = c.mdc_slots.some(f=>f[0]==d && f[1]==i);
+  const isMinor = c.minor_slots.some(f=>f[0]==d && f[1]==i);
+  const isFree = c.free.some(f=>f[0]==d && f[1]==i);
   
-  const myCard = myAss.length ? myAss.map(a=>`
-   <div style="padding:8px 12px;background:var(--bg);border:1px solid var(--line);border-radius:6px;margin-bottom:6px">
-    <div class="row sp"><b>${esc(a.subject_name)}</b> ${catBadge(a.course_category)}</div>
-    <div class="sm">${esc(a.teacher_name)} (${a.faculty_code})</div>
-    <button class="btn sm" data-a="unassignslot" data-id="${a.id}" style="margin-top:6px">Remove from Slot</button>
-   </div>
-  `).join('') : `
-   <div class="row" style="gap:8px">
-    <select id="slot_sub_${s.id}" style="font-size:12.5px;padding:4px 8px;min-height:34px">
-     <option value="">Select offering to place…</option>
-     ${mdcMinorSubjects.filter(a=>s.applicable_course_type=='Both'||a.course_category==s.applicable_course_type).map(a=>`<option value="${a.subject_id}">${esc(a.subject)} (${a.course_category} · ${esc(a.teacher)})</option>`).join('')}
-    </select>
-    <button class="btn sm p" data-a="assignslot" data-sid="${s.id}">Place in Slot</button>
-   </div>
-  `;
-  
-  const otherList = otherAss.length ? otherAss.map(o=>`
-   <span class="tag ${o.course_category=='MDC'?'mdc':'minor'} sm" title="Teacher: ${esc(o.teacher_name)} (${o.faculty_code})">${esc(o.department_name)}: ${esc(o.subject_name)}</span>
-  `).join(' ') : '<span class="sm">No other department offerings in this slot</span>';
-  
-  gridRowsHtml += `
-   <tr>
-    <td><b>${s.day_name}</b></td>
-    <td><b>${s.start} – ${s.end}</b></td>
-    <td><span class="tag ${s.applicable_course_type=='MDC'?'mdc':s.applicable_course_type=='Minor'?'minor':'ok'}">${s.applicable_course_type}</span></td>
-    <td>${myCard}</td>
-    <td>${otherList}</td>
-   </tr>
-  `;
- }
+  if(isMdc){
+   return `<button type="button" class="tg" style="background:rgba(31,122,99,.15);color:var(--mdc);border:1px solid var(--mdc);font-weight:600" data-cycle="${d},${i}" title="Click to change: MDC -> Minor -> Regular"><span class="tag mdc sm" style="pointer-events:none">MDC Slot</span></button>`;
+  }
+  if(isMinor){
+   return `<button type="button" class="tg" style="background:rgba(42,93,168,.15);color:var(--minor);border:1px solid var(--minor);font-weight:600" data-cycle="${d},${i}" title="Click to change: Minor -> Regular -> MDC"><span class="tag minor sm" style="pointer-events:none">Minor Slot</span></button>`;
+  }
+  if(isFree){
+   return `<button type="button" class="tg on" style="opacity:.6" data-cycle="${d},${i}" title="Click to change"><span class="sm" style="pointer-events:none">Kept free</span></button>`;
+  }
+  return `<button type="button" class="tg" data-cycle="${d},${i}" title="Click to designate: Regular -> MDC -> Minor"><span class="sm" style="pointer-events:none">Regular</span></button>`;
+ };
 
- return head('Common Scheduling Template', 'MDC &amp; Minor Slot Template', 'Visual college-wide scheduling template. Place your MDC and Minor offerings into reserved common slots.')+
+ let gridHtml = `<div class="gw"><table class="g" style="min-width:600px"><thead><tr><th></th>${c.days.map(d=>`<th>${DAYS[d].slice(0,3)}</th>`).join('')}</tr></thead><tbody>`;
+ for(let i=0; i<c.periods.length; i++){
+  const p = c.periods[i];
+  gridHtml += `<tr><td class="t">${p.start}<br>${p.end}</td>${c.days.map(d=>`<td style="height:54px">${cell(d,i)}</td>`).join('')}</tr>`;
+ }
+ gridHtml += `</tbody></table></div>`;
+
+ return head('Department Coordination', 'MDC &amp; Minor Slot Template', 'Departments discuss and fix MDC and Minor periods collaboratively. Configure your department\\'s designated periods below.',
+  `<button class="btn p noprint" data-a="savemdcslots">Save MDC &amp; Minor Slots</button>`)+
   `<div class="card">
     <div class="row sp">
      <div>
-      <b>College-Wide Common Slot Template Rules</b>
-      <p class="sm" style="margin:4px 0 0">1. All MDC offerings must follow MDC common slots.<br>2. All Minor offerings must follow Minor common slots.<br>3. Multiple departments can offer different subjects during the same common period.<br>4. The same teacher cannot teach in two offerings at the same time.</p>
+      <b>Collaborative Department Slot Agreement</b>
+      <p class="sm" style="margin:4px 0 0">
+       Common MDC and Minor slots are discussed and agreed upon directly between departments (no Registry operator setup needed).<br>
+       Click any slot on your department grid below to cycle between: <b>Regular Period → MDC Slot → Minor Slot → Regular</b>.
+      </p>
      </div>
-     <span class="tag ok">Fixed Template Active</span>
+     <span class="tag ok">Department Fixed</span>
     </div>
    </div>
-   <h2>Reserved Common Time Slots</h2>
-   ${slotData.length?`<div class="gw"><table class="l"><thead><tr><th>Day</th><th>Time</th><th>Slot Type</th><th>${esc(me.department.name)} Offerings</th><th>Simultaneous Other Department Offerings</th></tr></thead><tbody>${gridRowsHtml}</tbody></table></div>`:
-    '<div class="empty"><h2>No common slots configured</h2><p>College Registry operators can configure common slots for MDC and Minor courses.</p></div>'}`;
+   
+   <div class="card">
+    <div class="row sp" style="margin-bottom:12px">
+     <div>
+      <h2 style="margin:0 0 4px">Weekly Slot Designation Grid</h2>
+      <div class="sm">Click a period cell to cycle its assignment. Designated MDC and Minor slots will be reserved for those subjects.</div>
+     </div>
+     <div class="row noprint" style="gap:8px">
+      <button class="btn sm" data-a="clearmdcslots">Reset All to Regular</button>
+      <button class="btn sm p" data-a="savemdcslots">Save Slots</button>
+     </div>
+    </div>
+    ${gridHtml}
+   </div>
+   
+   <div class="cols">
+    <div>
+     <h2>Department Offering Status</h2>
+     <div class="card">
+      <div class="item row sp">
+       <div>
+        <b>MDC Course Slots</b>
+        <div class="sm">${c.mdc_slots.length} period(s) designated · ${totalMdcReq} weekly session(s) needed</div>
+       </div>
+       <span class="tag ${c.mdc_slots.length>=totalMdcReq?'ok':'w'}">${c.mdc_slots.length>=totalMdcReq?'✓ Configured':c.mdc_slots.length+' / '+totalMdcReq}</span>
+      </div>
+      <div class="item row sp">
+       <div>
+        <b>Minor Course Slots</b>
+        <div class="sm">${c.minor_slots.length} period(s) designated · ${totalMinorReq} weekly session(s) needed</div>
+       </div>
+       <span class="tag ${c.minor_slots.length>=totalMinorReq?'ok':'w'}">${c.minor_slots.length>=totalMinorReq?'✓ Configured':c.minor_slots.length+' / '+totalMinorReq}</span>
+      </div>
+      <h2 style="font-size:15px;margin:16px 0 8px">Department Subjects in Template</h2>
+      ${(mdcSubjects.length||minorSubjects.length)?tab(['Subject','Category','Teacher','Sessions/Wk'],
+       [...mdcSubjects,...minorSubjects].map(a=>[
+        esc(a.subject),
+        catBadge(a.course_category),
+        `${esc(a.teacher)} <span class="sm">(${a.faculty_code})</span>`,
+        `${a.sessions_per_week} sess/wk`
+       ])): '<p class="sm">No MDC or Minor subjects added yet. Add them in Subjects.</p>'}
+     </div>
+    </div>
+    
+    <div>
+     <h2>Other Departments' Configured Slots</h2>
+     <div class="card">
+      <p class="sm" style="margin-top:0">See the MDC &amp; Minor periods configured by other departments to verify college-wide discussion and alignment:</p>
+      ${overview.other_departments.length ? overview.other_departments.map(dp=>`
+       <div class="item">
+        <div class="row sp"><b>${esc(dp.name)}</b> <span class="sm">${esc(dp.code)}</span></div>
+        <div class="sm" style="margin-top:4px">
+         ${dp.mdc_slots.length ? `<div><span class="tag mdc sm">MDC</span> ${dp.mdc_slots.map(s=>`${s.day_name} P${s.period+1} (${s.start}–${s.end})`).join(', ')}</div>` : ''}
+         ${dp.minor_slots.length ? `<div style="margin-top:2px"><span class="tag minor sm">Minor</span> ${dp.minor_slots.map(s=>`${s.day_name} P${s.period+1} (${s.start}–${s.end})`).join(', ')}</div>` : ''}
+         ${(!dp.mdc_slots.length && !dp.minor_slots.length) ? '<span>No MDC/Minor slots set yet</span>' : ''}
+        </div>
+       </div>
+      `).join('') : '<p class="sm">Other departments have not saved their MDC/Minor slots yet.</p>'}
+     </div>
+    </div>
+   </div>`;
 }
 
 /* 7. GENERATE TIMETABLE VIEW */
@@ -560,7 +634,7 @@ async function viewTimetable(){
   </div>`;
  };
 
- let gridHtml = `<div class="gw"><table class="g"><thead><tr><th></th>${days.map(d=>`<th>${DAYS[d]}</th>`).join('')}</tr></thead><tbody>`;
+ let gridHtml = `<div class="gw"><table class="g" style="min-width:680px"><thead><tr><th></th>${days.map(d=>`<th>${DAYS[d]}</th>`).join('')}</tr></thead><tbody>`;
  let prev = null;
  for(const r of rws){
   if(prev && tmn(r.s)-tmn(prev.e)>=5) gridHtml += `<tr><td class="t"></td><td class="br" colspan="${days.length}">BREAK · ${tmn(r.s)-tmn(prev.e)} MIN</td></tr>`;
@@ -660,25 +734,85 @@ document.addEventListener('click', async ev=>{
    await api('/api/faculty/'+S.fav+'/unavailable',{method:'PUT',body:{slots:[...S.un].map(k=>k.split(',').map(Number))}});
    toast('Teacher availability saved.',1); redraw();
   }
-  else if(D.a=='saverules'){
+  else if(D.cycle){
+   const [d, p] = D.cycle.split(',').map(Number);
+   const c = S.rcfg;
+   c.mdc_slots = c.mdc_slots || [];
+   c.minor_slots = c.minor_slots || [];
+   c.free = c.free || [];
+   const inMdc = c.mdc_slots.some(s=>s[0]==d && s[1]==p);
+   const inMinor = c.minor_slots.some(s=>s[0]==d && s[1]==p);
+   if(!inMdc && !inMinor){
+    c.free = c.free.filter(s=>!(s[0]==d && s[1]==p));
+    c.mdc_slots.push([d, p]);
+   } else if(inMdc){
+    c.mdc_slots = c.mdc_slots.filter(s=>!(s[0]==d && s[1]==p));
+    c.minor_slots.push([d, p]);
+   } else {
+    c.minor_slots = c.minor_slots.filter(s=>!(s[0]==d && s[1]==p));
+   }
+   redraw();
+  }
+  else if(D.free){
+   const [d,p]=D.free.split(',').map(Number), c=S.rcfg;
+   c.free = c.free || [];
+   const i=c.free.findIndex(f=>f[0]==d&&f[1]==p);
+   if(i>=0) c.free.splice(i,1);
+   else {
+    c.free.push([d,p]);
+    if(c.mdc_slots) c.mdc_slots = c.mdc_slots.filter(f=>!(f[0]==d && f[1]==p));
+    if(c.minor_slots) c.minor_slots = c.minor_slots.filter(f=>!(f[0]==d && f[1]==p));
+   }
+   redraw();
+  }
+  else if(D.mdc){
+   const [d,p]=D.mdc.split(',').map(Number), c=S.rcfg;
+   c.mdc_slots = c.mdc_slots || [];
+   const i=c.mdc_slots.findIndex(f=>f[0]==d&&f[1]==p);
+   if(i>=0) c.mdc_slots.splice(i,1);
+   else {
+    c.mdc_slots.push([d,p]);
+    if(c.free) c.free = c.free.filter(f=>!(f[0]==d && f[1]==p));
+    if(c.minor_slots) c.minor_slots = c.minor_slots.filter(f=>!(f[0]==d && f[1]==p));
+   }
+   redraw();
+  }
+  else if(D.minor){
+   const [d,p]=D.minor.split(',').map(Number), c=S.rcfg;
+   c.minor_slots = c.minor_slots || [];
+   const i=c.minor_slots.findIndex(f=>f[0]==d&&f[1]==p);
+   if(i>=0) c.minor_slots.splice(i,1);
+   else {
+    c.minor_slots.push([d,p]);
+    if(c.free) c.free = c.free.filter(f=>!(f[0]==d && f[1]==p));
+    if(c.mdc_slots) c.mdc_slots = c.mdc_slots.filter(f=>!(f[0]==d && f[1]==p));
+   }
+   redraw();
+  }
+  else if(D.a=='clearmdcslots'){
+   S.rcfg.mdc_slots = [];
+   S.rcfg.minor_slots = [];
+   toast('All slots reset to regular periods. Click Save to persist.',1);
+   redraw();
+  }
+  else if(D.a=='savemdcslots' || D.a=='saverules'){
    const c=S.rcfg, rules={};
-   for(const [k,df] of Object.entries(S.rdefs)){
+   for(const [k,df] of Object.entries(S.rdefs||{})){
     const r=c.rules[k]||{mode:'off'};
     rules[k]={mode:r.mode};
     if(df.param) rules[k][df.param.key]=+(r[df.param.key]??df.param.default);
    }
-   const r=await api('/api/settings',{method:'PUT',body:{days:c.days,periods:c.periods,rules,free:c.free}});
+   const r=await api('/api/settings',{method:'PUT',body:{
+    days:c.days,
+    periods:c.periods,
+    rules,
+    free:c.free||[],
+    mdc_slots:c.mdc_slots||[],
+    minor_slots:c.minor_slots||[]
+   }});
    S.rcfg=JSON.parse(JSON.stringify(r.config)); S.rstale=r.stale;
-   toast('Rules saved. Generate timetable to apply them.',1); redraw();
-  }
-  else if(D.a=='assignslot'){
-   const sid=+D.sid; const subSel=$('#slot_sub_'+sid); if(!subSel || !subSel.value) return toast('Please select an offering first.');
-   await api('/api/common-slots/assign',{method:'POST',body:{common_slot_id:sid,subject_id:+subSel.value}});
-   toast('Assigned to common slot.',1); redraw();
-  }
-  else if(D.a=='unassignslot'){
-   await api('/api/common-slots/assign/'+D.id, {method:'DELETE'});
-   toast('Removed from common slot.',1); redraw();
+   toast(D.a=='savemdcslots'?'MDC & Minor slot template saved.':'Rules saved. Generate timetable to apply them.',1);
+   redraw();
   }
   else if(D.a=='gen'){run(()=>api('/api/generate',{method:'POST',body:{}}))}
   else if(D.a=='print'){print()}
@@ -689,13 +823,12 @@ document.addEventListener('click', async ev=>{
    await api('/api/auth/change-password',{method:'POST',body:{current:c,new:n}});
    toast('Password updated.',1);
   }
-  else if(D.free){
-   const [d,p]=D.free.split(',').map(Number), c=S.rcfg, i=c.free.findIndex(f=>f[0]==d&&f[1]==p);
-   if(i>=0) c.free.splice(i,1); else c.free.push([d,p]);
-   const on=i<0; t.classList.toggle('on',on); t.setAttribute('aria-pressed',on); t.textContent=on?'Kept free':'Use';
-  }
   else if(D.a=='rmper'){
-   const c=S.rcfg; c.periods.splice(+D.i,1); c.free=c.free.filter(f=>f[1]<c.periods.length); redraw();
+   const c=S.rcfg; c.periods.splice(+D.i,1);
+   if(c.free) c.free=c.free.filter(f=>f[1]<c.periods.length);
+   if(c.mdc_slots) c.mdc_slots=c.mdc_slots.filter(f=>f[1]<c.periods.length);
+   if(c.minor_slots) c.minor_slots=c.minor_slots.filter(f=>f[1]<c.periods.length);
+   redraw();
   }
   else if(D.a=='addper'){
    const c=S.rcfg, l=c.periods[c.periods.length-1], st=l?tmn(l.end)+15:540, en=st+60;
@@ -704,7 +837,11 @@ document.addEventListener('click', async ev=>{
    c.periods.push({start:f(st),end:f(en)}); redraw();
   }
   else if(D.a=='preset'){
-   S.rcfg.periods=STD.map(([a,b])=>({start:a,end:b})); S.rcfg.free=S.rcfg.free.filter(f=>f[1]<6); redraw();
+   S.rcfg.periods=STD.map(([a,b])=>({start:a,end:b}));
+   if(S.rcfg.free) S.rcfg.free=S.rcfg.free.filter(f=>f[1]<6);
+   if(S.rcfg.mdc_slots) S.rcfg.mdc_slots=S.rcfg.mdc_slots.filter(f=>f[1]<6);
+   if(S.rcfg.minor_slots) S.rcfg.minor_slots=S.rcfg.minor_slots.filter(f=>f[1]<6);
+   redraw();
   }
  }catch(e){toast(e.message)}
 });
@@ -718,7 +855,10 @@ document.addEventListener('change', ev=>{
   if(t.checked) c.days=[...new Set(c.days.concat(d))].sort();
   else {
    if(c.days.length<2){t.checked=true; return toast('Keep at least one working day.')}
-   c.days=c.days.filter(x=>x!=d); c.free=c.free.filter(f=>f[0]!=d);
+   c.days=c.days.filter(x=>x!=d);
+   if(c.free) c.free=c.free.filter(f=>f[0]!=d);
+   if(c.mdc_slots) c.mdc_slots=c.mdc_slots.filter(f=>f[0]!=d);
+   if(c.minor_slots) c.minor_slots=c.minor_slots.filter(f=>f[0]!=d);
   }
   redraw();
  }

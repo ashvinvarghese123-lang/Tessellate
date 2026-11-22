@@ -72,7 +72,8 @@ def default_settings(conn):
     for b in bs:
         per.setdefault(b["period"], (b["start"], b["end"]))
     return dict(days=sorted({b["day"] for b in bs}) or [0, 1, 2, 3, 4],
-                periods=[dict(start=hm(per[p][0]), end=hm(per[p][1])) for p in sorted(per)], rules={}, free=[])
+                periods=[dict(start=hm(per[p][0]), end=hm(per[p][1])) for p in sorted(per)],
+                rules={}, free=[], mdc_slots=[], minor_slots=[])
 
 
 def load_settings(conn, dept_id):
@@ -86,7 +87,8 @@ def load_settings(conn, dept_id):
 
 def solver_cfg(cfg):
     return dict(days=cfg["days"], periods=[dict(start=tomin(p["start"]), end=tomin(p["end"])) for p in cfg["periods"]],
-                rules=cfg.get("rules", {}), free=cfg.get("free", []))
+                rules=cfg.get("rules", {}), free=cfg.get("free", []),
+                mdc_slots=cfg.get("mdc_slots", []), minor_slots=cfg.get("minor_slots", []))
 
 
 def own_class(conn, d, class_id):
@@ -242,9 +244,34 @@ def build_input(conn, d, class_id=None, joint=False):
                     **{"class": None}
                 ))
 
+    dept_slots = []
+    d_cfg = load_settings(conn, d["id"])
+    d_pers = d_cfg.get("periods", [])
+    for (day, p_idx) in d_cfg.get("mdc_slots", []):
+        if 0 <= p_idx < len(d_pers):
+            dept_slots.append(dict(
+                id=-(1000 + len(dept_slots)),
+                day=day,
+                start=tomin(d_pers[p_idx]["start"]),
+                end=tomin(d_pers[p_idx]["end"]),
+                course_type="MDC",
+                name=f"Dept MDC Slot (P{p_idx+1})"
+            ))
+    for (day, p_idx) in d_cfg.get("minor_slots", []):
+        if 0 <= p_idx < len(d_pers):
+            dept_slots.append(dict(
+                id=-(2000 + len(dept_slots)),
+                day=day,
+                start=tomin(d_pers[p_idx]["start"]),
+                end=tomin(d_pers[p_idx]["end"]),
+                course_type="Minor",
+                name=f"Dept Minor Slot (P{p_idx+1})"
+            ))
+
     common_slots = [dict(id=r["id"], day=r["day"], start=r["start_min"], end=r["end_min"],
                          course_type=r["applicable_course_type"], name=r["name"])
                     for r in conn.execute("SELECT * FROM common_time_slot WHERE status='active'")]
+    common_slots.extend(dept_slots)
 
     students = {r["id"]: dict(name=r["name"], reg=r["register_number"], home_dept=r["home_department_id"], class_id=r["class_id"])
                 for r in conn.execute("SELECT * FROM student WHERE status='active'")}
@@ -924,6 +951,8 @@ class SettingsReq(BaseModel):
     periods: list[dict]
     rules: dict = {}
     free: list[list[int]] = []
+    mdc_slots: list[list[int]] = []
+    minor_slots: list[list[int]] = []
 
 
 def clean_settings(req):
@@ -958,7 +987,10 @@ def clean_settings(req):
             item[df["param"]["key"]] = v
         rules[name] = item
     free = sorted({(a, b) for a, b in req.free if a in days and 0 <= b < len(periods)})
-    return dict(days=days, periods=periods, rules=rules, free=[list(x) for x in free])
+    mdc_slots = sorted({(a, b) for a, b in req.mdc_slots if a in days and 0 <= b < len(periods)})
+    minor_slots = sorted({(a, b) for a, b in req.minor_slots if a in days and 0 <= b < len(periods)})
+    return dict(days=days, periods=periods, rules=rules, free=[list(x) for x in free],
+                mdc_slots=[list(x) for x in mdc_slots], minor_slots=[list(x) for x in minor_slots])
 
 
 def stale(conn, dept_id, cfg):
@@ -2123,3 +2155,33 @@ def login_page():
 _ui = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "frontend")
 if os.path.isdir(_ui):
     app.mount("/", StaticFiles(directory=_ui, html=True), name="ui")
+
+@app.get("/api/department/slots-overview")
+def get_slots_overview(conn=Depends(db), d=Depends(current_department)):
+    my_cfg = load_settings(conn, d["id"])
+    other_depts = []
+    for dp in conn.execute("SELECT id, name, code FROM department WHERE id != %s ORDER BY name", (d["id"],)).fetchall():
+        dp_cfg = load_settings(conn, dp["id"])
+        dp_pers = dp_cfg.get("periods", [])
+        mdc = [dict(day=day, day_name=DAYS[day], period=p, start=dp_pers[p]["start"], end=dp_pers[p]["end"])
+               for day, p in dp_cfg.get("mdc_slots", []) if 0 <= p < len(dp_pers)]
+        minor = [dict(day=day, day_name=DAYS[day], period=p, start=dp_pers[p]["start"], end=dp_pers[p]["end"])
+                 for day, p in dp_cfg.get("minor_slots", []) if 0 <= p < len(dp_pers)]
+        if mdc or minor:
+            other_depts.append(dict(id=dp["id"], name=dp["name"], code=dp["code"], mdc_slots=mdc, minor_slots=minor))
+    
+    allocs = conn.execute("""
+        SELECT s.id, s.name subject, s.code, s.course_category, a.sessions_per_week,
+               f.name teacher, f.id faculty_id, f.faculty_code
+        FROM teacher_allocation a
+        JOIN subject s ON s.id=a.subject_id
+        JOIN class c ON c.id=a.class_id
+        JOIN faculty f ON f.id=a.faculty_id
+        WHERE c.department_id=%s AND s.course_category IN ('MDC', 'Minor')
+    """, (d["id"],)).fetchall()
+    
+    return dict(
+        config=my_cfg,
+        other_departments=other_depts,
+        offerings=[dict(r) for r in allocs]
+    )

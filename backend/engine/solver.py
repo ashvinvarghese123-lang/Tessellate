@@ -233,6 +233,13 @@ def generate(data, time_limit=30, workers=None):
                         candidates.append((cs["day"], matched_p, cs["start"], cs["end"]))
         else:
             candidates = [(d, p, s, e) for d, p, s, e in grid(data, dept) if (d, p) not in free]
+            dept_mdc = {tuple(x) for x in data["settings"][dept].get("mdc_slots", [])}
+            dept_minor = {tuple(x) for x in data["settings"][dept].get("minor_slots", [])}
+            reserved_slots = dept_mdc | dept_minor
+            if reserved_slots:
+                non_reserved = [(d, p, s, e) for (d, p, s, e) in candidates if (d, p) not in reserved_slots]
+                if len(non_reserved) >= a.get("sessions", 1):
+                    candidates = non_reserved
             # Avoid placing department-selected offerings inside common periods if normal periods suffice
             if common_slots and (a.get("selection_type") == "DEPARTMENT_SELECTED" or a.get("scope") == "department_specific"):
                 non_common = [(d, p, s, e) for (d, p, s, e) in candidates
