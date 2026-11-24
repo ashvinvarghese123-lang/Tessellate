@@ -43,7 +43,12 @@ export const RegistryAuthProvider: React.FC<{ children: ReactNode }> = ({ childr
   }, []);
 
   useEffect(() => {
-    refreshOperator();
+    const p = window.location.pathname;
+    if (p.startsWith('/registry')) {
+      refreshOperator();
+    } else {
+      setLoading(false);
+    }
   }, [refreshOperator]);
 
   return (

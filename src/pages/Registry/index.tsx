@@ -139,8 +139,10 @@ export const Registry: React.FC = () => {
     document.title = 'College Registry · Tessellate';
     if (operator) {
       loadData();
+    } else if (!authLoading) {
+      window.location.replace('/registry-login.html');
     }
-  }, [operator, loadData]);
+  }, [operator, authLoading, loadData]);
 
   if (authLoading || (dataLoading && !operator)) {
     return (

@@ -43,7 +43,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, []);
 
   useEffect(() => {
-    refreshUser();
+    const p = window.location.pathname;
+    if (!p.startsWith('/registry')) {
+      refreshUser();
+    } else {
+      setLoading(false);
+    }
   }, [refreshUser]);
 
   return (

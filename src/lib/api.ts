@@ -50,24 +50,15 @@ export async function api<T = any>(path: string, options: ApiOptions = {}): Prom
   }
 
   if (!response.ok) {
-    if (response.status === 401) {
-      if (path.startsWith('/api/registry')) {
-        if (!window.location.pathname.includes('registry-login')) {
-          window.location.replace('/registry-login.html');
-        }
-      } else {
-        if (!window.location.pathname.includes('login')) {
-          window.location.replace('/login.html');
-        }
-      }
-    }
     const message =
       typeof data.detail === 'string'
         ? data.detail
         : Array.isArray(data.detail)
         ? data.detail.map((x: any) => x.msg || JSON.stringify(x)).join(', ')
         : 'Something went wrong. Please try again.';
-    throw new Error(message);
+    const err = new Error(message) as any;
+    err.status = response.status;
+    throw err;
   }
 
   return data as T;

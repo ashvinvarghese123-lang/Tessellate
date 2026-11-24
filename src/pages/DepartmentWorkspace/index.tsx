@@ -89,8 +89,10 @@ export const DepartmentWorkspace: React.FC = () => {
     document.title = 'Tessellate · Department Workspace';
     if (user) {
       loadAllData();
+    } else if (!authLoading) {
+      window.location.replace('/login.html');
     }
-  }, [user, loadAllData]);
+  }, [user, authLoading, loadAllData]);
 
   if (authLoading || (dataLoading && !user)) {
     return (
