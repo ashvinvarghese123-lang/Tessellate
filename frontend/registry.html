@@ -15,8 +15,10 @@ h1{font-size:32px;margin:4px 0 6px;line-height:1.15}h2{font-size:20px;margin:24p
 nav{width:220px;padding:26px 16px;border-right:1px solid var(--line);position:sticky;top:0;height:100vh;flex:none;display:flex;flex-direction:column;gap:3px;background:var(--bg)}
 .logo{font-size:21px;margin:0 10px 4px}
 .reg-badge{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--mute);margin:0 10px 22px}
-nav button{all:unset;cursor:pointer;padding:8px 12px;border-radius:6px;color:var(--mute);min-height:40px;display:flex;align-items:center;justify-content:space-between;font-weight:500}
-nav button:hover{color:var(--ink);background:var(--panel)}nav button[aria-current=page]{color:var(--ink);background:var(--accbg)}
+nav button:not(.btn){all:unset;cursor:pointer;padding:8px 12px;border-radius:6px;color:var(--mute);min-height:40px;display:flex;align-items:center;justify-content:space-between;font-weight:500}
+nav button:not(.btn):hover{color:var(--ink);background:var(--panel)}nav button:not(.btn)[aria-current=page]{color:var(--ink);background:var(--accbg)}
+nav .btn,nav button.btn{border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:6px 14px;min-height:34px;border-radius:7px;display:inline-flex;align-items:center;justify-content:center;font-size:13px;font-weight:500;box-sizing:border-box}
+nav .btn:hover,nav button.btn:hover{border-color:var(--mute);background:var(--bg)}
 nav .n{font-size:12px;border:1px solid var(--line);border-radius:10px;padding:0 7px;font-weight:400}
 main{flex:1;padding:36px 44px 90px;min-width:0;max-width:1200px}
 .lab{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--mute)}

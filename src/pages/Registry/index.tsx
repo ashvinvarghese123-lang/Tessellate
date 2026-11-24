@@ -440,7 +440,14 @@ export const Registry: React.FC = () => {
         ))}
 
         <div style={{ marginTop: 'auto', borderTop: '1px solid var(--line)', paddingTop: '14px' }}>
-          <button className="btn sm" onClick={logout} style={{ width: '100%' }}>
+          <div style={{ fontSize: '12px', color: 'var(--mute)', marginBottom: '8px' }}>
+            Signed in as <b>{operator?.username || 'registry'}</b>
+          </div>
+          <button
+            className="btn sm"
+            onClick={logout}
+            style={{ width: '100%', minHeight: '34px', fontSize: '13px', display: 'flex', justifyContent: 'center' }}
+          >
             Sign out
           </button>
         </div>
