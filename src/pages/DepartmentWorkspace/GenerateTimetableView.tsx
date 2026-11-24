@@ -125,10 +125,18 @@ export const GenerateTimetableView: React.FC<GenerateTimetableViewProps> = ({
                   <h2 style={{ margin: '14px 0 6px' }}>Scheduling Bottleneck Detected</h2>
                   <p className="sm">{generationResult.message || 'Could not fit all sessions.'}</p>
                   {issues.map((i, idx) => (
-                    <div key={idx} className="item">
-                      <span className="tag c">Constraint</span> <b>{i.issue}</b>
-                      <div className="sm" style={{ marginTop: '4px' }}>
-                        Fix: {i.fix}
+                    <div key={idx} className="item" style={{ padding: '12px 0', borderBottom: '1px solid var(--line)' }}>
+                      <div className="row sp" style={{ marginBottom: '6px' }}>
+                        <span className="tag c">Constraint</span>
+                        {i.teacher_name && (
+                          <span className="tag p" style={{ fontWeight: 600 }}>
+                            👤 Teacher: {i.teacher_name} {i.faculty_code ? `(${i.faculty_code})` : ''}
+                          </span>
+                        )}
+                      </div>
+                      <b style={{ fontSize: '14.5px', display: 'block', lineHeight: 1.35 }}>{i.issue}</b>
+                      <div className="sm" style={{ marginTop: '5px', color: 'var(--mute)' }}>
+                        Recommended Fix: {i.fix}
                       </div>
                     </div>
                   ))}

@@ -302,8 +302,19 @@ def generate(data, time_limit=30, workers=None):
         if not A[i]:
             cname = data.get("classes", {}).get(a.get("class"), {}).get("name", "")
             target_desc = f"{a['subject']} ({cname})" if cname else a.get("code", a["subject"])
-            return _impossible([dict(issue=f"{target_desc} has no period where the teacher and students/class are all free.",
-                                     fix="Check common time slots, assign another teacher, or adjust student enrollments.")])
+            tid = a.get("teacher")
+            T = data.get("teachers", {}).get(tid) if tid is not None else None
+            tname = T["name"] if T else "Assigned teacher"
+            tcode = T.get("code") or "FAC" if T else ""
+            return _impossible([dict(
+                issue=f"Teacher conflict: {tname} ({tcode}) has no free period for '{target_desc}' where they and the class are both available.",
+                fix=f"Reassign '{a['subject']}' to another teacher, or adjust {tname}'s unavailable periods in Teacher Availability.",
+                type="teacher_clash",
+                can_fix_internally=True,
+                teacher_id=tid,
+                teacher_name=tname,
+                faculty_code=tcode
+            )])
 
     # ---- Always-on rules ----
     for i, a in enumerate(allocs):
@@ -433,6 +444,29 @@ def generate(data, time_limit=30, workers=None):
         if required:
             return _impossible([dict(issue="Your Required rules are too strict, so the sessions can't all fit: " + "; ".join(required) + ".",
                                      fix="Change one of these rules from Always required to Prefer when possible in Rules.")])
+        busy_teachers = []
+        for a in allocs:
+            tid = a.get("teacher")
+            if tid is not None and tid in data.get("teachers", {}):
+                tname = data["teachers"][tid]["name"]
+                tcode = data["teachers"][tid].get("code") or ""
+                if data["teachers"][tid].get("existing_load", 0) > 0 or any(hit(bt.get((tid, d), []), 0, 1440) for d in range(7)):
+                    if tname not in [bt_item[0] for bt_item in busy_teachers]:
+                        busy_teachers.append((tname, tcode, tid))
+
+        if busy_teachers:
+            t_names_str = ", ".join(f"{t[0]} ({t[1]})" if t[1] else t[0] for t in busy_teachers)
+            first_t = busy_teachers[0]
+            return _impossible([dict(
+                issue=f"Teacher conflict: {t_names_str} is already scheduled in other departments at overlapping times.",
+                fix="Reassign some subjects to another available teacher in your department, or move conflicting sessions.",
+                type="teacher_clash",
+                can_fix_internally=True,
+                teacher_id=first_t[2],
+                teacher_name=first_t[0],
+                faculty_code=first_t[1],
+                alt=True
+            )])
         return _impossible([dict(issue="These sessions can't all fit without clashing with other departments' timetables.",
                                  fix="Ask the other department to move a session, or add periods or days in Rules.", alt=True)])
     entries = []
