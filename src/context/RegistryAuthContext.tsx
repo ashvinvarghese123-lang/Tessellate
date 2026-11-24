@@ -24,7 +24,7 @@ export const RegistryAuthProvider: React.FC<{ children: ReactNode }> = ({ childr
 
   const refreshOperator = useCallback(async () => {
     try {
-      const data = await api<RegistryMe>('/api/registry/me');
+      const data = await api<RegistryMe>('/api/registry/auth/me');
       setOperator(data);
     } catch {
       setOperator(null);

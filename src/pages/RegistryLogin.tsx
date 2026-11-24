@@ -12,7 +12,7 @@ export const RegistryLogin: React.FC = () => {
 
   useEffect(() => {
     document.title = 'Registry sign in · Tessellate';
-    api('/api/registry/me')
+    api('/api/registry/auth/me')
       .then(() => navigate('/registry.html', { replace: true }))
       .catch(() => {});
   }, [navigate]);
