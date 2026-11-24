@@ -13,6 +13,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 import os
 from pydantic import BaseModel
+from fastapi.middleware.cors import CORSMiddleware
 
 from engine.solver import RULE_DEFS, generate, issues, rebalance, validate_move, ov
 from .auth import current_department, router as auth_router
@@ -33,6 +34,13 @@ if os.environ.get("TESSELLATE_ENV") == "production":
         raise RuntimeError("Production settings missing: " + "; ".join(_bad))
 
 app = FastAPI(title="Tessellate")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origin_regex=r"https?://.*",
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 app.include_router(auth_router)
 app.include_router(registry_router)
 log = logging.getLogger("tessellate")
@@ -2151,11 +2159,6 @@ def login_page():
     return FileResponse(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "frontend", "login.html"))
 
 
-# Serve the interface from the same address, so cookies and the API share one origin. Keep this LAST.
-_ui = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "frontend")
-if os.path.isdir(_ui):
-    app.mount("/", StaticFiles(directory=_ui, html=True), name="ui")
-
 @app.get("/api/department/slots-overview")
 def get_slots_overview(conn=Depends(db), d=Depends(current_department)):
     my_cfg = load_settings(conn, d["id"])
@@ -2185,3 +2188,12 @@ def get_slots_overview(conn=Depends(db), d=Depends(current_department)):
         other_departments=other_depts,
         offerings=[dict(r) for r in allocs]
     )
+
+
+# Serve the interface from the same address, so cookies and the API share one origin. Keep this LAST.
+_dist = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "dist")
+_ui = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "frontend")
+_static_dir = _dist if os.path.isdir(_dist) else _ui
+if os.path.isdir(_static_dir):
+    app.mount("/", StaticFiles(directory=_static_dir, html=True), name="ui")
+
