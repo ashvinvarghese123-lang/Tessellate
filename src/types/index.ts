@@ -128,6 +128,52 @@ export interface TimetableEntry {
 export interface ConflictItem {
   issue: string;
   fix: string;
+  type?: 'teacher_clash' | 'teacher_clash_internal' | 'teacher_unavailable' | 'teacher_capacity' | 'student_clash' | 'room' | 'rule' | 'class_overlap' | 'common_slot' | string;
+  can_fix_internally?: boolean;
+  teacher_id?: number;
+  teacher_name?: string;
+  faculty_code?: string;
+  busy_details?: {
+    teacher_name?: string;
+    faculty_code?: string;
+    department?: string;
+    subject?: string;
+    class_name?: string;
+    day?: number;
+    day_name?: string;
+    period?: number;
+    start?: string;
+    end?: string;
+    reason?: string;
+  };
+  department_session?: {
+    entry_id?: number;
+    class_id?: number;
+    class_name?: string;
+    subject?: string;
+    day?: number;
+    day_name?: string;
+    period?: number;
+    start?: string;
+    end?: string;
+  };
+  available_slots?: Array<{
+    day: number;
+    day_name: string;
+    period: number;
+    period_label?: string;
+    start: string;
+    end: string;
+  }>;
+  available_faculty?: Array<{
+    id: number;
+    name: string;
+    faculty_code: string;
+    current_load?: number;
+    max_load?: number;
+  }>;
+  cells?: Array<{ day: number; period: number }>;
+  entry_ids?: number[];
 }
 
 export interface ConflictResponse {

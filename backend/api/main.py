@@ -114,7 +114,7 @@ def shared(conn):
     for f in conn.execute("SELECT * FROM faculty WHERE active"):
         un = conn.execute("""SELECT ts.day, ts.starts, ts.ends FROM faculty_availability fa JOIN time_slot ts ON ts.id=fa.time_slot_id
                              WHERE fa.faculty_id=%s AND fa.kind='unavailable'""", (f["id"],)).fetchall()
-        teachers[f["id"]] = dict(name=f["name"], max_load=f["max_weekly_sessions"],
+        teachers[f["id"]] = dict(name=f["name"], code=f["faculty_code"], max_load=f["max_weekly_sessions"],
                                  unavailable=[[u["day"], tmin(u["starts"]), tmin(u["ends"])] for u in un])
     return teachers, [dict(id=r["id"], type=r["room_type"]) for r in conn.execute("SELECT * FROM room")]
 
@@ -376,20 +376,641 @@ def look_for_alternative(conn=Depends(db), d=Depends(current_department)):
                 message="A better college-wide arrangement exists. Nothing has been changed. Each affected department keeps its own timetable until it chooses to regenerate.")
 
 
+# ---------- interactive timetable batch operations & conflict resolution ----------
+class BatchMoveItem(BaseModel):
+    id: int
+    day: int
+    period: int
+    faculty_id: int | None = None
+    room_id: int | None = None
+    deleted: bool = False
+
+
+class BatchValidateReq(BaseModel):
+    class_id: int | None = None
+    moves: list[BatchMoveItem] = []
+
+
+class QuickEditReq(BaseModel):
+    faculty_id: int | None = None
+    room_id: int | None = None
+    day: int | None = None
+    period: int | None = None
+
+
+class ConflictMoveReq(BaseModel):
+    entry_id: int
+    day: int
+    period: int
+
+
+class ConflictReassignReq(BaseModel):
+    entry_id: int
+    faculty_id: int
+    update_allocation: bool = True
+
+
+class ConflictAutoResolveReq(BaseModel):
+    entry_id: int
+
+
+def find_free_slots_for_entry(conn, d_id, entry, periods, days, free_set, other_busy, fac_meta):
+    """Finds periods (day, period_idx) where teacher, class, and room are free."""
+    free_slots = []
+    fid = entry.get("faculty_id")
+    cid = entry.get("class_id")
+    finfo = fac_meta.get(fid) if fid else None
+
+    c_busy = set()
+    f_busy = set()
+    eid = entry.get("id") or -1
+    if cid or fid:
+        rows = conn.execute("""
+            SELECT e.id, e.day, e.start_min, e.end_min, e.faculty_id, e.class_id
+            FROM timetable_entry e
+            WHERE (e.class_id = %s OR e.faculty_id = %s) AND e.id <> %s
+        """, (cid, fid, eid)).fetchall()
+        for r in rows:
+            if cid and r["class_id"] == cid:
+                c_busy.add((r["day"], r["start_min"], r["end_min"]))
+            if fid and r["faculty_id"] == fid:
+                f_busy.add((r["day"], r["start_min"], r["end_min"]))
+
+    for day in sorted(days):
+        for p_idx, p in enumerate(periods):
+            if (day, p_idx) in free_set:
+                continue
+            smin = tomin(p["start"])
+            emin = tomin(p["end"])
+
+            # Check teacher unavailable
+            if finfo:
+                if any(uday == day and ov(smin, emin, ustart, uend) for uday, ustart, uend in finfo.get("unav", [])):
+                    continue
+
+            # Check teacher busy in other departments or classes
+            if fid:
+                if any(ob["day"] == day and ob["faculty_id"] == fid and ov(smin, emin, ob["start_min"], ob["end_min"]) for ob in other_busy):
+                    continue
+                if any(bday == day and ov(smin, emin, bs, be) for bday, bs, be in f_busy):
+                    continue
+
+            # Check class busy
+            if cid:
+                if any(bday == day and ov(smin, emin, bs, be) for bday, bs, be in c_busy):
+                    continue
+
+            free_slots.append({
+                "day": day,
+                "day_name": DAYS[day],
+                "period": p_idx,
+                "period_label": f"Period {p_idx + 1}",
+                "start": p["start"],
+                "end": p["end"]
+            })
+    return free_slots[:10]
+
+
+def find_available_faculty_for_slot(conn, d_id, day, start_min, end_min, fac_meta=None, exclude_faculty_id=None):
+    """Finds faculty in the department who are free during that day and time range."""
+    fac_list = []
+    rows = conn.execute("""
+        SELECT f.id, f.name, f.faculty_code, f.max_weekly_sessions,
+               (SELECT count(*) FROM timetable_entry e WHERE e.faculty_id = f.id) as current_load
+        FROM faculty f
+        WHERE f.active = true
+          AND f.id <> coalesce(%s, -1)
+        ORDER BY (f.home_department_id = %s) DESC, f.name
+    """, (exclude_faculty_id, d_id)).fetchall()
+
+    for f in rows:
+        fid = f["id"]
+        # Check unavailable via fac_meta
+        if fac_meta and fid in fac_meta:
+            if any(uday == day and ov(start_min, end_min, ustart, uend) for uday, ustart, uend in fac_meta[fid]["unav"]):
+                continue
+
+        # Check busy in any timetable entry
+        busy = conn.execute("""
+            SELECT id FROM timetable_entry
+            WHERE faculty_id = %s AND day = %s AND %s < end_min AND start_min < %s
+        """, (fid, day, start_min, end_min)).fetchone()
+        if busy:
+            continue
+
+        fac_list.append({
+            "id": f["id"],
+            "name": f["name"],
+            "faculty_code": f["faculty_code"],
+            "current_load": f["current_load"],
+            "max_load": f["max_weekly_sessions"]
+        })
+    return fac_list[:10]
+
+
+def validate_batch_logic(conn, d, moves: list, class_id: int | None = None):
+    cfg = load_settings(conn, d["id"])
+    periods = cfg["periods"]
+    days = set(cfg["days"])
+    free_set = {(f[0], f[1]) for f in cfg.get("free", [])}
+
+    dept_entries = conn.execute("""
+        SELECT e.id, e.day, e.period, e.start_min, e.end_min, e.faculty_id, e.room_id, e.class_id, e.course_offering_id,
+               coalesce(s.name, crs.course_name) AS subject_name,
+               f.name AS teacher_name, f.faculty_code, r.name AS room_name, c.name AS class_name,
+               co.scheduling_scope, crs.course_type, crs.selection_type
+        FROM timetable_entry e
+        LEFT JOIN class c ON c.id=e.class_id
+        LEFT JOIN teacher_allocation a ON a.id=e.allocation_id
+        LEFT JOIN subject s ON s.id=a.subject_id
+        LEFT JOIN course_offering co ON co.id=e.course_offering_id
+        LEFT JOIN course crs ON crs.id=co.course_id
+        LEFT JOIN faculty f ON f.id=e.faculty_id
+        LEFT JOIN room r ON r.id=e.room_id
+        WHERE c.department_id=%s OR co.offering_department_id=%s
+    """, (d["id"], d["id"])).fetchall()
+
+    entry_map = {e["id"]: dict(e) for e in dept_entries}
+    move_map = {m.id if hasattr(m, 'id') else m['id']: (m.model_dump() if hasattr(m, 'model_dump') else m) for m in moves}
+
+    # Cross check if moved entry belongs to another department
+    for eid, m in move_map.items():
+        if eid not in entry_map:
+            other = conn.execute("SELECT id FROM timetable_entry WHERE id=%s", (eid,)).fetchone()
+            if not other:
+                return False, [{"issue": f"Session #{eid} not found.", "fix": "Refresh your timetable view.", "cells": [], "entry_ids": [eid]}]
+            return False, [{"issue": f"Session #{eid} belongs to another department's course offering.", "fix": "Only the offering department can reschedule shared course offerings.", "cells": [], "entry_ids": [eid]}]
+
+    simulated = []
+    for eid, e in entry_map.items():
+        if eid in move_map:
+            m = move_map[eid]
+            if m.get("deleted"):
+                continue
+            day = m["day"]
+            p_idx = m["period"]
+            if day not in days or not (0 <= p_idx < len(periods)):
+                return False, [{"issue": f"'{e['subject_name']}' is placed in an invalid day or period.", "fix": "Move the session to a valid period slot.", "cells": [{"day": day, "period": p_idx}], "entry_ids": [eid]}]
+            smin = tomin(periods[p_idx]["start"])
+            emin = tomin(periods[p_idx]["end"])
+            fac_id = m.get("faculty_id") if m.get("faculty_id") is not None else e["faculty_id"]
+            rm_id = m.get("room_id") if m.get("room_id") is not None else e["room_id"]
+            sim_e = dict(e)
+            sim_e.update(day=day, period=p_idx, start_min=smin, end_min=emin, faculty_id=fac_id, room_id=rm_id)
+            simulated.append(sim_e)
+        else:
+            simulated.append(dict(e))
+
+    other_busy = conn.execute("""
+        SELECT e.id, e.day, e.period, e.start_min, e.end_min, e.faculty_id, e.room_id, e.class_id, e.course_offering_id,
+               coalesce(s.name, crs.course_name) AS subject_name,
+               f.name AS teacher_name, f.faculty_code, r.name AS room_name,
+               coalesce(c.name, co.offering_code) AS class_name,
+               coalesce(dp.name, od.name) AS department_name
+        FROM timetable_entry e
+        LEFT JOIN class c ON c.id=e.class_id
+        LEFT JOIN department dp ON dp.id=c.department_id
+        LEFT JOIN teacher_allocation a ON a.id=e.allocation_id
+        LEFT JOIN subject s ON s.id=a.subject_id
+        LEFT JOIN course_offering co ON co.id=e.course_offering_id
+        LEFT JOIN course crs ON crs.id=co.course_id
+        LEFT JOIN department od ON od.id=co.offering_department_id
+        LEFT JOIN faculty f ON f.id=e.faculty_id
+        LEFT JOIN room r ON r.id=e.room_id
+        WHERE (c.department_id IS NULL OR c.department_id <> %s)
+          AND (co.offering_department_id IS NULL OR co.offering_department_id <> %s)
+    """, (d["id"], d["id"])).fetchall()
+
+    fac_meta = {}
+    for f in conn.execute("SELECT id, name, faculty_code, max_weekly_sessions FROM faculty WHERE active"):
+        unav = conn.execute("""
+            SELECT ts.day, ts.starts, ts.ends
+            FROM faculty_availability fa
+            JOIN time_slot ts ON ts.id=fa.time_slot_id
+            WHERE fa.faculty_id=%s AND fa.kind='unavailable'
+        """, (f["id"],)).fetchall()
+        fac_meta[f["id"]] = {
+            "name": f["name"],
+            "code": f["faculty_code"],
+            "max": f["max_weekly_sessions"],
+            "unav": [(u["day"], tmin(u["starts"]), tmin(u["ends"])) for u in unav]
+        }
+
+    class_stu = defaultdict(set)
+    for st in conn.execute("SELECT id, class_id FROM student WHERE class_id IS NOT NULL AND status='active'"):
+        class_stu[st["class_id"]].add(st["id"])
+
+    off_stu = defaultdict(set)
+    for ce in conn.execute("SELECT student_id, course_offering_id FROM course_enrollment WHERE enrollment_status='enrolled'"):
+        off_stu[ce["course_offering_id"]].add(ce["student_id"])
+
+    cslots = conn.execute("SELECT * FROM common_time_slot WHERE status='active'").fetchall()
+    conflicts = []
+
+    for i, e1 in enumerate(simulated):
+        if (e1["day"], e1["period"]) in free_set:
+            slots = find_free_slots_for_entry(conn, d["id"], e1, periods, days, free_set, other_busy, fac_meta)
+            conflicts.append({
+                "issue": f"'{e1['subject_name']}' is placed in a kept-free period ({DAYS[e1['day']]} Period {e1['period'] + 1}).",
+                "fix": "Move this session to an active teaching period or update Rules.",
+                "type": "rule",
+                "can_fix_internally": True,
+                "department_session": {
+                    "entry_id": e1["id"],
+                    "class_id": e1["class_id"],
+                    "class_name": e1["class_name"],
+                    "subject": e1["subject_name"],
+                    "day": e1["day"],
+                    "day_name": DAYS[e1["day"]],
+                    "period": e1["period"],
+                    "start": hm(e1["start_min"]),
+                    "end": hm(e1["end_min"])
+                },
+                "available_slots": slots,
+                "cells": [{"day": e1["day"], "period": e1["period"]}],
+                "entry_ids": [e1["id"]]
+            })
+
+        if e1["faculty_id"] and e1["faculty_id"] in fac_meta:
+            finfo = fac_meta[e1["faculty_id"]]
+            for uday, ustart, uend in finfo["unav"]:
+                if e1["day"] == uday and ov(e1["start_min"], e1["end_min"], ustart, uend):
+                    slots = find_free_slots_for_entry(conn, d["id"], e1, periods, days, free_set, other_busy, fac_meta)
+                    alt_fac = find_available_faculty_for_slot(conn, d["id"], e1["day"], e1["start_min"], e1["end_min"], fac_meta, e1["faculty_id"])
+                    conflicts.append({
+                        "issue": f"{finfo['name']} is marked unavailable on {when(uday, ustart, uend)}.",
+                        "fix": "Move this session to an available period or assign a different faculty member.",
+                        "type": "teacher_unavailable",
+                        "can_fix_internally": True,
+                        "teacher_id": e1["faculty_id"],
+                        "teacher_name": finfo["name"],
+                        "faculty_code": finfo.get("code") or "FAC",
+                        "busy_details": {
+                            "teacher_name": finfo["name"],
+                            "faculty_code": finfo.get("code") or "FAC",
+                            "day": uday,
+                            "day_name": DAYS[uday],
+                            "start": hm(ustart),
+                            "end": hm(uend),
+                            "reason": f"{finfo['name']} is marked unavailable on {when(uday, ustart, uend)}."
+                        },
+                        "department_session": {
+                            "entry_id": e1["id"],
+                            "class_id": e1["class_id"],
+                            "class_name": e1["class_name"],
+                            "subject": e1["subject_name"],
+                            "day": e1["day"],
+                            "day_name": DAYS[e1["day"]],
+                            "period": e1["period"],
+                            "start": hm(e1["start_min"]),
+                            "end": hm(e1["end_min"])
+                        },
+                        "available_slots": slots,
+                        "available_faculty": alt_fac,
+                        "cells": [{"day": e1["day"], "period": e1["period"]}],
+                        "entry_ids": [e1["id"]]
+                    })
+
+        is_student_selected = (e1.get("selection_type") == "STUDENT_SELECTED" or e1.get("scheduling_scope") == "college_wide")
+        if is_student_selected:
+            ctype = e1.get("course_type", "MDC")
+            matches_slot = any(
+                cs["day"] == e1["day"] and cs["start_min"] == e1["start_min"] and cs["end_min"] == e1["end_min"]
+                and (cs["applicable_course_type"] in (ctype, "Both") or not cs["applicable_course_type"])
+                for cs in cslots
+            )
+            if not matches_slot:
+                conflicts.append({
+                    "issue": f"Student-selected course '{e1['subject_name']}' is not in a configured college-wide common time slot.",
+                    "fix": f"Move '{e1['subject_name']}' to one of the designated common MDC/Minor periods.",
+                    "type": "common_slot",
+                    "can_fix_internally": True,
+                    "cells": [{"day": e1["day"], "period": e1["period"]}],
+                    "entry_ids": [e1["id"]]
+                })
+
+        for j in range(i + 1, len(simulated)):
+            e2 = simulated[j]
+            if e1["day"] == e2["day"] and ov(e1["start_min"], e1["end_min"], e2["start_min"], e2["end_min"]):
+                if e1["faculty_id"] and e1["faculty_id"] == e2["faculty_id"]:
+                    fname = fac_meta.get(e1["faculty_id"], {}).get("name", "Faculty")
+                    fcode = fac_meta.get(e1["faculty_id"], {}).get("code") or "FAC"
+                    slots1 = find_free_slots_for_entry(conn, d["id"], e1, periods, days, free_set, other_busy, fac_meta)
+                    alt_fac1 = find_available_faculty_for_slot(conn, d["id"], e1["day"], e1["start_min"], e1["end_min"], fac_meta, e1["faculty_id"])
+                    conflicts.append({
+                        "issue": f"Teacher conflict: {fname} is scheduled for both '{e1['subject_name']}' and '{e2['subject_name']}' at {when(e1['day'], e1['start_min'], e1['end_min'])}.",
+                        "fix": "Move one of these sessions to another period or assign a different teacher.",
+                        "type": "teacher_clash_internal",
+                        "can_fix_internally": True,
+                        "teacher_id": e1["faculty_id"],
+                        "teacher_name": fname,
+                        "faculty_code": fcode,
+                        "busy_details": {
+                            "teacher_name": fname,
+                            "faculty_code": fcode,
+                            "department": "Your Department",
+                            "subject": e2["subject_name"],
+                            "class_name": e2["class_name"],
+                            "day": e2["day"],
+                            "day_name": DAYS[e2["day"]],
+                            "period": e2["period"],
+                            "start": hm(e2["start_min"]),
+                            "end": hm(e2["end_min"]),
+                            "reason": f"{fname} is scheduled for '{e2['subject_name']}' ({e2['class_name']}) at {when(e2['day'], e2['start_min'], e2['end_min'])}."
+                        },
+                        "department_session": {
+                            "entry_id": e1["id"],
+                            "class_id": e1["class_id"],
+                            "class_name": e1["class_name"],
+                            "subject": e1["subject_name"],
+                            "day": e1["day"],
+                            "day_name": DAYS[e1["day"]],
+                            "period": e1["period"],
+                            "start": hm(e1["start_min"]),
+                            "end": hm(e1["end_min"])
+                        },
+                        "available_slots": slots1,
+                        "available_faculty": alt_fac1,
+                        "cells": [{"day": e1["day"], "period": e1["period"]}, {"day": e2["day"], "period": e2["period"]}],
+                        "entry_ids": [e1["id"], e2["id"]]
+                    })
+                if USE_ROOMS and e1["room_id"] and e1["room_id"] == e2["room_id"]:
+                    conflicts.append({
+                        "issue": f"Room conflict: Room is double-booked for '{e1['subject_name']}' and '{e2['subject_name']}' at {when(e1['day'], e1['start_min'], e1['end_min'])}.",
+                        "fix": "Reassign one of the sessions to another room or move time.",
+                        "type": "room",
+                        "can_fix_internally": True,
+                        "cells": [{"day": e1["day"], "period": e1["period"]}, {"day": e2["day"], "period": e2["period"]}],
+                        "entry_ids": [e1["id"], e2["id"]]
+                    })
+                if e1["class_id"] and e1["class_id"] == e2["class_id"]:
+                    cname = e1.get("class_name") or "Class"
+                    conflicts.append({
+                        "issue": f"Class overlap: {cname} has overlapping sessions '{e1['subject_name']}' and '{e2['subject_name']}'.",
+                        "fix": "Move one of the sessions to a different period.",
+                        "type": "class_overlap",
+                        "can_fix_internally": True,
+                        "cells": [{"day": e1["day"], "period": e1["period"]}, {"day": e2["day"], "period": e2["period"]}],
+                        "entry_ids": [e1["id"], e2["id"]]
+                    })
+                s1_stu = class_stu[e1["class_id"]] if e1["class_id"] else off_stu[e1["course_offering_id"]]
+                s2_stu = class_stu[e2["class_id"]] if e2["class_id"] else off_stu[e2["course_offering_id"]]
+                shared_st = s1_stu & s2_stu
+                if shared_st:
+                    conflicts.append({
+                        "issue": f"Student clash: {len(shared_st)} student(s) are enrolled in both '{e1['subject_name']}' and '{e2['subject_name']}' at {when(e1['day'], e1['start_min'], e1['end_min'])}.",
+                        "fix": "Move one session so enrolled students do not experience timetable clash.",
+                        "type": "student_clash",
+                        "can_fix_internally": True,
+                        "cells": [{"day": e1["day"], "period": e1["period"]}, {"day": e2["day"], "period": e2["period"]}],
+                        "entry_ids": [e1["id"], e2["id"]]
+                    })
+
+    for e in simulated:
+        for ob in other_busy:
+            if e["day"] == ob["day"] and ov(e["start_min"], e["end_min"], ob["start_min"], ob["end_min"]):
+                if e["faculty_id"] and e["faculty_id"] == ob["faculty_id"]:
+                    fname = fac_meta.get(e["faculty_id"], {}).get("name", "Faculty")
+                    fcode = fac_meta.get(e["faculty_id"], {}).get("code") or ob.get("faculty_code") or "FAC"
+                    slots = find_free_slots_for_entry(conn, d["id"], e, periods, days, free_set, other_busy, fac_meta)
+                    alt_fac = find_available_faculty_for_slot(conn, d["id"], e["day"], e["start_min"], e["end_min"], fac_meta, e["faculty_id"])
+                    conflicts.append({
+                        "issue": f"Teacher conflict: {fname} is already teaching '{ob['subject_name']}' ({ob['department_name']}) at {when(e['day'], e['start_min'], e['end_min'])}.",
+                        "fix": f"Move '{e['subject_name']}' to another period so {fname} is not double-booked.",
+                        "type": "teacher_clash",
+                        "can_fix_internally": True,
+                        "teacher_id": e["faculty_id"],
+                        "teacher_name": fname,
+                        "faculty_code": fcode,
+                        "busy_details": {
+                            "teacher_name": fname,
+                            "faculty_code": fcode,
+                            "department": ob["department_name"],
+                            "subject": ob["subject_name"],
+                            "class_name": ob["class_name"],
+                            "day": ob["day"],
+                            "day_name": DAYS[ob["day"]],
+                            "start": hm(ob["start_min"]),
+                            "end": hm(ob["end_min"]),
+                            "reason": f"{fname} is already teaching '{ob['subject_name']}' in {ob['department_name']} ({ob['class_name']}) on {when(ob['day'], ob['start_min'], ob['end_min'])}."
+                        },
+                        "department_session": {
+                            "entry_id": e["id"],
+                            "class_id": e["class_id"],
+                            "class_name": e["class_name"],
+                            "subject": e["subject_name"],
+                            "day": e["day"],
+                            "day_name": DAYS[e["day"]],
+                            "period": e["period"],
+                            "start": hm(e["start_min"]),
+                            "end": hm(e["end_min"])
+                        },
+                        "available_slots": slots,
+                        "available_faculty": alt_fac,
+                        "cells": [{"day": e["day"], "period": e["period"]}],
+                        "entry_ids": [e["id"]]
+                    })
+                if USE_ROOMS and e["room_id"] and e["room_id"] == ob["room_id"]:
+                    conflicts.append({
+                        "issue": f"Room conflict: Room is already booked by {ob['department_name']} for '{ob['subject_name']}' at {when(e['day'], e['start_min'], e['end_min'])}.",
+                        "fix": "Assign a different room or select another period.",
+                        "type": "room",
+                        "can_fix_internally": True,
+                        "cells": [{"day": e["day"], "period": e["period"]}],
+                        "entry_ids": [e["id"]]
+                    })
+                e_stu = class_stu[e["class_id"]] if e["class_id"] else off_stu[e["course_offering_id"]]
+                ob_stu = class_stu[ob["class_id"]] if ob["class_id"] else off_stu[ob["course_offering_id"]]
+                clash_stu = e_stu & ob_stu
+                if clash_stu:
+                    conflicts.append({
+                        "issue": f"Student clash: {len(clash_stu)} student(s) enrolled in '{e['subject_name']}' are also attending '{ob['subject_name']}' ({ob['department_name']}) at this time.",
+                        "fix": "Move this session to another period or common slot.",
+                        "type": "student_clash",
+                        "can_fix_internally": True,
+                        "cells": [{"day": e["day"], "period": e["period"]}],
+                        "entry_ids": [e["id"]]
+                    })
+
+    fac_counts = defaultdict(int)
+    for ob in other_busy:
+        if ob["faculty_id"]:
+            fac_counts[ob["faculty_id"]] += 1
+    for e in simulated:
+        if e["faculty_id"]:
+            fac_counts[e["faculty_id"]] += 1
+    for fid, cnt in fac_counts.items():
+        if fid in fac_meta and cnt > fac_meta[fid]["max"]:
+            conflicts.append({
+                "issue": f"Workload limit exceeded: {fac_meta[fid]['name']} has {cnt} sessions assigned (maximum limit is {fac_meta[fid]['max']}).",
+                "fix": f"Reassign one or more sessions of {fac_meta[fid]['name']} to another teacher.",
+                "type": "teacher_capacity",
+                "can_fix_internally": True,
+                "teacher_id": fid,
+                "teacher_name": fac_meta[fid]["name"],
+                "faculty_code": fac_meta[fid].get("code") or "FAC",
+                "cells": [],
+                "entry_ids": []
+            })
+
+    valid = (len(conflicts) == 0)
+    return valid, conflicts
+
+
+# ---------- conflict resolution actions ----------
+@app.post("/api/conflicts/fix/move-slot")
+def fix_conflict_move(req: ConflictMoveReq, conn=Depends(db), d=Depends(current_department)):
+    e = conn.execute("""
+        SELECT e.*, coalesce(c.department_id, co.offering_department_id) as dept_id,
+               coalesce(s.name, crs.course_name) as subject_name
+        FROM timetable_entry e
+        LEFT JOIN class c ON c.id=e.class_id
+        LEFT JOIN teacher_allocation a ON a.id=e.allocation_id
+        LEFT JOIN subject s ON s.id=a.subject_id
+        LEFT JOIN course_offering co ON co.id=e.course_offering_id
+        LEFT JOIN course crs ON crs.id=co.course_id
+        WHERE e.id=%s
+    """, (req.entry_id,)).fetchone()
+    if not e:
+        raise HTTPException(404, "Session not found.")
+    if e["dept_id"] != d["id"]:
+        raise HTTPException(403, "You can only modify sessions belonging to your department.")
+
+    cfg = load_settings(conn, d["id"])
+    periods = cfg["periods"]
+    if req.day not in cfg["days"] or not (0 <= req.period < len(periods)):
+        raise HTTPException(400, "Invalid day or period.")
+    smin = tomin(periods[req.period]["start"])
+    emin = tomin(periods[req.period]["end"])
+
+    move_item = dict(id=req.entry_id, day=req.day, period=req.period, faculty_id=e["faculty_id"], room_id=e["room_id"], deleted=False)
+    valid, errs = validate_batch_logic(conn, d, [move_item])
+    if not valid:
+        raise HTTPException(409, detail=f"Cannot move session to {DAYS[req.day]} Period {req.period + 1}: {errs[0]['issue']}")
+
+    with conn.transaction():
+        conn.execute("SELECT pg_advisory_xact_lock(1)")
+        conn.execute("""
+            UPDATE timetable_entry SET day=%s, period=%s, start_min=%s, end_min=%s WHERE id=%s
+        """, (req.day, req.period, smin, emin, req.entry_id))
+        note(conn, d["id"], "conflict_fix_move", entry_id=req.entry_id, new={"day": req.day, "period": req.period})
+    return dict(ok=True, message=f"Moved '{e['subject_name']}' to {DAYS[req.day]} Period {req.period + 1}. Conflict resolved!")
+
+
+@app.post("/api/conflicts/fix/reassign-teacher")
+def fix_conflict_reassign(req: ConflictReassignReq, conn=Depends(db), d=Depends(current_department)):
+    e = conn.execute("""
+        SELECT e.*, coalesce(c.department_id, co.offering_department_id) as dept_id,
+               coalesce(s.name, crs.course_name) as subject_name
+        FROM timetable_entry e
+        LEFT JOIN class c ON c.id=e.class_id
+        LEFT JOIN teacher_allocation a ON a.id=e.allocation_id
+        LEFT JOIN subject s ON s.id=a.subject_id
+        LEFT JOIN course_offering co ON co.id=e.course_offering_id
+        LEFT JOIN course crs ON crs.id=co.course_id
+        WHERE e.id=%s
+    """, (req.entry_id,)).fetchone()
+    if not e:
+        raise HTTPException(404, "Session not found.")
+    if e["dept_id"] != d["id"]:
+        raise HTTPException(403, "You can only modify sessions belonging to your department.")
+
+    fac = conn.execute("SELECT id, name, faculty_code FROM faculty WHERE id=%s AND active", (req.faculty_id,)).fetchone()
+    if not fac:
+        raise HTTPException(400, "Selected faculty member not found.")
+
+    move_item = dict(id=req.entry_id, day=e["day"], period=e["period"], faculty_id=req.faculty_id, room_id=e["room_id"], deleted=False)
+    valid, errs = validate_batch_logic(conn, d, [move_item])
+    if not valid:
+        raise HTTPException(409, detail=f"Cannot reassign to {fac['name']}: {errs[0]['issue']}")
+
+    with conn.transaction():
+        conn.execute("SELECT pg_advisory_xact_lock(1)")
+        conn.execute("UPDATE timetable_entry SET faculty_id=%s WHERE id=%s", (req.faculty_id, req.entry_id))
+        if req.update_allocation and e["allocation_id"]:
+            conn.execute("UPDATE teacher_allocation SET faculty_id=%s WHERE id=%s", (req.faculty_id, e["allocation_id"]))
+        note(conn, d["id"], "conflict_fix_reassign", entry_id=req.entry_id, new={"faculty_id": req.faculty_id})
+    return dict(ok=True, message=f"Reassigned '{e['subject_name']}' to {fac['name']} ({fac['faculty_code']}). Conflict resolved!")
+
+
+@app.post("/api/conflicts/fix/auto-resolve")
+def fix_conflict_autoresolve(req: ConflictAutoResolveReq, conn=Depends(db), d=Depends(current_department)):
+    e = conn.execute("""
+        SELECT e.*, coalesce(c.department_id, co.offering_department_id) as dept_id,
+               coalesce(s.name, crs.course_name) as subject_name
+        FROM timetable_entry e
+        LEFT JOIN class c ON c.id=e.class_id
+        LEFT JOIN teacher_allocation a ON a.id=e.allocation_id
+        LEFT JOIN subject s ON s.id=a.subject_id
+        LEFT JOIN course_offering co ON co.id=e.course_offering_id
+        LEFT JOIN course crs ON crs.id=co.course_id
+        WHERE e.id=%s
+    """, (req.entry_id,)).fetchone()
+    if not e:
+        raise HTTPException(404, "Session not found.")
+    if e["dept_id"] != d["id"]:
+        raise HTTPException(403, "You can only modify sessions belonging to your department.")
+
+    cfg = load_settings(conn, d["id"])
+    periods = cfg["periods"]
+    free_set = {(f[0], f[1]) for f in cfg.get("free", [])}
+    days = set(cfg["days"])
+    other_busy = conn.execute("""
+        SELECT e.id, e.day, e.period, e.start_min, e.end_min, e.faculty_id, e.room_id, e.class_id
+        FROM timetable_entry e
+        LEFT JOIN class c ON c.id=e.class_id
+        LEFT JOIN course_offering co ON co.id=e.course_offering_id
+        WHERE (c.department_id IS NULL OR c.department_id <> %s)
+          AND (co.offering_department_id IS NULL OR co.offering_department_id <> %s)
+    """, (d["id"], d["id"])).fetchall()
+
+    fac_meta = {}
+    for f in conn.execute("SELECT id, name, faculty_code, max_weekly_sessions FROM faculty WHERE active"):
+        unav = conn.execute("""
+            SELECT ts.day, ts.starts, ts.ends
+            FROM faculty_availability fa JOIN time_slot ts ON ts.id=fa.time_slot_id
+            WHERE fa.faculty_id=%s AND fa.kind='unavailable'
+        """, (f["id"],)).fetchall()
+        fac_meta[f["id"]] = {"name": f["name"], "code": f["faculty_code"], "max": f["max_weekly_sessions"], "unav": [(u["day"], tmin(u["starts"]), tmin(u["ends"])) for u in unav]}
+
+    slots = find_free_slots_for_entry(conn, d["id"], dict(e), periods, days, free_set, other_busy, fac_meta)
+    if not slots:
+        raise HTTPException(409, detail="No alternative conflict-free periods found for this teacher and class. Try reassigning teacher or adjusting working rules.")
+
+    target = slots[0]
+    smin = tomin(target["start"])
+    emin = tomin(target["end"])
+    with conn.transaction():
+        conn.execute("SELECT pg_advisory_xact_lock(1)")
+        conn.execute("UPDATE timetable_entry SET day=%s, period=%s, start_min=%s, end_min=%s WHERE id=%s",
+                     (target["day"], target["period"], smin, emin, req.entry_id))
+        note(conn, d["id"], "conflict_fix_autoresolve", entry_id=req.entry_id, new={"day": target["day"], "period": target["period"]})
+    return dict(ok=True, message=f"Automatically moved '{e['subject_name']}' to {target['day_name']} {target['period_label']}. Conflict resolved!")
+
+
 # ---------- read: workspace + shared resources ----------
 @app.get("/api/conflicts")
 def conflicts(conn=Depends(db), d=Depends(current_department)):
-    """What is actually wrong, including student-level conflicts. Each item: one issue and one short fix."""
+    """What is actually wrong, including teacher clashes and student-level conflicts."""
     data = build_input(conn, d)
     items = issues(data) if data["allocations"] else []
     generated = (conn.execute("SELECT count(*) n FROM timetable_entry e JOIN class c ON c.id=e.class_id WHERE c.department_id=%s", (d["id"],)).fetchone()["n"] > 0 or
                  conn.execute("SELECT count(*) n FROM timetable_entry e JOIN course_offering co ON co.id=e.course_offering_id WHERE co.offering_department_id=%s", (d["id"],)).fetchone()["n"] > 0)
+
+    # Detect live conflicts in existing timetable entries
+    if generated:
+        valid, live_conflicts = validate_batch_logic(conn, d, [])
+        for lc in live_conflicts:
+            if not any(it.get("issue") == lc["issue"] for it in items):
+                items.append(lc)
+
     if not items and generated:
         miss = conn.execute("""SELECT count(*) n FROM teacher_allocation a JOIN class c ON c.id=a.class_id WHERE c.department_id=%s
             AND a.sessions_per_week > (SELECT count(*) FROM timetable_entry e WHERE e.allocation_id=a.id)""", (d["id"],)).fetchone()["n"]
         if miss:
             items.append(dict(issue=f"{miss} subject(s) don't have all their weekly sessions yet.",
-                              fix="Click Generate timetable again. If it still fails, change a Required rule to Prefer in Rules."))
+                              fix="Click Generate timetable again. If it still fails, change a Required rule to Prefer in Rules.",
+                              type="rule", can_fix_internally=True))
 
     # Student-level timetable conflict detection
     stu_conflicts = conn.execute("""
@@ -1143,246 +1764,7 @@ def request_change(entry_id: int, req: MoveReq, conn=Depends(db), d=Depends(curr
     return res
 
 
-# ---------- interactive timetable batch operations & quick edit ----------
-class BatchMoveItem(BaseModel):
-    id: int
-    day: int
-    period: int
-    faculty_id: int | None = None
-    room_id: int | None = None
-    deleted: bool = False
 
-
-class BatchValidateReq(BaseModel):
-    class_id: int | None = None
-    moves: list[BatchMoveItem] = []
-
-
-class QuickEditReq(BaseModel):
-    faculty_id: int | None = None
-    room_id: int | None = None
-    day: int | None = None
-    period: int | None = None
-
-
-def validate_batch_logic(conn, d, moves: list, class_id: int | None = None):
-    cfg = load_settings(conn, d["id"])
-    periods = cfg["periods"]
-    days = set(cfg["days"])
-    free_set = {(f[0], f[1]) for f in cfg.get("free", [])}
-
-    dept_entries = conn.execute("""
-        SELECT e.id, e.day, e.period, e.start_min, e.end_min, e.faculty_id, e.room_id, e.class_id, e.course_offering_id,
-               coalesce(s.name, crs.course_name) AS subject_name,
-               f.name AS teacher_name, r.name AS room_name, c.name AS class_name,
-               co.scheduling_scope, crs.course_type, crs.selection_type
-        FROM timetable_entry e
-        LEFT JOIN class c ON c.id=e.class_id
-        LEFT JOIN teacher_allocation a ON a.id=e.allocation_id
-        LEFT JOIN subject s ON s.id=a.subject_id
-        LEFT JOIN course_offering co ON co.id=e.course_offering_id
-        LEFT JOIN course crs ON crs.id=co.course_id
-        LEFT JOIN faculty f ON f.id=e.faculty_id
-        LEFT JOIN room r ON r.id=e.room_id
-        WHERE c.department_id=%s OR co.offering_department_id=%s
-    """, (d["id"], d["id"])).fetchall()
-
-    entry_map = {e["id"]: dict(e) for e in dept_entries}
-    move_map = {m.id if hasattr(m, 'id') else m['id']: (m.model_dump() if hasattr(m, 'model_dump') else m) for m in moves}
-
-    # Cross check if moved entry belongs to another department
-    for eid, m in move_map.items():
-        if eid not in entry_map:
-            other = conn.execute("SELECT id FROM timetable_entry WHERE id=%s", (eid,)).fetchone()
-            if not other:
-                return False, [{"issue": f"Session #{eid} not found.", "fix": "Refresh your timetable view.", "cells": [], "entry_ids": [eid]}]
-            return False, [{"issue": f"Session #{eid} belongs to another department's course offering.", "fix": "Only the offering department can reschedule shared course offerings.", "cells": [], "entry_ids": [eid]}]
-
-    simulated = []
-    for eid, e in entry_map.items():
-        if eid in move_map:
-            m = move_map[eid]
-            if m.get("deleted"):
-                continue
-            day = m["day"]
-            p_idx = m["period"]
-            if day not in days or not (0 <= p_idx < len(periods)):
-                return False, [{"issue": f"'{e['subject_name']}' is placed in an invalid day or period.", "fix": "Move the session to a valid period slot.", "cells": [{"day": day, "period": p_idx}], "entry_ids": [eid]}]
-            smin = tomin(periods[p_idx]["start"])
-            emin = tomin(periods[p_idx]["end"])
-            fac_id = m.get("faculty_id") if m.get("faculty_id") is not None else e["faculty_id"]
-            rm_id = m.get("room_id") if m.get("room_id") is not None else e["room_id"]
-            sim_e = dict(e)
-            sim_e.update(day=day, period=p_idx, start_min=smin, end_min=emin, faculty_id=fac_id, room_id=rm_id)
-            simulated.append(sim_e)
-        else:
-            simulated.append(dict(e))
-
-    other_busy = conn.execute("""
-        SELECT e.id, e.day, e.period, e.start_min, e.end_min, e.faculty_id, e.room_id, e.class_id, e.course_offering_id,
-               coalesce(s.name, crs.course_name) AS subject_name,
-               f.name AS teacher_name, r.name AS room_name,
-               coalesce(c.name, co.offering_code) AS class_name,
-               coalesce(dp.name, od.name) AS department_name
-        FROM timetable_entry e
-        LEFT JOIN class c ON c.id=e.class_id
-        LEFT JOIN department dp ON dp.id=c.department_id
-        LEFT JOIN teacher_allocation a ON a.id=e.allocation_id
-        LEFT JOIN subject s ON s.id=a.subject_id
-        LEFT JOIN course_offering co ON co.id=e.course_offering_id
-        LEFT JOIN course crs ON crs.id=co.course_id
-        LEFT JOIN department od ON od.id=co.offering_department_id
-        LEFT JOIN faculty f ON f.id=e.faculty_id
-        LEFT JOIN room r ON r.id=e.room_id
-        WHERE (c.department_id IS NULL OR c.department_id <> %s)
-          AND (co.offering_department_id IS NULL OR co.offering_department_id <> %s)
-    """, (d["id"], d["id"])).fetchall()
-
-    fac_meta = {}
-    for f in conn.execute("SELECT id, name, max_weekly_sessions FROM faculty WHERE active"):
-        unav = conn.execute("""
-            SELECT ts.day, ts.starts, ts.ends
-            FROM faculty_availability fa
-            JOIN time_slot ts ON ts.id=fa.time_slot_id
-            WHERE fa.faculty_id=%s AND fa.kind='unavailable'
-        """, (f["id"],)).fetchall()
-        fac_meta[f["id"]] = {
-            "name": f["name"],
-            "max": f["max_weekly_sessions"],
-            "unav": [(u["day"], tmin(u["starts"]), tmin(u["ends"])) for u in unav]
-        }
-
-    class_stu = defaultdict(set)
-    for st in conn.execute("SELECT id, class_id FROM student WHERE class_id IS NOT NULL AND status='active'"):
-        class_stu[st["class_id"]].add(st["id"])
-
-    off_stu = defaultdict(set)
-    for ce in conn.execute("SELECT student_id, course_offering_id FROM course_enrollment WHERE enrollment_status='enrolled'"):
-        off_stu[ce["course_offering_id"]].add(ce["student_id"])
-
-    cslots = conn.execute("SELECT * FROM common_time_slot WHERE status='active'").fetchall()
-    conflicts = []
-
-    for i, e1 in enumerate(simulated):
-        if (e1["day"], e1["period"]) in free_set:
-            conflicts.append({
-                "issue": f"'{e1['subject_name']}' is placed in a kept-free period ({DAYS[e1['day']]} Period {e1['period'] + 1}).",
-                "fix": "Move this session to an active teaching period or update Rules.",
-                "cells": [{"day": e1["day"], "period": e1["period"]}],
-                "entry_ids": [e1["id"]]
-            })
-
-        if e1["faculty_id"] and e1["faculty_id"] in fac_meta:
-            finfo = fac_meta[e1["faculty_id"]]
-            for uday, ustart, uend in finfo["unav"]:
-                if e1["day"] == uday and ov(e1["start_min"], e1["end_min"], ustart, uend):
-                    conflicts.append({
-                        "issue": f"{finfo['name']} is marked unavailable on {when(uday, ustart, uend)}.",
-                        "fix": "Move this session to an available period or assign a different faculty member.",
-                        "cells": [{"day": e1["day"], "period": e1["period"]}],
-                        "entry_ids": [e1["id"]]
-                    })
-
-        is_student_selected = (e1.get("selection_type") == "STUDENT_SELECTED" or e1.get("scheduling_scope") == "college_wide")
-        if is_student_selected:
-            ctype = e1.get("course_type", "MDC")
-            matches_slot = any(
-                cs["day"] == e1["day"] and cs["start_min"] == e1["start_min"] and cs["end_min"] == e1["end_min"]
-                and (cs["applicable_course_type"] in (ctype, "Both") or not cs["applicable_course_type"])
-                for cs in cslots
-            )
-            if not matches_slot:
-                conflicts.append({
-                    "issue": f"Student-selected course '{e1['subject_name']}' is not in a configured college-wide common time slot.",
-                    "fix": f"Move '{e1['subject_name']}' to one of the designated common MDC/Minor periods.",
-                    "cells": [{"day": e1["day"], "period": e1["period"]}],
-                    "entry_ids": [e1["id"]]
-                })
-
-        for j in range(i + 1, len(simulated)):
-            e2 = simulated[j]
-            if e1["day"] == e2["day"] and ov(e1["start_min"], e1["end_min"], e2["start_min"], e2["end_min"]):
-                if e1["faculty_id"] and e1["faculty_id"] == e2["faculty_id"]:
-                    fname = fac_meta.get(e1["faculty_id"], {}).get("name", "Faculty")
-                    conflicts.append({
-                        "issue": f"Teacher conflict: {fname} is scheduled for both '{e1['subject_name']}' and '{e2['subject_name']}' at {when(e1['day'], e1['start_min'], e1['end_min'])}.",
-                        "fix": "Move one of these sessions to another period or assign a different teacher.",
-                        "cells": [{"day": e1["day"], "period": e1["period"]}, {"day": e2["day"], "period": e2["period"]}],
-                        "entry_ids": [e1["id"], e2["id"]]
-                    })
-                if USE_ROOMS and e1["room_id"] and e1["room_id"] == e2["room_id"]:
-                    conflicts.append({
-                        "issue": f"Room conflict: Room is double-booked for '{e1['subject_name']}' and '{e2['subject_name']}' at {when(e1['day'], e1['start_min'], e1['end_min'])}.",
-                        "fix": "Reassign one of the sessions to another room or move time.",
-                        "cells": [{"day": e1["day"], "period": e1["period"]}, {"day": e2["day"], "period": e2["period"]}],
-                        "entry_ids": [e1["id"], e2["id"]]
-                    })
-                if e1["class_id"] and e1["class_id"] == e2["class_id"]:
-                    cname = e1.get("class_name") or "Class"
-                    conflicts.append({
-                        "issue": f"Class overlap: {cname} has overlapping sessions '{e1['subject_name']}' and '{e2['subject_name']}'.",
-                        "fix": "Move one of the sessions to a different period.",
-                        "cells": [{"day": e1["day"], "period": e1["period"]}, {"day": e2["day"], "period": e2["period"]}],
-                        "entry_ids": [e1["id"], e2["id"]]
-                    })
-                s1_stu = class_stu[e1["class_id"]] if e1["class_id"] else off_stu[e1["course_offering_id"]]
-                s2_stu = class_stu[e2["class_id"]] if e2["class_id"] else off_stu[e2["course_offering_id"]]
-                shared_st = s1_stu & s2_stu
-                if shared_st:
-                    conflicts.append({
-                        "issue": f"Student clash: {len(shared_st)} student(s) are enrolled in both '{e1['subject_name']}' and '{e2['subject_name']}' at {when(e1['day'], e1['start_min'], e1['end_min'])}.",
-                        "fix": "Move one session so enrolled students do not experience timetable clash.",
-                        "cells": [{"day": e1["day"], "period": e1["period"]}, {"day": e2["day"], "period": e2["period"]}],
-                        "entry_ids": [e1["id"], e2["id"]]
-                    })
-
-    for e in simulated:
-        for ob in other_busy:
-            if e["day"] == ob["day"] and ov(e["start_min"], e["end_min"], ob["start_min"], ob["end_min"]):
-                if e["faculty_id"] and e["faculty_id"] == ob["faculty_id"]:
-                    fname = fac_meta.get(e["faculty_id"], {}).get("name", "Faculty")
-                    conflicts.append({
-                        "issue": f"Teacher conflict: {fname} is already teaching '{ob['subject_name']}' ({ob['department_name']}) at {when(e['day'], e['start_min'], e['end_min'])}.",
-                        "fix": f"Move '{e['subject_name']}' to another period so {fname} is not double-booked.",
-                        "cells": [{"day": e["day"], "period": e["period"]}],
-                        "entry_ids": [e["id"]]
-                    })
-                if USE_ROOMS and e["room_id"] and e["room_id"] == ob["room_id"]:
-                    conflicts.append({
-                        "issue": f"Room conflict: Room is already booked by {ob['department_name']} for '{ob['subject_name']}' at {when(e['day'], e['start_min'], e['end_min'])}.",
-                        "fix": "Assign a different room or select another period.",
-                        "cells": [{"day": e["day"], "period": e["period"]}],
-                        "entry_ids": [e["id"]]
-                    })
-                e_stu = class_stu[e["class_id"]] if e["class_id"] else off_stu[e["course_offering_id"]]
-                ob_stu = class_stu[ob["class_id"]] if ob["class_id"] else off_stu[ob["course_offering_id"]]
-                clash_stu = e_stu & ob_stu
-                if clash_stu:
-                    conflicts.append({
-                        "issue": f"Student clash: {len(clash_stu)} student(s) enrolled in '{e['subject_name']}' are also attending '{ob['subject_name']}' ({ob['department_name']}) at this time.",
-                        "fix": "Move this session to another period or common slot.",
-                        "cells": [{"day": e["day"], "period": e["period"]}],
-                        "entry_ids": [e["id"]]
-                    })
-
-    fac_counts = defaultdict(int)
-    for ob in other_busy:
-        if ob["faculty_id"]:
-            fac_counts[ob["faculty_id"]] += 1
-    for e in simulated:
-        if e["faculty_id"]:
-            fac_counts[e["faculty_id"]] += 1
-    for fid, cnt in fac_counts.items():
-        if fid in fac_meta and cnt > fac_meta[fid]["max"]:
-            conflicts.append({
-                "issue": f"Workload limit exceeded: {fac_meta[fid]['name']} has {cnt} sessions assigned (maximum limit is {fac_meta[fid]['max']}).",
-                "fix": f"Reassign one or more sessions of {fac_meta[fid]['name']} to another teacher.",
-                "cells": [],
-                "entry_ids": []
-            })
-
-    valid = (len(conflicts) == 0)
-    return valid, conflicts
 
 
 @app.post("/api/timetables/validate-batch")

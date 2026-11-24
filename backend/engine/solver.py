@@ -148,10 +148,14 @@ def issues(data):
         if need > min(free, limit):
             if limit < free:
                 out.append(dict(issue=f"{T['name']} has {need} sessions to teach but can only teach {limit} more this week (weekly limit {T['max_load']}).",
-                                fix="Raise their weekly limit in Faculty, or give some of their subjects to another teacher."))
+                                fix="Raise their weekly limit in Faculty, or give some of their subjects to another teacher.",
+                                type="teacher_capacity", teacher_id=t, teacher_name=T["name"],
+                                faculty_code=T.get("code") or "FAC", can_fix_internally=True))
             else:
                 out.append(dict(issue=f"{T['name']} has {need} sessions to teach but only {free} free periods.",
-                                fix="Give some subjects to another teacher, mark fewer periods unavailable, or add periods or days in Rules."))
+                                fix="Give some subjects to another teacher, mark fewer periods unavailable, or add periods or days in Rules.",
+                                type="teacher_capacity", teacher_id=t, teacher_name=T["name"],
+                                faculty_code=T.get("code") or "FAC", can_fix_internally=True))
     for c, need in c_need.items():
         dept = data["classes"][c]["department"]
         cap = len(usable(dept, lambda d, s, e: hit(bc[(c, d)], s, e)))

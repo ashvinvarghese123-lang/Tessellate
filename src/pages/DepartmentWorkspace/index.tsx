@@ -287,7 +287,12 @@ export const DepartmentWorkspace: React.FC = () => {
           />
         )}
         {activeTab === 'co' && (
-          <ConflictCenterView conflicts={conflicts} generationResult={generationResult} />
+          <ConflictCenterView
+            conflicts={conflicts}
+            generationResult={generationResult}
+            onRefreshData={loadAllData}
+            onNavigate={(v) => setActiveTab(v)}
+          />
         )}
       </main>
 
